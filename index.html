@@ -2857,6 +2857,110 @@
     setInterval(function(){ try{ refresh(); }catch(e){} try{ syncTitle(); }catch(e){} }, 500);
   })();
 </script>
+<style>
+  /* ===== צ'אט באייפון עם מקלדת: הדף נשאר במקום, רק ההודעות נגללות, שדה הכתיבה צמוד מעל המקלדת ===== */
+  /* פעיל רק כשמסך הצ'אט פתוח בטלפון (המחלקות נוספות ומוסרות אוטומטית) */
+  html.chat-lock, html.chat-lock body{ height:100%; overflow:hidden; overscroll-behavior:none; }
+  html.chat-lock body{ position:fixed; top:0; left:0; right:0; bottom:0; width:100%; align-items:flex-start; }
+  html.chat-lock #screen-chat{ overflow:hidden; }
+  html.chat-lock .phone{ will-change:transform; }
+  html.chat-lock #chat-msgs{ flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+  html.chat-lock #screen-chat .chat-head,
+  html.chat-lock #screen-chat .composer{ flex-shrink:0; }
+  /* כשהמקלדת פתוחה: שדה הכתיבה וכפתור "שלח" בתחתית החלק הגלוי, ממש מעל המקלדת */
+  html.chat-lock.kb-open #screen-chat{ bottom:0; padding-bottom:8px; }
+  html.chat-lock.kb-open .switch-user-btn,
+  html.chat-lock.kb-open #screen-chat .test-bar,
+  html.chat-lock.kb-open #screen-chat .skip-link{ display:none !important; }
+  /* Safari באייפון מגדיל אוטומטית את הדף כשמקישים על שדה עם טקסט קטן מ-16px — זה מה שגרם לדף "לקפוץ".
+     רק בשדה כתיבת ההודעה, ורק ב-Safari של iOS. */
+  @supports (-webkit-touch-callout: none){
+    #chat-input{ font-size:16px; }
+  }
+</style>
+<script>
+  (function keepChatAboveKeyboard(){
+    // תיקון מקלדת ל-Safari באייפון:
+    // 1) לא קוראים יותר ל-window.scrollTo בזמן שהמקלדת נפתחת — זה "נלחם" בגלילה של Safari וגרם לקפיצות.
+    //    במקום זה האפליקציה עוקבת אחרי החלק הגלוי (visualViewport): גובה = החלק הגלוי, הזזה = offsetTop.
+    // 2) זיהוי מקלדת לפי ירידה בגובה הגלוי ביחס לגובה שנמדד בלי מקלדת (window.innerHeight לא אמין באייפון).
+    // 3) עדכון אחד לכל פריים בלבד, ומניעת גרירה של כל הדף כשהצ'אט פתוח (רק רשימת ההודעות נגללת).
+    var phone = document.querySelector('.phone');
+    var root = document.documentElement;
+    var vv = window.visualViewport || null;
+    var locked = false, kbWasOpen = false;
+    var baseH = vv ? vv.height : window.innerHeight;   // גובה החלק הגלוי כשאין מקלדת
+    function isPhone(){
+      if(window.innerWidth < 420) return true;
+      var touch = (navigator.maxTouchPoints || 0) > 0 || ('ontouchstart' in window);
+      var shortSide = Math.min(window.screen ? screen.width : 9999, window.screen ? screen.height : 9999);
+      return touch && shortSide < 600;   // כל טלפון במגע, כולל אייפון Plus / Pro Max
+    }
+    function msgsBox(){ return document.getElementById('chat-msgs'); }
+    function nearBottom(box){ return box.scrollHeight - box.scrollTop - box.clientHeight < 60; }
+    function toBottom(){ var b = msgsBox(); if(b) b.scrollTop = b.scrollHeight; }
+    function inputFocused(){ var el = document.activeElement; return !!el && el.id === 'chat-input'; }
+    function update(){
+      if(!phone) return;
+      var chat = document.getElementById('screen-chat');
+      var inChat = chat && chat.classList.contains('active') && isPhone();
+      var curH = vv ? vv.height : window.innerHeight;
+      var focused = inputFocused();
+      if(!focused && curH > 0) baseH = curH;           // מתעדכן גם בסיבוב המסך
+      if(!inChat){
+        if(locked){
+          root.classList.remove('chat-lock', 'kb-open');
+          phone.style.transform = '';
+          phone.style.height = '';
+          locked = false; kbWasOpen = false;
+        }
+        return;
+      }
+      var box = msgsBox();
+      var stick = box ? nearBottom(box) : true;
+      if(!locked){ root.classList.add('chat-lock'); locked = true; stick = true; }
+      var kbOpen = focused && (baseH - curH > 120 || (!!vv && window.innerHeight - vv.height > 120));
+      root.classList.toggle('kb-open', kbOpen);
+      var want = Math.round(curH) + 'px';
+      if(phone.style.height !== want) phone.style.height = want;
+      // מצמידים את האפליקציה לחלק הגלוי — בלי לגלול את הדף
+      var off = vv ? Math.max(0, Math.round(vv.offsetTop)) : 0;
+      var t = off ? 'translateY(' + off + 'px)' : '';
+      if(phone.style.transform !== t) phone.style.transform = t;
+      if(stick || (kbOpen && !kbWasOpen)) toBottom();   // ההודעה האחרונה נשארת גלויה
+      kbWasOpen = kbOpen;
+    }
+    var queued = false;
+    function schedule(){
+      if(queued) return;
+      queued = true;
+      requestAnimationFrame(function(){ queued = false; try{ update(); }catch(e){} });
+    }
+    function soon(){ schedule(); setTimeout(schedule, 120); setTimeout(schedule, 350); setTimeout(schedule, 700); }
+    if(vv){ vv.addEventListener('resize', schedule); vv.addEventListener('scroll', schedule); }
+    window.addEventListener('resize', soon);
+    window.addEventListener('orientationchange', soon);
+    // כל עוד שדה ההודעה בפוקוס (המקלדת נפתחת/נסגרת) — עוקבים בכל פריים, כדי שהשדה ינוע יחד עם המקלדת
+    var following = false;
+    function follow(){
+      if(!inputFocused()){ following = false; return; }
+      try{ update(); }catch(e){}
+      requestAnimationFrame(follow);
+    }
+    document.addEventListener('focusin', function(e){
+      if(e.target && e.target.id === 'chat-input'){ soon(); if(!following){ following = true; requestAnimationFrame(follow); } }
+    });
+    document.addEventListener('focusout', function(e){ if(e.target && e.target.id === 'chat-input') soon(); });
+    // כשהצ'אט פתוח: גרירה מחוץ לרשימת ההודעות לא מזיזה את כל הדף (זה מה שגרם לצ'אט "לקפוץ" עם המקלדת)
+    document.addEventListener('touchmove', function(e){
+      if(!locked) return;
+      var box = msgsBox();
+      if(box && box.contains(e.target) && box.scrollHeight > box.clientHeight) return;
+      if(e.cancelable) e.preventDefault();
+    }, { passive:false });
+    setInterval(function(){ try{ update(); }catch(e){} }, 400);
+  })();
+</script>
 <script>
   // בטלפון: כשהצ'אט פתוח, מסך האפליקציה מותאם בדיוק לחלק הגלוי, כך שהכותרת (תמונה + שם) לא נחתכת מתחת לפס העליון.
   // משפיע רק על מסך הצ'אט; ביציאה ממנו הגובה חוזר בדיוק למה שהיה.
@@ -2865,6 +2969,8 @@
     var applied = false;
     function fit(){
       if(!phone) return;
+      // כשהצ'אט נעול (טלפון), הגובה והמיקום מנוהלים רק ע"י keepChatAboveKeyboard — לא מתערבים, כדי שלא יהיו קפיצות
+      if(document.documentElement.classList.contains('chat-lock')){ applied = false; return; }
       var chat = document.getElementById('screen-chat');
       var inChat = chat && chat.classList.contains('active');
       if(inChat && window.innerWidth < 420){
