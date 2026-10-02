@@ -1799,25 +1799,48 @@
     }
   }
 
-  // השיחה הפתוחה נחשבת כנקראה עבור מי שמשתמש בה כרגע (אני, או הצד השני במצב בדיקה)
+  // ---- סימון "נקרא" — המנגנון היחיד שכותב ל-chatReads ----
+  // נקרא רק מציור ההודעות על המסך: רק המשתמש המחובר, רק הודעות של הצד השני שכבר מוצגות, ורק כשהמסך גלוי
+  function chatPageVisible(){
+    try{ return !document.hidden || (typeof document.hasFocus === 'function' && document.hasFocus()); }catch(e){ return true; }
+  }
   function markOpenChatReadSoon(msgs){
+    if(typeof switchingUser !== 'undefined' && switchingUser) return;
     if(!document.getElementById('screen-chat').classList.contains('active')) return;
     if(!myId || !currentMatchId) return;
-    var reader = loggedInUserId();   // רק המשתמש המחובר שפתח את השיחה מסמן אותה כנקראה
-    var convId = conversationId(myId, currentMatchId);
-    var latest = 0;
-    (msgs || []).forEach(function(m){ if((m.ts || 0) > latest) latest = m.ts; });
+    if(!chatPageVisible()) return;
+    var reader = loggedInUserId();   // תמיד המשתמש המחובר, אף פעם לא בשם הצד השני
+    var matchId = currentMatchId;
+    var convId = conversationId(reader, matchId);
+    var latest = 0;                  // ההודעה האחרונה של הצד השני שמוצגת על המסך
+    (msgs || []).forEach(function(m){
+      if(m && m.senderId !== reader && (m.ts || 0) > latest) latest = m.ts;
+    });
     if(!latest) return;
     var key = readKey(reader, convId);
     if((readsCache[key] || 0) >= latest) return;       // כבר מסומן — אין מה לכתוב
-    readsCache[key] = latest;                            // הסימון נעלם מיד במסך הזה
-    refreshUnreadViews();
     clearTimeout(markReadTimers[key]);
     markReadTimers[key] = setTimeout(async function(){
+      // בודקים שוב רגע לפני הכתיבה: אותו משתמש, אותה שיחה, המסך עדיין פתוח וגלוי
       if(!dbCap) return;
-      try{ await dbCap.collection('chatReads').doc(key).set({ lastRead: readsCache[key] }); }catch(e){}
+      if(typeof switchingUser !== 'undefined' && switchingUser) return;
+      if(loggedInUserId() !== reader || currentMatchId !== matchId) return;
+      if(!document.getElementById('screen-chat').classList.contains('active')) return;
+      if(!chatPageVisible()) return;
+      if((readsCache[key] || 0) >= latest) return;
+      readsCache[key] = latest;
+      refreshUnreadViews();
+      try{ await dbCap.collection('chatReads').doc(key).set({ lastRead: latest }); }catch(e){}
     }, 400);
   }
+  // חזרה למסך: הודעות שהגיעו בזמן שהמסך היה ברקע מסומנות רק עכשיו, כשהן באמת נראות
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden) return;
+    try{ markOpenChatReadSoon(lastChatMessages || []); }catch(e){}
+  });
+  window.addEventListener('focus', function(){
+    try{ markOpenChatReadSoon(lastChatMessages || []); }catch(e){}
+  });
 
   async function loadReadsOnce(){
     try{
@@ -1959,96 +1982,12 @@
     setInterval(function(){ try{ updateReadReceipts(); }catch(e){} }, 1000);
   })();
 
-  // ---- תיקון חיווי קריאה (גרסה 3): מנגנון שלא יכול להיתקע ----
-  // כל פעולה מול המסד מוגבלת בזמן, ההשוואה נעשית מול מה שבאמת שמור במסד, וכל ניסיון נרשם לפני הכתיבה
-  var readTickBusy = false, readTickStartedAt = 0;
-  var readHeartbeatAt = 0, partnerReadCheckAt = 0;
-
+  // מגבלת זמן לפעולות מול המסד (בשימוש הגיבוי שקורא את סימוני הקריאה)
   function withTimeout(promise, ms){
     return Promise.race([
       promise,
       new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, ms); })
     ]);
-  }
-
-  function readDebug(docId, info){
-    if(!dbCap) return;
-    try{
-      info.at = Date.now();
-      info.hidden = !!document.hidden;
-      var w = dbCap.collection('chatReadsDebug').doc(String(docId)).set(info);
-      if(w && w.catch) w.catch(function(){});
-    }catch(e){}
-  }
-
-  async function readTick(){
-    // לא נכנסים פעמיים במקביל — אבל אם ריצה קודמת נתקעה יותר מ-8 שניות, ממשיכים בכל זאת
-    if(readTickBusy && Date.now() - readTickStartedAt < 8000) return;
-    if(!dbCap || !myId || !currentMatchId) return;
-    if(!document.getElementById('screen-chat').classList.contains('active')) return;
-    readTickBusy = true; readTickStartedAt = Date.now();
-    var me = (typeof chatActingAs !== 'undefined' && chatActingAs) ? chatActingAs : myId;   // מי שקורא בפועל על המסך
-    var matchId = (me === myId) ? currentMatchId : myId;
-    var convId = conversationId(myId, currentMatchId);
-    try{
-      if(Date.now() - readHeartbeatAt > 3000){
-        readHeartbeatAt = Date.now();
-        readDebug(me + '_hb', { stage: 'chat-open', me: me, matchId: matchId, convId: convId, shown: (lastChatMessages || []).length });
-      }
-
-      // ההודעות מהמסד עצמו (ואם הקריאה נכשלת — מה שמוצג על המסך)
-      var msgs = lastChatMessages || [];
-      try{
-        var cs = await withTimeout(dbCap.collection('chats').doc(convId).get(), 4000);
-        if(cs && cs.exists && cs.data() && cs.data().messages) msgs = cs.data().messages;
-      }catch(e){}
-      if(conversationId(myId, currentMatchId) !== convId) return;
-
-      // 1) המקבל: השיחה פתוחה — "נקרא עד" ההודעה האחרונה נשמר במסד
-      var latest = 0, hasFromOther = false;
-      msgs.forEach(function(m){
-        if((m.ts || 0) > latest) latest = m.ts;
-        if(m.senderId !== me) hasFromOther = true;
-      });
-      var myKey = readKey(me, convId);
-      if(hasFromOther && latest){
-        var saved = 0;
-        try{
-          var rs = await withTimeout(dbCap.collection('chatReads').doc(myKey).get(), 4000);
-          saved = (rs && rs.exists && rs.data() && rs.data().lastRead) || 0;
-        }catch(e){ saved = -1; }
-        if(saved >= 0 && saved < latest){
-          readDebug(me, { result: 'attempt', key: myKey, from: saved, value: latest });
-          try{
-            await withTimeout(dbCap.collection('chatReads').doc(myKey).set({ lastRead: latest }), 5000);
-            if((readsCache[myKey] || 0) < latest) readsCache[myKey] = latest;
-            readDebug(me, { result: 'ok', key: myKey, value: latest });
-          }catch(e){
-            readDebug(me, { result: 'error', key: myKey, value: latest, error: String((e && (e.code || e.message)) || e) });
-          }
-        }else if(saved > (readsCache[myKey] || 0)){
-          readsCache[myKey] = saved;
-        }
-      }
-
-      // 2) השולח: יש הודעות שלי עם ✓ — קוראים את "נקרא עד" של הצד השני ישירות מהמסד
-      var partnerKey = readKey(matchId, convId);
-      var partnerRead = readsCache[partnerKey] || 0;
-      var waiting = msgs.some(function(m){ return m.senderId === me && (m.ts || 0) > partnerRead; });
-      if(waiting && Date.now() - partnerReadCheckAt > 1500){
-        partnerReadCheckAt = Date.now();
-        try{
-          var ps = await withTimeout(dbCap.collection('chatReads').doc(partnerKey).get(), 4000);
-          var v = (ps && ps.exists && ps.data() && ps.data().lastRead) || 0;
-          if(conversationId(myId, currentMatchId) === convId && (readsCache[partnerKey] || 0) < v) readsCache[partnerKey] = v;
-        }catch(e){}
-      }
-      updateReadReceipts();   // מציירים את ✓ / ✓✓ נקרא מחדש גם כשתוכן ההודעות לא השתנה
-    }catch(e){
-      readDebug(me, { result: 'tick-error', error: String((e && e.message) || e) });
-    }finally{
-      readTickBusy = false;
-    }
   }
 
   // ---- התראה על הודעה חדשה: "💬 הודעה חדשה מ־[שם]" בראש המסך, נעלמת לבד, לחיצה פותחת את השיחה ----
@@ -2234,16 +2173,6 @@
       setTimeout(function(){ readDiagWrite({ event: 'click ' + id, before: before }); }, 3000);
     });
   });
-
-  (function initReadFix(){
-    var container = document.getElementById('chat-msgs');
-    if(container && window.MutationObserver){
-      // פתיחת שיחה / הודעה חדשה — מסמנים מיד
-      new MutationObserver(function(){ setTimeout(function(){ try{ readTick(); }catch(e){} }, 50); })
-        .observe(container, { childList: true });
-    }
-    setInterval(function(){ try{ readTick(); }catch(e){} }, 1200);
-  })();
 
   // ---- השיחות שלי: כל השיחות של המשתמש (עם הודעות) + התאמות הדדיות שעוד לא התחילו, מתעדכן בזמן אמת ----
   var listViewerId = null;      // null = אני; אחרת צופים ברשימה בתור משתמש אחר (מצב בדיקה)
