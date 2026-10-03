@@ -767,6 +767,51 @@
     }catch(e){ console.error('Supabase לא נטען: ' + errText(e)); }
     window.__sb = sb;
 
+    // ---- Supabase Auth: שמירת ה-session בדפדפן, מותאם ל-Safari ----
+    // אחסון כפול: localStorage + עוגייה של האתר הזה בלבד. אם אחד מהם נמחק, ה-session משוחזרת מהשני.
+    var hdmAuthStorage = (function(){
+      var path = location.pathname.replace(/[^\/]*$/, '') || '/';
+      function cookieGet(k){
+        var parts = document.cookie ? document.cookie.split('; ') : [];
+        for(var i = 0; i < parts.length; i++){
+          var j = parts[i].indexOf('=');
+          if(parts[i].slice(0, j) === k){ try{ return decodeURIComponent(parts[i].slice(j + 1)); }catch(e){ return null; } }
+        }
+        return null;
+      }
+      function cookieSet(k, v){
+        try{
+          var enc = encodeURIComponent(v);
+          if(enc.length > 3800) return;   // עוגייה גדולה מדי — נשארים עם localStorage בלבד
+          document.cookie = k + '=' + enc + '; max-age=' + (60 * 86400) + '; path=' + path + '; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+        }catch(e){}
+      }
+      function cookieDel(k){ try{ document.cookie = k + '=; max-age=0; path=' + path; }catch(e){} }
+      return {
+        getItem: function(k){
+          var v = null;
+          try{ v = localStorage.getItem(k); }catch(e){}
+          if(v == null){
+            v = cookieGet(k);
+            if(v != null){ try{ localStorage.setItem(k, v); }catch(e){} }
+          }
+          return v;
+        },
+        setItem: function(k, v){ try{ localStorage.setItem(k, v); }catch(e){} cookieSet(k, v); },
+        removeItem: function(k){ try{ localStorage.removeItem(k); }catch(e){} cookieDel(k); }
+      };
+    })();
+    window.__hdmAuthStorage = hdmAuthStorage;
+    var sbAuth = null;
+    try{
+      sbAuth = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        global: { fetch: safeFetch },
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false,
+                storageKey: 'hdm-auth-session', storage: hdmAuthStorage }
+      });
+    }catch(e){ console.error('Supabase Auth לא נטען: ' + errText(e)); }
+    window.__sbAuth = sbAuth;
+
     // טקסט קריא מכל סוג של שגיאה (שגיאות של Supabase מגיעות כאובייקט, לא כטקסט)
     function errText(e){
       if(!e) return 'שגיאה לא ידועה';
@@ -3131,6 +3176,7 @@
         }
         await dbCap.doc('profiles/' + newId).set(profile);
         await authSaveAccount(d.email, d.pass, newId);   // פרטי ההתחברות: באזור הפרטי, הסיסמה רק כגיבוב
+        try{ if(window.authSupabaseSignIn) authSupabaseSignIn(d.email, d.pass, newId); }catch(e){}   // session של Supabase Auth
         if(signupDraft) signupDraft.pass = null;          // לא משאירים את הסיסמה בזיכרון
       }
     }catch(e){
@@ -3150,6 +3196,7 @@
     myId = newId;
     window.__loggedOut = false;
     window.__authSignedIn = true;
+    try{ if(window.authSaveSession) authSaveSession(newId); }catch(e){}   // שמירת ההתחברות לרענון / פתיחה מחדש
     myProfile = Object.assign({ id: newId }, profile);
     window.userProfile = myProfile;
     try{ if(typeof savedProfilesById === 'object') savedProfilesById[newId] = myProfile; }catch(e){}
@@ -3185,6 +3232,7 @@
     document.getElementById('screen-chat').classList.remove('active');
     myId = null;
     window.__loggedOut = true;
+    try{ if(window.authClearSession) authClearSession(); }catch(e){}   // התנתקות: לא משחזרים יותר את ההתחברות
     try{ clearRegistrationForm(); }catch(e){}
     go('screen-register');
     var chip = document.getElementById('test-user-chip'); if(chip) chip.style.display = 'none';
@@ -3296,6 +3344,8 @@
       if(!ok){ status.textContent = 'האימייל או הסיסמה שגויים.'; return; }
       var entered = await authEnterProfile(acct.profileId);
       if(!entered){ status.textContent = 'לא נמצא פרופיל לחשבון הזה.'; return; }
+      try{ if(window.authSaveSession) authSaveSession(acct.profileId); }catch(e){}   // שמירת ההתחברות לרענון / פתיחה מחדש
+      try{ if(window.authSupabaseSignIn) authSupabaseSignIn(email, pass, acct.profileId); }catch(e){}   // session של Supabase Auth
     }catch(e){
       status.textContent = 'ההתחברות נכשלה. נסו שוב.';
     }finally{
@@ -3347,6 +3397,159 @@
     el.classList.add('intro-hide');
     setTimeout(function(){ el.style.display = 'none'; }, 480);
   }
+</script>
+<script>
+  // ===== שמירת ההתחברות אחרי רענון, סגירת Safari ופתיחה מחדש =====
+  // 1) Supabase Auth: אחרי התחברות מוצלחת נוצרת session אמיתית של Supabase (persistSession), שנשמרת בדפדפן.
+  //    לחשבון קיים שעוד אין לו משתמש ב-Supabase Auth — נוצר משתמש עם אותו אימייל וסיסמה, ומזהה הפרופיל נשמר בו.
+  // 2) גיבוי: רשומת session בטבלת docs (authSessions/<token>) + אותו token בדפדפן — למקרה ש-Supabase Auth לא זמין
+  //    (למשל אם בפרויקט מופעל אישור אימייל).
+  // בטעינה: קודם בודקים session ב-Supabase Auth, אחר כך את הגיבוי, ונכנסים לפרופיל עם authEnterProfile הקיימת.
+  (function(){
+    var KEY = 'hdm_auth_session_v1';
+    var COL = 'authSessions';
+    var DAYS = 60;
+    var store = window.__hdmAuthStorage || { getItem: function(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+                                             setItem: function(k, v){ try{ localStorage.setItem(k, v); }catch(e){} },
+                                             removeItem: function(k){ try{ localStorage.removeItem(k); }catch(e){} } };
+    function sbAuth(){ return window.__sbAuth || null; }
+    function readLocal(){ try{ var s = store.getItem(KEY); return s ? JSON.parse(s) : null; }catch(e){ return null; } }
+    function writeLocal(v){ store.setItem(KEY, JSON.stringify(v)); }
+    function clearLocal(){ store.removeItem(KEY); }
+    function hasDb(){ return typeof dbCap !== 'undefined' && !!dbCap; }
+    function newToken(){
+      var b = crypto.getRandomValues(new Uint8Array(24));
+      return 's_' + Array.prototype.map.call(b, function(x){ return ('0' + x.toString(16)).slice(-2); }).join('');
+    }
+    async function syncToDb(rec){
+      if(!hasDb()) return false;
+      try{
+        await dbCap.doc(COL + '/' + rec.token).set({ profileId: rec.profileId, createdAt: rec.createdAt, expiresAt: rec.expiresAt });
+        rec.synced = true; writeLocal(rec);
+        return true;
+      }catch(e){ return false; }
+    }
+
+    // ---- Supabase Auth ----
+    window.authSupabaseSignIn = async function(email, pass, profileId){
+      var a = sbAuth();
+      if(!a || !email || !pass || !profileId) return false;
+      try{
+        email = String(email).trim().toLowerCase();
+        var r = await a.auth.signInWithPassword({ email: email, password: pass });
+        if(r.error){
+          // עוד אין משתמש ב-Supabase Auth לחשבון הזה (הסיסמה כבר נבדקה מול החשבון הקיים) — יוצרים אותו
+          var up = await a.auth.signUp({ email: email, password: pass, options: { data: { profileId: profileId } } });
+          if(up.error || !up.data || !up.data.session){
+            if(up.error) console.warn('Supabase Auth: ' + (up.error.message || up.error));
+            else console.warn('Supabase Auth: נדרש אישור אימייל, ה-session תישמר בגיבוי');
+            return false;
+          }
+        }
+        var s = (await a.auth.getSession()).data.session;
+        var meta = (s && s.user && s.user.user_metadata) || {};
+        if(s && meta.profileId !== profileId){ try{ await a.auth.updateUser({ data: { profileId: profileId } }); }catch(e){} }
+        return !!s;
+      }catch(e){ return false; }
+    };
+    async function supabaseSessionProfileId(){
+      var a = sbAuth();
+      if(!a) return null;
+      try{
+        var r = await a.auth.getSession();
+        var s = r && r.data && r.data.session;
+        return (s && s.user && s.user.user_metadata && s.user.user_metadata.profileId) || null;
+      }catch(e){ return null; }
+    }
+
+    // ---- גיבוי ----
+    window.authSaveSession = async function(profileId){
+      if(!profileId) return;
+      var old = readLocal();
+      if(old && old.token && hasDb()){ try{ dbCap.doc(COL + '/' + old.token).delete().catch(function(){}); }catch(e){} }
+      var now = Date.now();
+      var rec = { token: newToken(), profileId: profileId, createdAt: now, expiresAt: now + DAYS * 864e5, synced: false };
+      writeLocal(rec);          // קודם בדפדפן, כדי שגם רענון מיידי ישמור את ההתחברות
+      await syncToDb(rec);      // ואז ב-Supabase
+    };
+
+    // התנתקות: מנתקים גם את Supabase Auth וגם את הגיבוי
+    window.authClearSession = function(){
+      var s = readLocal();
+      clearLocal();
+      if(s && s.token && hasDb()){ try{ dbCap.doc(COL + '/' + s.token).delete().catch(function(){}); }catch(e){} }
+      var a = sbAuth();
+      if(a){ try{ a.auth.signOut({ scope: 'local' }).catch(function(){}); }catch(e){} }
+    };
+
+    async function backupProfileId(){
+      var saved = readLocal();
+      if(!saved || !saved.token || !saved.profileId) return null;
+      if(saved.expiresAt && saved.expiresAt < Date.now()){ clearLocal(); return null; }
+      try{
+        var snap = await dbCap.doc(COL + '/' + saved.token).get();
+        if(snap && snap.exists){
+          var d = snap.data() || {};
+          if(d.profileId !== saved.profileId || (d.expiresAt && d.expiresAt < Date.now())){ clearLocal(); return null; }
+        }else if(saved.synced){
+          clearLocal(); return null;   // ה-session נמחקה ב-Supabase (התנתקות)
+        }else{
+          await syncToDb(saved);       // נשמרה רק בדפדפן — משלימים עכשיו
+        }
+      }catch(e){ /* אין רשת לרגע: סומכים על מה שנשמר בדפדפן */ }
+      return saved.profileId;
+    }
+
+    // ---- שחזור בזמן טעינת האפליקציה ----
+    var hasSaved = !!store.getItem('hdm-auth-session') || !!readLocal();
+    if(!hasSaved) return;
+    // מסמנים כבר עכשיו שיש משתמש מחובר, כדי שזכירת משתמש הבדיקה (rememberActiveUser) לא תחליף משתמש בזמן השחזור
+    window.__authSignedIn = true;
+
+    var startedAt = Date.now(), readyAt = 0, busy = false;
+    var t = setInterval(async function(){
+      if(busy) return;
+      try{
+        // מחכים שהחיבור למסד יהיה מוכן ושהטעינה הרגילה של האפליקציה (initApp) תסתיים — בפתיחה קרה זה לוקח יותר זמן
+        if(!hasDb() || typeof myId === 'undefined' || !myId){
+          if(Date.now() - startedAt > 30000){ clearInterval(t); window.__authSignedIn = false; }
+          return;
+        }
+        if(!readyAt) readyAt = Date.now();
+        var initDone = !!myProfile && document.getElementById('screen-match').classList.contains('active');
+        if(!initDone && Date.now() - readyAt < 8000) return;
+        if(typeof switchingUser !== 'undefined' && switchingUser) return;
+        if(window.__loggedOut){ clearInterval(t); return; }   // המשתמש התנתק בינתיים
+        busy = true;
+        clearInterval(t);
+
+        var profileId = await supabaseSessionProfileId();
+        if(!profileId) profileId = await backupProfileId();
+        if(!profileId){ window.__authSignedIn = false; return; }
+
+        // כניסה לפרופיל, עם עוד ניסיונות אם הרשת איטית בפתיחה
+        var entered = false;
+        for(var i = 0; i < 4 && !entered; i++){
+          if(window.__loggedOut) return;
+          try{ entered = await authEnterProfile(profileId); }catch(e){}
+          if(!entered) await new Promise(function(r){ setTimeout(r, 1500); });
+        }
+        if(!entered){ window.__authSignedIn = false; return; }   // לא מוחקים את ה-session: ננסה שוב בפתיחה הבאה
+
+        // ודאות שגם הגיבוי קיים (למשל אחרי שחזור מ-Supabase Auth)
+        try{ var b = readLocal(); if(!b || b.profileId !== profileId) window.authSaveSession(profileId); }catch(e){}
+
+        // מסתירים את מסך הפתיחה ואת מסך הרשמה/התחברות — בדיוק כמו אחרי התחברות רגילה
+        var intro = document.getElementById('intro-screen');
+        if(intro && intro.style.display !== 'none'){
+          intro.classList.add('intro-hide');
+          setTimeout(function(){ intro.style.display = 'none'; }, 480);
+        }
+        var choice = document.getElementById('auth-choice-screen');
+        if(choice){ choice.classList.add('auth-hide'); setTimeout(function(){ choice.style.display = 'none'; }, 420); }
+      }catch(e){ window.__authSignedIn = false; }
+    }, 300);
+  })();
 </script>
 </body>
 </html>
