@@ -2252,13 +2252,37 @@
     var viewer = listViewer();
     var rowsById = {};
 
-    (chatDocs || []).forEach(function(d){
+    // ההודעה האחרונה האמיתית = זו עם הזמן (ts) המאוחר ביותר, לא בהכרח האחרונה במערך
+    function newestChatMsg(msgs){
+      var best = null;
+      (msgs || []).forEach(function(m){ if(m && (!best || (m.ts || 0) >= (best.ts || 0))) best = m; });
+      return best;
+    }
+    function docNewestTs(d){ var m = newestChatMsg(d && d.data && d.data.messages); return (m && m.ts) || 0; }
+    function docMsgCount(d){ return ((d && d.data && d.data.messages) || []).length; }
+    // לכל שיחה לוקחים את הגרסה העדכנית ביותר: מהרשימה, או מהגרסה שהמונה שליד "השיחות שלי" קרא (allChatDocs)
+    var freshById = {};
+    (chatDocs || []).concat((typeof allChatDocs !== 'undefined' && allChatDocs) || []).forEach(function(d){
+      if(!d || !d.id) return;
+      var cur = freshById[d.id];
+      if(!cur || docNewestTs(d) > docNewestTs(cur) || (docNewestTs(d) === docNewestTs(cur) && docMsgCount(d) > docMsgCount(cur))) freshById[d.id] = d;
+    });
+
+    Object.keys(freshById).forEach(function(docId){
+      var d = freshById[docId];
       var parts = d.id.split('__');
       if(parts.length !== 2 || parts.indexOf(viewer) === -1) return;
       var otherId = parts[0] === viewer ? parts[1] : parts[0];
       var msgs = (d.data && d.data.messages) || [];
       if(!msgs.length && !(d.data && d.data.createdBy === viewer)) return;   // שיחה ריקה מוצגת רק למי שפתח אותה
-      rowsById[otherId] = { id: otherId, last: msgs.length ? msgs[msgs.length-1] : null, unread: unreadCount(viewer, d.id, msgs) };
+      var row = { id: otherId, last: msgs.length ? newestChatMsg(msgs) : null, unread: unreadCount(viewer, d.id, msgs) };
+      var prev = rowsById[otherId];
+      if(prev){   // אותו אדם ביותר ממסמך אחד: מציגים את ההודעה החדשה מבין כולם וסופרים את כל הלא-נקראות
+        var prevTs = (prev.last && prev.last.ts) || 0, rowTs = (row.last && row.last.ts) || 0;
+        row.unread = (row.unread || 0) + (prev.unread || 0);
+        if(prevTs > rowTs) row.last = prev.last;
+      }
+      rowsById[otherId] = row;
     });
     chatsListMutualIds.forEach(function(id){
       if(!rowsById[id]) rowsById[id] = { id: id, last: null };
