@@ -138,13 +138,6 @@
   .chat-row p{ margin:2px 0 0; font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:230px; }
   .chats-empty{ text-align:center; color:var(--muted); font-size:14px; line-height:1.7; margin-top:40px; }
 
-  /* Test mode (owner only) */
-  .test-bar{ margin-top:12px; text-align:center; }
-  .test-banner{ font-size:12.5px; color:var(--rose); margin-bottom:6px; min-height:0; }
-  .test-banner:empty{ display:none; }
-  .test-toggle{ display:inline-block; font-size:12.5px; color:var(--gold); border:1px dashed var(--gold-soft); border-radius:14px; padding:6px 12px; cursor:pointer; }
-  .phone.testing-as-other .chat-head{ background:var(--card2); border-radius:12px; padding:8px; }
-
   /* הפרופיל שלי */
   .profile-photo{
     width:110px; height:110px; border-radius:50%; margin:6px auto 18px; flex-shrink:0;
@@ -166,29 +159,6 @@
   .chat-row.has-unread h3{ font-weight:900; }
   .chat-row.has-unread p{ color:var(--cream); font-weight:500; }
 
-  /* בדיקה: מעבר בין משתמש 1 למשתמש 2 */
-  .test-user-chip{
-    position:absolute; top:6px; left:8px; z-index:30;
-    background:var(--card); color:var(--cream); border:1.5px solid var(--rose);
-    border-radius:14px; padding:4px 10px; font-family:'Heebo'; font-size:12px; font-weight:700;
-    cursor:pointer; max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
-  .test-user-chip.is-second{ background:var(--rose); color:#FFF8F6; }
-
-  /* כפתור בדיקה קבוע בתחתית: החלף משתמש */
-  .switch-user-btn{
-    position:absolute; left:14px; right:14px; bottom:10px; z-index:20;
-    display:none; flex-direction:column; align-items:center; justify-content:center;
-    background:var(--rose); color:#FFF8F6; border:none; border-radius:14px;
-    padding:10px 12px; font-family:'Heebo'; font-weight:700; font-size:15px; cursor:pointer;
-    box-shadow:0 4px 14px rgba(0,0,0,.15);
-  }
-  .switch-user-btn span{ font-weight:400; font-size:12px; opacity:.9; margin-top:2px; }
-  .switch-user-btn:active{ transform:scale(.98); }
-  #screen-match.active ~ .switch-user-btn,
-  #screen-chats.active ~ .switch-user-btn,
-  #screen-chat.active ~ .switch-user-btn{ display:flex; }
-  #screen-match, #screen-chats, #screen-chat{ bottom:72px; }
   /* תמונת שולח קטנה ליד כל הודעה (תוספת בלבד — המבנה של ההודעות לא משתנה) */
   #chat-msgs{ padding-left:34px; padding-right:34px; }
   #chat-msgs .msg{ position:relative; }
@@ -501,6 +471,7 @@
     <div class="hint" id="match-hint">לחצו על המטרה אם יש עניין</div>
     <div class="my-chats-link" id="my-chats-link">💬 השיחות שלי<span class="unread-badge" id="my-chats-badge" style="display:none"></span></div>
     <div class="my-chats-link" id="my-profile-link">👤 הפרופיל שלי</div>
+    <div class="my-chats-link" id="logout-link">התנתקות</div>
   </div>
 
   <!-- מסך חדש: השיחות שלי -->
@@ -548,18 +519,9 @@
       <input type="text" id="chat-input" placeholder="כתבו הודעה..." onkeydown="if(event.key==='Enter'){sendChatMessage();}">
       <button type="button" id="send-chat-btn">שלח</button>
     </div>
-    <div class="test-bar" id="test-bar" style="display:none">
-      <div class="test-banner" id="test-banner"></div>
-      <div class="test-toggle" id="test-toggle">🧪 בדיקה: החליפו צד</div>
-    </div>
     <div class="skip-link" onclick="go('screen-match')">✕ סגירה</div>
   </div>
 
-  <!-- כפתור בדיקה: החלפת משתמש -->
-  <button type="button" class="switch-user-btn" id="switch-user-btn">🔄 החלף משתמש<span id="switch-user-sub"></span></button>
-
-  <!-- בדיקה: שני משתמשים נפרדים באותו מכשיר -->
-  <button type="button" class="test-user-chip" id="test-user-chip" style="display:none"></button>
 
   <!-- מסך בחירה: הרשמה / התחברות (מופיע אחרי "מתחילים עכשיו") -->
   <div class="auth-choice" id="auth-choice-screen">
@@ -1622,108 +1584,14 @@
   function loggedInUserId(){ return myId; }
 
   function refreshTestBar(){
-    var banner = document.getElementById('test-banner');
-    var toggle = document.getElementById('test-toggle');
     var phone = document.querySelector('.phone');
-    var otherName = (currentMatchData && (currentMatchData.currentName || currentMatchData.birthFirstName)) || 'הצד השני';
-    var myName = (myProfile && (myProfile.currentName || myProfile.birthFirstName)) || 'אני';
-    if(typeof realUserId !== 'undefined' && realUserId && dbCap){
-      // הכיתוב משקף רק את המשתמש המחובר באמת
-      banner.textContent = '';
-      toggle.textContent = '🧪 מעבר למשתמש ' + (isSecondUserActive() ? '1' : '2');
-      phone.classList.remove('testing-as-other');
-      updateSwitchUserButton();
-      return;
-    }
-    if(chatActingAs){
-      banner.textContent = 'את/ה כותב/ת ורואה עכשיו בתור ' + otherName;
-      toggle.textContent = '🧪 חזרה להיות ' + myName;
-      phone.classList.add('testing-as-other');
-    }else{
-      banner.textContent = '';
-      toggle.textContent = '🧪 בדיקה: כתבו בתור ' + otherName;
-      phone.classList.remove('testing-as-other');
-    }
-    updateSwitchUserButton();
+    if(phone) phone.classList.remove('testing-as-other');
   }
-
-  // ---- כפתור "🔄 החלף משתמש": עובר בין שני הצדדים של השיחה באותו מכשיר ----
-  function updateSwitchUserButton(){
-    var sub = document.getElementById('switch-user-sub');
-    if(!sub) return;
-    if(realUserId && dbCap){
-      var meName = (myProfile && (myProfile.currentName || myProfile.birthFirstName)) || '';
-      var meNum = isSecondUserActive() ? 2 : 1;
-      sub.textContent = 'מחובר/ת: משתמש ' + meNum + (meName ? ' (' + meName + ')' : '') + ' · לחצו למעבר למשתמש ' + (meNum === 1 ? 2 : 1);
-      return;
-    }
-    var otherName = (currentMatchData && (currentMatchData.currentName || currentMatchData.birthFirstName)) || 'הצד השני';
-    var myName = (myProfile && (myProfile.currentName || myProfile.birthFirstName)) || 'אני';
-    var actingOther = document.getElementById('screen-chats').classList.contains('active')
-      ? (typeof listViewerId !== 'undefined' && !!listViewerId) : !!chatActingAs;
-    sub.textContent = actingOther ? ('כרגע: ' + otherName + ' · לחצו לחזור ל' + myName)
-                                  : ('כרגע: ' + myName + ' · לחצו לעבור ל' + otherName);
-    var chatName = document.getElementById('chat-name');
-    if(chatName && document.getElementById('screen-chat').classList.contains('active')){
-      chatName.textContent = chatActingAs ? myName : otherName;
-    }
-  }
-
-  var switchUserBtn = document.getElementById('switch-user-btn');
-  if(switchUserBtn){
-    switchUserBtn.addEventListener('click', function(){
-      // "החלף משתמש": מתנתקים וחוזרים למסך הרשמה / התחברות (בלי החלפה אוטומטית בין שמוליק לנועה)
-      if(typeof logoutToAuthChoice === 'function'){ logoutToAuthChoice(); return; }
-      // החלפת משתמש אמיתית: כל האפליקציה עוברת למשתמש השני, והחיווי מחושב מחדש לפיו
-      if(realUserId && dbCap){ switchTestUser(); return; }
-      if(!currentMatchId){ return; }
-      if(document.getElementById('screen-chats').classList.contains('active')){
-        // ברשימת השיחות: מחליפים את מי שהרשימה שייכת לו
-        listViewerId = listViewerId ? null : currentMatchId;
-        updateSwitchUserButton();
-        loadMyConversations();
-        return;
-      }
-      var inChat = document.getElementById('screen-chat').classList.contains('active');
-      if(inChat){
-        chatActingAs = chatActingAs ? null : currentMatchId;
-        refreshTestBar();
-        paintMessages(lastChatMessages || []);
-        return;
-      }
-      // מחוץ לצ'אט: פותחים את השיחה עם האדם שבכרטיס/ברשימה, כבר בתור הצד השני
-      document.getElementById('chat-sub').textContent = myProfile ? matchCategoryLabel(overallCompatibility(myProfile, currentMatchData)) : '';
-      openChat();
-      chatActingAs = currentMatchId;
-      refreshTestBar();
-      paintMessages(lastChatMessages || []);
-    });
-  }
-  // מעדכנים את התווית בכל מעבר כרטיס/מסך
-  setInterval(function(){ try{ updateSwitchUserButton(); }catch(e){} }, 700);
 
   function resetTestMode(){
     chatActingAs = null;
     refreshTestBar();
   }
-
-  (async function initTestBar(){
-    var bar = document.getElementById('test-bar');
-    var toggle = document.getElementById('test-toggle');
-    if(!bar || !toggle) return;
-    toggle.addEventListener('click', function(){
-      // מעבר אמיתי בין המשתמשים — השולח תמיד המשתמש המחובר, בלי "לשחק" את הצד השני
-      if(realUserId && dbCap){ switchTestUser(); return; }
-      if(!currentMatchId) return;
-      chatActingAs = chatActingAs ? null : currentMatchId;
-      refreshTestBar();
-      paintMessages(lastChatMessages || []);
-    });
-    try{
-      var u = await claude.use('user');
-      if(u && await u.isOwner()) bar.style.display = '';
-    }catch(e){}
-  })();
 
   function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 
@@ -2197,51 +2065,6 @@
     }
   }, 2000);
 
-  // ---- יומן מצב לכל חלון (לאבחון סימון הקריאה בלבד — רק קורא את מצב האפליקציה ורושם אותו) ----
-  var readDiagTab = 'tab_' + Math.random().toString(36).slice(2, 8);
-  var readDiagLast = '', readDiagAt = 0;
-  function readDiagState(){
-    var act = document.querySelector('.screen.active');
-    var chip = document.getElementById('test-user-chip');
-    return {
-      v: 'rr4', tab: readDiagTab, myId: myId || null,
-      realUserId: (typeof realUserId !== 'undefined') ? realUserId : null,
-      switchingUser: (typeof switchingUser !== 'undefined') ? !!switchingUser : null,
-      chatActingAs: (typeof chatActingAs !== 'undefined') ? chatActingAs : null,
-      screen: act ? act.id : null, currentMatchId: currentMatchId || null,
-      chip: chip ? chip.textContent : null,
-      chatName: (document.getElementById('chat-name') || {}).textContent || null,
-      shown: (lastChatMessages || []).length, hidden: !!document.hidden
-    };
-  }
-  function readDiagWrite(extra){
-    if(!dbCap) return;
-    try{
-      var s = readDiagState();
-      if(extra) for(var k in extra) s[k] = extra[k];
-      s.at = Date.now();
-      var w = dbCap.collection('chatReadsDebug').doc(readDiagTab).set(s);
-      if(w && w.catch) w.catch(function(){});
-    }catch(e){}
-  }
-  setInterval(function(){
-    try{
-      var key = JSON.stringify(readDiagState());
-      if(key !== readDiagLast || Date.now() - readDiagAt > 10000){
-        readDiagLast = key; readDiagAt = Date.now();
-        readDiagWrite();
-      }
-    }catch(e){}
-  }, 2000);
-  ['switch-user-btn', 'test-user-chip', 'test-toggle'].forEach(function(id){
-    var el = document.getElementById(id);
-    if(!el) return;
-    el.addEventListener('click', function(){
-      var before = myId;
-      setTimeout(function(){ readDiagWrite({ event: 'click ' + id, before: before }); }, 3000);
-    });
-  });
-
   // ---- השיחות שלי: כל השיחות של המשתמש (עם הודעות) + התאמות הדדיות שעוד לא התחילו, מתעדכן בזמן אמת ----
   var listViewerId = null;      // null = אני; אחרת צופים ברשימה בתור משתמש אחר (מצב בדיקה)
   var chatsListUnsub = null;
@@ -2459,6 +2282,14 @@
     }
   }
 
+  // התנתקות: מנתק מהחשבון ופותח את מסך ההתחברות
+  var logoutLink = document.getElementById('logout-link');
+  if(logoutLink){
+    logoutLink.addEventListener('click', function(){
+      logoutToAuthChoice();
+      if(window.__loggedOut) openLogin();
+    });
+  }
   var myChatsLink = document.getElementById('my-chats-link');
   if(myChatsLink){
     myChatsLink.addEventListener('click', function(){ listViewerId = null; go('screen-chats'); loadMyConversations(); });
@@ -2647,17 +2478,6 @@
     return id === owner + TEST_SUFFIX;
   }
 
-  function updateTestUserChip(){
-    var chip = document.getElementById('test-user-chip');
-    if(!chip) return;
-    if(!realUserId || !dbCap){ chip.style.display = 'none'; return; }
-    chip.style.display = '';
-    var name = (myProfile && (myProfile.currentName || myProfile.birthFirstName)) || '';
-    var n = isSecondUserActive() ? 2 : 1;
-    chip.textContent = '👥 משתמש ' + n + (name ? ': ' + name : '') + ' ⇄';
-    chip.classList.toggle('is-second', n === 2);
-  }
-
   function clearRegistrationForm(){
     ['birthFirstName','birthLastName','currentName','age','location','occupation','gender','lookingFor','interests','bio','birthdate']
       .forEach(function(id){ var el = document.getElementById(id); if(el) el.value = ''; });
@@ -2668,117 +2488,12 @@
   }
 
   var switchingUser = false;
-  async function switchTestUser(){
-    if(switchingUser || !realUserId || !dbCap) return;
-    switchingUser = true;
-    var chip = document.getElementById('test-user-chip');
-    chip.textContent = '👥 מחליף...';
 
-    // מנקים את כל המצב של המשתמש הקודם
-    try{ stopChatListening(); }catch(e){}
-    try{ stopChatsListListening(); }catch(e){}
-    chatActingAs = null; listViewerId = null; lastChatMessages = [];
-    matchQueue = null; matchQueueIndex = 0;
-    currentMatchId = null; currentMatchData = null;
-    window.userProfileBeforeSwitch = myProfile ? Object.assign({}, myProfile) : null;
-    myProfile = null; window.userProfile = null;
-    pendingPhotoFile = null;
-    document.querySelector('.phone').classList.remove('testing-as-other');
-
-    document.getElementById('screen-chat').classList.remove('active');   // שום שיחה לא תסומן כנקראה עבור המשתמש שנכנס
-    if(myId && window.userProfileBeforeSwitch) savedProfilesById[myId] = window.userProfileBeforeSwitch;
-    myId = isSecondUserActive() ? realUserId : secondUserId();
-    try{ refreshUnreadViews(); }catch(e){}   // המספר מתעדכן מיד לפי המשתמש שנבחר
-
-    // טוענים את הפרופיל הקיים של המשתמש שנבחר
-    var loaded = null;
-    var demoBase = null;
-    demoProfiles.forEach(function(p){ if(p.id === myId) demoBase = p; });
-    for(var attempt = 0; attempt < 3 && !loaded; attempt++){
-      try{
-        var snap = await dbCap.doc('profiles/' + myId).get();
-        if(snap.exists && snap.data().lifePathNumber){
-          loaded = Object.assign({}, demoBase || {}, snap.data());   // שינויים שנשמרו גוברים על ברירת המחדל
-        }else{
-          break;   // הקריאה הצליחה ואין פרופיל שמור
-        }
-      }catch(e){ await new Promise(function(r){ setTimeout(r, 400); }); }
-    }
-    if(!loaded && demoBase) loaded = Object.assign({}, demoBase);
-    if(!loaded && savedProfilesById[myId]) loaded = Object.assign({}, savedProfilesById[myId]);
-
-    if(loaded){
-      myProfile = loaded;
-      savedProfilesById[myId] = loaded;
-      window.userProfile = myProfile;
-      try{ await loadNextMatch(); }catch(e){}
-      // במצב בדיקה יש רק שני משתמשים: מציגים מיד את הכרטיס של המשתמש השני (שמוליק ↔ נועה), לא כרטיס אקראי
-      try{
-        var otherTestId = isSecondUserActive() ? realUserId : SECOND_USER_ID;
-        var otherIdx = (matchQueue || []).map(function(e){ return e.id; }).indexOf(otherTestId);
-        if(otherIdx !== -1) showCardAt(otherIdx);
-      }catch(e){}
-      go('screen-match');
-      try{ flashTargetHint('עברת ל' + ((myProfile && (myProfile.currentName || myProfile.birthFirstName)) || ('משתמש ' + (isSecondUserActive() ? 2 : 1)))); }catch(e){}
-    }else{
-      // רק משתמש שבאמת אין לו שום פרופיל מגיע להרשמה
-      clearRegistrationForm();
-      go('screen-register');
-    }
-    try{ updateUnreadBadge(); }catch(e){}
-    switchingUser = false;
-    updateTestUserChip();
-  }
-
-  (function initTestUsers(){
-    var chip = document.getElementById('test-user-chip');
-    if(chip) chip.addEventListener('click', function(){ switchTestUser(); });
-    var t = setInterval(function(){
-      if(!realUserId && myId && dbCap) realUserId = myId;
-      if(realUserId) updateTestUserChip();
-    }, 700);
-  })();
-
-  // ---- זכירת המשתמש המחובר (משתמש 1 / משתמש 2) אחרי סגירה, פתיחה מחדש או רענון ----
-  // הפרופילים, השיחות, ה-🎯 וסימוני הקריאה כבר נשמרים במסד. כאן נשמר רק מי מחובר בחלון הזה,
-  // ובפתיחה מחזירים אותו בעזרת פונקציית ההחלפה הקיימת (switchTestUser) — בלי לשנות אותה.
-  (function rememberActiveUser(){
-    var KEY = 'hdm_active_test_user';   // '1' = שמוליק, '2' = נועה
-    // sessionStorage = החלון/הלשונית הזו (רענון), localStorage = הבחירה האחרונה (סגירה ופתיחה מחדש)
-    function readSaved(){
-      try{ var s = sessionStorage.getItem(KEY); if(s) return s; }catch(e){}
-      try{ return localStorage.getItem(KEY); }catch(e){ return null; }
-    }
-    function writeSaved(v){
-      try{ sessionStorage.setItem(KEY, v); }catch(e){}
-      try{ localStorage.setItem(KEY, v); }catch(e){}
-    }
-    var restored = false, readyAt = 0, startedAt = Date.now();
-    var t = setInterval(function(){
-      try{
-        if(!restored){
-          if(!realUserId || !dbCap || !myId){
-            if(Date.now() - startedAt > 20000){ restored = true; }   // אין חיבור — לא עושים כלום
-            return;
-          }
-          if(!readyAt) readyAt = Date.now();
-          // מחכים שהטעינה הרגילה של משתמש 1 תסתיים לפני המעבר
-          var loaded = !!myProfile || document.getElementById('screen-register').classList.contains('active');
-          if(!loaded && Date.now() - readyAt < 6000) return;
-          if(switchingUser) return;
-          restored = true;
-          if(readSaved() === '2' && !isSecondUserActive() && !window.__authSignedIn) switchTestUser();
-          return;
-        }
-        // אחרי השחזור: שומרים כל שינוי של המשתמש המחובר
-        if(!switchingUser && realUserId && myId){
-          var now = isSecondUserActive() ? '2' : '1';
-          var tabSaved = null; try{ tabSaved = sessionStorage.getItem(KEY); }catch(e){}
-          if(tabSaved !== now) writeSaved(now);
-        }
-      }catch(e){}
-    }, 400);
-  })();
+  // מזהה החשבון של המכשיר (בשימוש בהתחברות ובהתאמות)
+  var realUserIdTimer = setInterval(function(){
+    if(!realUserId && myId && dbCap) realUserId = myId;
+    if(realUserId) clearInterval(realUserIdTimer);
+  }, 700);
 
   try{ initCardSwipe(); }catch(e){}
   initApp();
@@ -2899,8 +2614,6 @@
   html.chat-lock #screen-chat .composer{ flex-shrink:0; }
   /* כשהמקלדת פתוחה: שדה הכתיבה וכפתור "שלח" בתחתית החלק הגלוי, ממש מעל המקלדת */
   html.chat-lock.kb-open #screen-chat{ bottom:0; padding-bottom:8px; }
-  html.chat-lock.kb-open .switch-user-btn,
-  html.chat-lock.kb-open #screen-chat .test-bar,
   html.chat-lock.kb-open #screen-chat .skip-link{ display:none !important; }
   /* Safari באייפון מגדיל אוטומטית את הדף כשמקישים על שדה עם טקסט קטן מ-16px — זה מה שגרם לדף "לקפוץ".
      רק בשדה כתיבת ההודעה, ורק ב-Safari של iOS. */
@@ -3259,7 +2972,6 @@
     try{ await loadNextMatch(); }catch(e){}
     go('screen-match');
     try{ refreshUnreadViews(); }catch(e){}
-    try{ updateTestUserChip(); }catch(e){}
 
     // סוגרים את מסכי ההרשמה והבחירה
     ['signup-step3','signup-step2','signup-screen'].forEach(function(id){
@@ -3291,7 +3003,6 @@
     try{ if(window.authClearSession) authClearSession(); }catch(e){}   // התנתקות: לא משחזרים יותר את ההתחברות
     try{ clearRegistrationForm(); }catch(e){}
     go('screen-register');
-    var chip = document.getElementById('test-user-chip'); if(chip) chip.style.display = 'none';
     // סוגרים שכבות הרשמה פתוחות ומציגים שוב את מסך הבחירה
     ['signup-step3','signup-step2','signup-screen'].forEach(function(id){
       var el = document.getElementById(id); if(el){ el.classList.remove('open'); el.setAttribute('aria-hidden','true'); }
@@ -3315,7 +3026,6 @@
       }
     }catch(e){}
     try{ refreshUnreadViews(); }catch(e){}
-    try{ updateTestUserChip(); }catch(e){}
   }
 </script>
 <script>
@@ -3436,7 +3146,6 @@
     try{ await loadNextMatch(); }catch(e){}
     go('screen-match');
     try{ refreshUnreadViews(); }catch(e){}
-    try{ updateTestUserChip(); }catch(e){}
 
     closeLogin();
     var choice = document.getElementById('auth-choice-screen');
