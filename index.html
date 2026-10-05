@@ -1405,6 +1405,20 @@
     return false;
   }
 
+  // האם כבר קיימת רשומת התאמה הדדית ב-matches בין שני המשתמשים (קריאה בלבד)
+  async function hasMatch(a, b){
+    if(!dbCap || !a || !b) return false;
+    try{
+      var snap = await dbCap.collection('matches').doc(conversationId(a, b)).get();
+      if(snap.exists) return true;
+    }catch(e){}
+    try{
+      var qs = await dbCap.collection('matches').get();
+      return qs.docs.some(function(d){ var u = (d.data() || {}).users || []; return u.indexOf(a) !== -1 && u.indexOf(b) !== -1; });
+    }catch(e){}
+    return false;
+  }
+
   function flashTargetHint(text){
     var hint = document.getElementById('match-hint');
     if(!hint) return;
@@ -1456,10 +1470,19 @@
     }
 
     // 2. אם גם הצד השני הביע עניין — שומרים התאמה הדדית (כמו קודם)
-    var mutual = isAutoLikeDemo(targetId) ? true : await hasInterest(targetId, me);
+    // התאמה שכבר שמורה ב-matches נחשבת הדדית גם אם רשומת ה-interests של הצד השני חסרה
+    var alreadyMatched = isAutoLikeDemo(targetId) ? false : await hasMatch(me, targetId);
+    var mutual = isAutoLikeDemo(targetId) ? true : (alreadyMatched || await hasInterest(targetId, me));
     if(me !== myId){ targetBusy = false; return; }   // המשתמש הוחלף בזמן הבדיקה — לא עושים כלום
-    if(mutual && dbCap && me && !isAutoLikeDemo(targetId)){
+    if(mutual && dbCap && me && !isAutoLikeDemo(targetId) && !alreadyMatched){
       try{ await dbCap.collection('matches').doc(conversationId(me, targetId)).set({ users: [me, targetId].sort(), ts: Date.now() }); }catch(e){}
+    }
+
+    // אין עדיין התאמה הדדית — רק שומרים את העניין, לא יוצרים שיחה ולא פותחים צ'אט
+    if(!mutual){
+      flashTargetHint('העניין נשמר — הצ׳אט ייפתח כשגם הצד השני ילחץ 🎯');
+      targetBusy = false;
+      return;
     }
 
     // 3. יוצרים את השיחה בין שני המשתמשים — רק אם עוד לא קיימת, כדי לא ליצור כפולה ולא לדרוס הודעות
@@ -2273,6 +2296,7 @@
       var parts = d.id.split('__');
       if(parts.length !== 2 || parts.indexOf(viewer) === -1) return;
       var otherId = parts[0] === viewer ? parts[1] : parts[0];
+      if(chatsListMutualIds.indexOf(otherId) === -1) return;   // שיחה מוצגת רק כשיש התאמה הדדית 🎯 משני הצדדים
       var msgs = (d.data && d.data.messages) || [];
       if(!msgs.length && !(d.data && d.data.createdBy === viewer)) return;   // שיחה ריקה מוצגת רק למי שפתח אותה
       var row = { id: otherId, last: msgs.length ? newestChatMsg(msgs) : null, unread: unreadCount(viewer, d.id, msgs) };
@@ -2387,6 +2411,14 @@
         iq.docs.forEach(function(d){ var v = d.data() || {}; if(v.from && v.to) interestPairs[v.from + '__' + v.to] = true; });
       }catch(e){}
     }
+    // התאמות שכבר שמורות ב-matches — נחשבות הדדיות גם אם רשומות ה-interests חסרות
+    var matchedWith = {};
+    if(dbCap){
+      try{
+        var mq = await dbCap.collection('matches').get();
+        mq.docs.forEach(function(d){ var u = (d.data() || {}).users || []; if(u.indexOf(viewer) !== -1) u.forEach(function(x){ if(x !== viewer) matchedWith[x] = true; }); });
+      }catch(e){}
+    }
     function liked(fromId, toId){
       if(interestPairs[fromId + '__' + toId]) return true;
       if(fromId === viewer && viewerLikes.indexOf(toId) !== -1) return true;
@@ -2397,7 +2429,7 @@
       if(id === viewer) return;
       var mutualPair = isAutoLikeDemo(id)
         ? liked(viewer, id)                       // פרופיל דמו שאינו משתמש: מחזיר עניין אוטומטית
-        : (liked(viewer, id) && liked(id, viewer)); // שני משתמשים: רק אם שניהם לחצו 🎯
+        : (matchedWith[id] || (liked(viewer, id) && liked(id, viewer))); // שני משתמשים: רק אם שניהם לחצו 🎯 / התאמה שמורה
       if(mutualPair) chatsListMutualIds.push(id);
     });
 
