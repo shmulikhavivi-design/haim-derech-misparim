@@ -1393,16 +1393,14 @@
 
   async function hasInterest(fromId, toId){
     if(!dbCap || !fromId || !toId) return false;
-    try{
-      var snap = await dbCap.collection('interests').doc(interestDocId(fromId, toId)).get();
-      if(snap.exists) return true;
-    }catch(e){}
-    // עניין שנשמר לפני המנגנון החדש (ברשימת הלייקים בפרופיל)
-    try{
-      var p = await dbCap.doc('profiles/' + fromId).get();
-      if(p.exists && (p.data().likes || []).indexOf(toId) !== -1) return true;
-    }catch(e){}
-    return false;
+    // שתי הבדיקות במקביל (רשומת interests + עניין ישן ברשימת הלייקים בפרופיל), כדי שהלחיצה תגיב מהר
+    var checks = await Promise.all([
+      dbCap.collection('interests').doc(interestDocId(fromId, toId)).get()
+        .then(function(snap){ return !!snap.exists; }).catch(function(){ return false; }),
+      dbCap.doc('profiles/' + fromId).get()
+        .then(function(p){ return !!(p.exists && (p.data().likes || []).indexOf(toId) !== -1); }).catch(function(){ return false; })
+    ]);
+    return checks[0] || checks[1];
   }
 
   // האם כבר קיימת רשומת התאמה הדדית ב-matches בין שני המשתמשים (קריאה בלבד)
@@ -1432,6 +1430,11 @@
   async function ensureConversation(me, otherId){
     if(!dbCap || !me || !otherId) return;
     var ref = chatDocRef(otherId);
+    // שיחה שכבר קיימת — אין מה ליצור, לא ממתינים לנעילה
+    try{
+      var existing = await ref.get();
+      if(existing.exists && (existing.data() || {}).messages) return;
+    }catch(e){}
     try{
       for(var i=0; i<8; i++){
         var lease = await ref.acquire({ holder: me, ttlMs: 5000 });
@@ -1454,48 +1457,72 @@
     }catch(e){}
   }
 
-  var targetBusy = false;
+  var targetBusy = false, targetBusySince = 0, targetBusyFor = null;
   async function onTargetClick(){
-    if(!currentMatchId || targetBusy){ return; }
-    targetBusy = true;
+    if(!currentMatchId){ return; }
+    // לחיצה קודמת שעדיין רצה חוסמת רק אם היא של אותו משתמש ולא נתקעה (עד 15 שניות)
+    if(targetBusy && targetBusyFor === myId && Date.now() - targetBusySince < 15000){ return; }
+    targetBusy = true; targetBusySince = Date.now(); targetBusyFor = myId;
     var me = myId, targetId = currentMatchId, targetData = currentMatchData;
+    var token = targetBusySince;
+    function release(){ if(targetBusySince === token){ targetBusy = false; targetBusyFor = null; } }
+    try{
+      // חיווי מיידי, כדי שהלחיצה תמיד תגיב גם כשהרשת איטית
+      var hintEl = document.getElementById('match-hint');
+      clearTimeout(flashTargetHint.t);
+      if(hintEl) hintEl.textContent = 'בודקים התאמה…';
 
-    // 1. שומרים שהמשתמש המחובר הביע עניין במשתמש הזה
-    var likes = ((myProfile && myProfile.likes) || []).slice();
-    if(likes.indexOf(targetId) === -1) likes.push(targetId);
-    if(myProfile) myProfile.likes = likes;
-    if(dbCap && me){
-      try{ await dbCap.collection('interests').doc(interestDocId(me, targetId)).set({ from: me, to: targetId, ts: Date.now() }); }catch(e){}
-      try{ await dbCap.doc('profiles/'+me).update({likes: likes}); }catch(e){ /* למשתמשת 2 אין מסמך פרופיל — העניין כבר נשמר למעלה */ }
+      // 1. שומרים שהמשתמש המחובר הביע עניין, ובמקביל בודקים אם גם הצד השני הביע עניין
+      var likes = ((myProfile && myProfile.likes) || []).slice();
+      if(likes.indexOf(targetId) === -1) likes.push(targetId);
+      if(myProfile) myProfile.likes = likes;
+      var saveInterest = Promise.resolve();
+      if(dbCap && me){
+        saveInterest = Promise.all([
+          dbCap.collection('interests').doc(interestDocId(me, targetId)).set({ from: me, to: targetId, ts: Date.now() }).catch(function(){}),
+          dbCap.doc('profiles/'+me).update({likes: likes}).catch(function(){ /* למשתמשת 2 אין מסמך פרופיל — העניין כבר נשמר למעלה */ })
+        ]);
+      }
+
+      // 2. התאמה הדדית = גם הצד השני לחץ 🎯 (או שכבר שמורה התאמה ב-matches)
+      var demo = isAutoLikeDemo(targetId);
+      var checks = await Promise.all([
+        demo ? false : hasMatch(me, targetId),
+        demo ? true : hasInterest(targetId, me),
+        saveInterest
+      ]);
+      var alreadyMatched = checks[0];
+      var mutual = demo ? true : (alreadyMatched || checks[1]);
+      if(me !== myId){ return; }   // המשתמש הוחלף בזמן הבדיקה — לא עושים כלום
+
+      // אין עדיין התאמה הדדית — רק שומרים את העניין, לא יוצרים שיחה ולא פותחים צ'אט
+      if(!mutual){
+        flashTargetHint('העניין נשמר — הצ׳אט ייפתח כשגם הצד השני ילחץ 🎯');
+        return;
+      }
+
+      // 3. שומרים את ההתאמה ויוצרים את השיחה — רק אם עוד לא קיימת, כדי לא ליצור כפולה ולא לדרוס הודעות
+      if(dbCap && me && !demo && !alreadyMatched){
+        try{ await dbCap.collection('matches').doc(conversationId(me, targetId)).set({ users: [me, targetId].sort(), ts: Date.now() }); }catch(e){}
+      }
+      await ensureConversation(me, targetId);
+      if(me !== myId){ return; }
+
+      // 4. פותחים מיד את הצ'אט עם אותו משתמש — בלי להחליף משתמש ובלי לעבור לכרטיס אחר
+      flashTargetHint('🎯 יש התאמה הדדית!');
+      currentMatchId = targetId; currentMatchData = targetData;
+      document.getElementById('chat-name').textContent = targetData.currentName || targetData.birthFirstName || 'אנונימי/ת';
+      try{ document.getElementById('chat-sub').textContent = matchCategoryLabel(overallCompatibility(myProfile, targetData)); }catch(e){}
+      release();
+      openChat();
+      // לא מתקדמים אוטומטית לכרטיס הבא — 🎯 משמש רק להבעת עניין/יצירת התאמה, המעבר בין כרטיסים הוא רק בהחלקה
+    }catch(e){
+      flashTargetHint('משהו השתבש — נסו ללחוץ 🎯 שוב');
+    }finally{
+      release();
+      var h = document.getElementById('match-hint');
+      if(h && h.textContent === 'בודקים התאמה…') h.textContent = 'לחצו על המטרה אם יש עניין';
     }
-
-    // 2. אם גם הצד השני הביע עניין — שומרים התאמה הדדית (כמו קודם)
-    // התאמה שכבר שמורה ב-matches נחשבת הדדית גם אם רשומת ה-interests של הצד השני חסרה
-    var alreadyMatched = isAutoLikeDemo(targetId) ? false : await hasMatch(me, targetId);
-    var mutual = isAutoLikeDemo(targetId) ? true : (alreadyMatched || await hasInterest(targetId, me));
-    if(me !== myId){ targetBusy = false; return; }   // המשתמש הוחלף בזמן הבדיקה — לא עושים כלום
-    if(mutual && dbCap && me && !isAutoLikeDemo(targetId) && !alreadyMatched){
-      try{ await dbCap.collection('matches').doc(conversationId(me, targetId)).set({ users: [me, targetId].sort(), ts: Date.now() }); }catch(e){}
-    }
-
-    // אין עדיין התאמה הדדית — רק שומרים את העניין, לא יוצרים שיחה ולא פותחים צ'אט
-    if(!mutual){
-      flashTargetHint('העניין נשמר — הצ׳אט ייפתח כשגם הצד השני ילחץ 🎯');
-      targetBusy = false;
-      return;
-    }
-
-    // 3. יוצרים את השיחה בין שני המשתמשים — רק אם עוד לא קיימת, כדי לא ליצור כפולה ולא לדרוס הודעות
-    await ensureConversation(me, targetId);
-
-    // 4. פותחים מיד את הצ'אט עם אותו משתמש — בלי להחליף משתמש ובלי לעבור לכרטיס אחר
-    currentMatchId = targetId; currentMatchData = targetData;
-    document.getElementById('chat-name').textContent = targetData.currentName || targetData.birthFirstName || 'אנונימי/ת';
-    document.getElementById('chat-sub').textContent = matchCategoryLabel(overallCompatibility(myProfile, targetData));
-    targetBusy = false;
-    openChat();
-    return;
-    // לא מתקדמים אוטומטית לכרטיס הבא — 🎯 משמש רק להבעת עניין/יצירת התאמה, המעבר בין כרטיסים הוא רק בהחלקה
   }
 
 
