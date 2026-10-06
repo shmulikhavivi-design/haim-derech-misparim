@@ -1347,19 +1347,33 @@
     }
   }
 
-  // המשתמש המחובר לעולם לא מוצג לעצמו: לפי המזהה, ולפי פרופיל כפול של אותו אדם (אותו שם מלא ותאריך לידה)
+  // המשתמש המחובר לעולם לא מוצג לעצמו: לפי המזהה, ולפי פרופיל נוסף של אותו אדם (אותו שם מלא)
   var matchQueueFor = null;   // המשתמש שעבורו נבנתה רשימת הכרטיסים
   function isSelfCard(entry, ownerId, ownerProfile){
     if(!entry) return false;
     var d = entry.data || {};
     if(entry.id === ownerId || (d.id && d.id === ownerId)) return true;
     if(ownerProfile && entry.id && ownerProfile.id && entry.id === ownerProfile.id) return true;
-    if(ownerProfile && ownerProfile.birthdate && d.birthdate === ownerProfile.birthdate){
-      var a = ((ownerProfile.birthFirstName||'') + ' ' + (ownerProfile.birthLastName||'')).replace(/\s+/g,' ').trim();
-      var b = ((d.birthFirstName||'') + ' ' + (d.birthLastName||'')).replace(/\s+/g,' ').trim();
+    // אותו אדם עם חשבון/פרופיל נוסף (למשל נועה שנרשמה עם אימייל, מול כרטיס נועה כהן הקיים)
+    if(ownerProfile){
+      var a = selfCardName(ownerProfile), b = selfCardName(d);
       if(a && a === b) return true;
     }
     return false;
+  }
+  function selfCardName(p){
+    var n = ((p.birthFirstName||'') + ' ' + (p.birthLastName||'')).replace(/\s+/g,' ').trim();
+    if(!(p.birthFirstName && p.birthLastName)) n = String(p.currentName||'').replace(/\s+/g,' ').trim() || n;
+    return n;
+  }
+  // כשהמחוברת היא נועה (הכרטיס שלה הוסר כי הוא היא עצמה) — מציגים קודם את הכרטיס של שמוליק
+  function preferredFirstCardIndex(ownerId, ownerProfile){
+    if(!matchQueue || typeof realUserId === 'undefined' || !realUserId || ownerId === realUserId) return -1;
+    var second = (typeof SECOND_USER_ID !== 'undefined') ? SECOND_USER_ID : 'demo1';
+    var noa = null;
+    demoProfiles.forEach(function(p){ if(p.id === second) noa = p; });
+    if(ownerId !== second && !(noa && isSelfCard({ id: second, data: noa }, ownerId, ownerProfile))) return -1;
+    return matchQueue.map(function(e){ return e.id; }).indexOf(realUserId);
   }
 
   async function buildMatchQueueIfNeeded(){
@@ -1382,6 +1396,8 @@
     matchQueue = pool; // every candidate stays browsable via swipe, regardless of past 🎯 taps
     matchQueueFor = owner;
     matchQueueIndex = 0;
+    var firstIdx = preferredFirstCardIndex(owner, ownerProfile);
+    if(firstIdx !== -1) matchQueueIndex = firstIdx;
   }
 
   function showCardAt(index){
