@@ -1347,8 +1347,24 @@
     }
   }
 
+  // המשתמש המחובר לעולם לא מוצג לעצמו: לפי המזהה, ולפי פרופיל כפול של אותו אדם (אותו שם מלא ותאריך לידה)
+  var matchQueueFor = null;   // המשתמש שעבורו נבנתה רשימת הכרטיסים
+  function isSelfCard(entry, ownerId, ownerProfile){
+    if(!entry) return false;
+    var d = entry.data || {};
+    if(entry.id === ownerId || (d.id && d.id === ownerId)) return true;
+    if(ownerProfile && entry.id && ownerProfile.id && entry.id === ownerProfile.id) return true;
+    if(ownerProfile && ownerProfile.birthdate && d.birthdate === ownerProfile.birthdate){
+      var a = ((ownerProfile.birthFirstName||'') + ' ' + (ownerProfile.birthLastName||'')).replace(/\s+/g,' ').trim();
+      var b = ((d.birthFirstName||'') + ' ' + (d.birthLastName||'')).replace(/\s+/g,' ').trim();
+      if(a && a === b) return true;
+    }
+    return false;
+  }
+
   async function buildMatchQueueIfNeeded(){
-    if(matchQueue) return;
+    if(matchQueue && matchQueueFor === myId) return;
+    var owner = myId, ownerProfile = myProfile;
     var pool = demoProfiles.filter(function(p){ return p.id !== myId; }).map(function(p){ return {id:p.id, data:p}; });
     if(dbCap && myId){
       try{
@@ -1361,11 +1377,22 @@
         });
       }catch(e){ /* keep just the demo profiles */ }
     }
+    if(myId !== owner) return;   // המשתמש הוחלף בזמן הטעינה — הרשימה הזו לא שלו
+    pool = pool.filter(function(e){ return !isSelfCard(e, owner, ownerProfile); });
     matchQueue = pool; // every candidate stays browsable via swipe, regardless of past 🎯 taps
+    matchQueueFor = owner;
     matchQueueIndex = 0;
   }
 
   function showCardAt(index){
+    // הגנה נוספת: אם ברשימה נשאר כרטיס של המשתמש המחובר עצמו — מסירים אותו לפני ההצגה
+    if(matchQueue && matchQueue.some(function(e){ return isSelfCard(e, myId, myProfile); })){
+      var wantedId = matchQueue[Math.max(0, Math.min(index, matchQueue.length - 1))];
+      wantedId = wantedId && wantedId.id;
+      matchQueue = matchQueue.filter(function(e){ return !isSelfCard(e, myId, myProfile); });
+      var ni = matchQueue.map(function(e){ return e.id; }).indexOf(wantedId);
+      if(ni !== -1) index = ni;
+    }
     if(!matchQueue || matchQueue.length === 0){ currentMatchId=null; renderNoMoreMatches(); return; }
     if(index < 0) index = 0;
     if(index > matchQueue.length - 1) index = matchQueue.length - 1;
