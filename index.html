@@ -96,6 +96,86 @@
   .match-pct{ color:var(--gold); font-size:14px; margin-top:4px; font-weight:500; }
   .why{ margin-top:14px; font-size:13.5px; line-height:1.7; color:#6B4F53; border-top:1px solid var(--line); padding-top:14px; }
   .actions{ display:flex; justify-content:center; padding:18px 0 4px; }
+  /* חצי מעבר בין פרופילים (בצדי הכרטיס) */
+  .card-wrap{ flex:1; display:flex; flex-direction:column; position:relative; min-height:0; }
+  .card-arrow{
+    position:absolute; top:26%; transform:translateY(-50%); z-index:5;
+    width:40px; height:40px; border-radius:50%; border:1.5px solid var(--gold);
+    background:rgba(255,248,246,.88); color:var(--gold);
+    font-family:'Heebo',sans-serif; font-size:28px; font-weight:700; line-height:1;
+    display:flex; align-items:center; justify-content:center; padding:0;
+    cursor:pointer; box-shadow:0 2px 8px rgba(59,36,41,.18);
+    -webkit-tap-highlight-color:transparent;
+  }
+  .card-arrow:active{ transform:translateY(-50%) scale(.9); }
+  .card-arrow-prev{ right:8px; }
+  .card-arrow-next{ left:8px; }
+  .card-arrow[disabled]{ opacity:.3; cursor:default; }
+  .card-arrow.hidden{ display:none; }
+  /* ⋯ חסימה / דיווח */
+  .card-more{
+    position:absolute; top:10px; left:10px; z-index:6; width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--line); background:rgba(255,248,246,.88); color:var(--cream);
+    font-size:20px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0 0 6px;
+    box-shadow:0 1px 5px rgba(59,36,41,.15); -webkit-tap-highlight-color:transparent;
+  }
+  .card-more.hidden{ display:none; }
+  .chat-more{
+    margin-right:auto; width:36px; height:36px; border-radius:50%; border:1px solid var(--line);
+    background:var(--card); color:var(--cream); font-size:20px; line-height:1; cursor:pointer; padding:0 0 6px; flex-shrink:0;
+  }
+  .topbar{ position:relative; }
+  .top-icon-btn{
+    position:absolute; left:0; top:50%; transform:translateY(-60%); width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--line); background:var(--card); font-size:16px; cursor:pointer; padding:0;
+  }
+  .match-extra{ color:var(--muted); font-size:12.5px; margin-top:4px; line-height:1.5; }
+  .match-extra:empty{ display:none; }
+  .pf-section{ font-size:13px; color:var(--gold); font-weight:500; margin:4px 0 8px; }
+  /* הגדרות */
+  .set-group{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:6px 0; margin-top:14px; }
+  .set-title{ font-size:12px; color:var(--muted); padding:6px 16px 4px; }
+  .set-row{
+    width:100%; display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:none; border:none; border-top:1px solid var(--line); padding:13px 16px; cursor:pointer;
+    font-family:'Heebo',sans-serif; font-size:15px; color:var(--cream); text-align:right;
+  }
+  .set-title + .set-row{ border-top:none; }
+  .set-row b{ color:var(--muted); font-weight:400; }
+  .set-danger span{ color:var(--rose); font-weight:500; }
+  .set-note{ font-size:12px; color:var(--muted); padding:4px 16px 8px; line-height:1.5; }
+  /* חלון תחתון */
+  .hdm-sheet-back{ position:absolute; inset:0; z-index:300; background:rgba(59,36,41,.45); display:none; align-items:flex-end; }
+  .hdm-sheet-back.open{ display:flex; }
+  .hdm-sheet{
+    width:100%; background:var(--bg); border-radius:22px 22px 0 0; padding:18px 18px calc(22px + env(safe-area-inset-bottom, 0px));
+    max-height:88%; overflow-y:auto; color:var(--cream); font-family:'Heebo',sans-serif;
+  }
+  .hdm-sheet h3{ font-family:'Frank Ruhl Libre',serif; font-size:19px; margin:0 0 6px; }
+  .hdm-sheet p{ font-size:13.5px; line-height:1.6; color:#6B4F53; margin:0 0 12px; }
+  .hdm-sheet ul{ font-size:13px; line-height:1.7; color:#6B4F53; margin:0 0 12px; padding-right:18px; }
+  .sheet-btn{
+    width:100%; display:block; margin-top:8px; padding:13px; border-radius:14px; border:1px solid var(--line);
+    background:var(--card); color:var(--cream); font-family:'Heebo',sans-serif; font-size:15px; cursor:pointer; text-align:center;
+  }
+  .sheet-btn.primary{ background:var(--gold); color:#FFF8F6; border-color:var(--gold); font-weight:700; }
+  .sheet-btn.danger{ background:var(--rose); color:#FFF8F6; border-color:var(--rose); font-weight:700; }
+  .sheet-btn[disabled]{ opacity:.5; cursor:default; }
+  .sheet-opt{ display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line); font-size:14.5px; cursor:pointer; }
+  .sheet-opt input{ accent-color:var(--gold); width:18px; height:18px; }
+  .hdm-sheet textarea, .hdm-sheet input[type=text]{
+    width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+    font-family:'Heebo',sans-serif; font-size:14.5px; background:var(--card); color:var(--cream); margin-top:10px;
+  }
+  .sheet-status{ font-size:13px; min-height:18px; margin-top:8px; text-align:center; color:var(--rose); }
+  .blocked-row{ display:flex; justify-content:space-between; align-items:center; padding:11px 2px; border-bottom:1px solid var(--line); font-size:14.5px; }
+  .blocked-row button{ border:1px solid var(--gold); background:none; color:var(--gold); border-radius:12px; padding:6px 12px; font-family:'Heebo'; font-size:13px; cursor:pointer; }
+  .hdm-toast{
+    position:absolute; left:16px; right:16px; top:calc(env(safe-area-inset-top, 0px) + 58px); z-index:320; background:var(--cream); color:#FFF8F6;
+    border-radius:14px; padding:11px 14px; font-family:'Heebo',sans-serif; font-size:14px; text-align:center;
+    box-shadow:0 6px 18px rgba(0,0,0,.2); opacity:0; transition:opacity .25s; pointer-events:none;
+  }
+  .hdm-toast.show{ opacity:1; }
   .target-btn{
     width:74px; height:74px; border-radius:50%; background:var(--card2);
     border:2px solid var(--gold); font-size:30px; cursor:pointer;
@@ -174,6 +254,7 @@
     cursor:pointer; max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .test-user-chip.is-second{ background:var(--rose); color:#FFF8F6; }
+  #test-user-chip, #test-bar{ display:none !important; }   /* כלי המעבר בין משתמשים הוסרו */
 
   /* כפתור בדיקה קבוע בתחתית: החלף משתמש */
   .switch-user-btn{
@@ -183,7 +264,7 @@
     padding:10px 12px; font-family:'Heebo'; font-weight:700; font-size:15px; cursor:pointer;
     box-shadow:0 4px 14px rgba(0,0,0,.15);
   }
-  .switch-user-btn span{ font-weight:400; font-size:12px; opacity:.9; margin-top:2px; }
+  .switch-user-btn span{ display:none !important; }   /* כפתור "יציאה": בלי שורת משתמש 1 / משתמש 2 */
   .switch-user-btn:active{ transform:scale(.98); }
   #screen-match.active ~ .switch-user-btn,
   #screen-chats.active ~ .switch-user-btn,
@@ -267,6 +348,14 @@
     color:#F2EADF; font-family:'Heebo',sans-serif;
   }
   .signup.open{ display:block; }
+  .signup.legal{ z-index:150; }
+  .legal-draft{ background:rgba(226,183,105,.12); border:1px dashed #E2B769; color:#E9D6AE; border-radius:12px; padding:10px 12px; font-size:13px; line-height:1.55; margin-bottom:16px; }
+  #legal-body h4{ color:#E2B769; font-size:15px; margin:16px 0 4px; font-weight:600; }
+  #legal-body p{ color:#D9CFC2; font-size:13.5px; line-height:1.6; margin:0; }
+  .legal-links{ margin-top:10px; font-size:12.5px; color:#A99E90; }
+  .legal-links a{ color:#E2B769; text-decoration:underline; }
+  .su-legal{ text-align:center; margin:4px 0 10px; }
+  .su-section{ color:#E2B769; font-size:14px; font-weight:600; margin:18px 0 10px; padding-top:12px; border-top:1px solid rgba(226,183,105,.25); }
   .signup-inner{ padding:22px 24px 36px; max-width:420px; margin:0 auto; }
   .signup-back{
     background:none; border:none; color:#E2B769; font-family:'Heebo',sans-serif; font-size:15px;
@@ -486,21 +575,50 @@
 
   <!-- מסך 2: התאמה -->
   <div class="screen" id="screen-match">
-    <div class="topbar"><div class="brand">חיים <b>דרך מספרים</b></div></div>
+    <div class="topbar"><div class="brand">חיים <b>דרך מספרים</b></div>
+      <button type="button" class="top-icon-btn" id="open-settings-btn" aria-label="הגדרות ופרטיות" onclick="openSettings()">⚙️</button></div>
+    <div class="card-wrap">
+    <button type="button" class="card-more" id="card-more" aria-label="חסימה או דיווח" onclick="openUserActions('card')">⋯</button>
+    <button type="button" class="card-arrow card-arrow-prev" id="card-prev" aria-label="הפרופיל הקודם" onclick="navCard(-1)"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button type="button" class="card-arrow card-arrow-next" id="card-next" aria-label="הפרופיל הבא" onclick="navCard(1)"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <div class="match-card" id="match-card">
       <div class="photo" id="match-photo">תמונת פרופיל
         <div class="num-badge" id="match-num">–</div>
       </div>
       <div class="info">
         <div class="name-row"><h3 id="match-name">–</h3><span id="match-age"></span></div>
+        <div class="match-extra" id="match-extra"></div>
         <div class="match-pct" id="match-pct"></div>
         <div class="why" id="match-why"></div>
       </div>
+    </div>
     </div>
     <div class="actions"><button class="target-btn" onclick="onTargetClick()">🎯</button></div>
     <div class="hint" id="match-hint">לחצו על המטרה אם יש עניין</div>
     <div class="my-chats-link" id="my-chats-link">💬 השיחות שלי<span class="unread-badge" id="my-chats-badge" style="display:none"></span></div>
     <div class="my-chats-link" id="my-profile-link">👤 הפרופיל שלי</div>
+  </div>
+
+  <!-- הגדרות, פרטיות ובטיחות -->
+  <div class="screen" id="screen-settings">
+    <div class="brand">חיים <b>דרך מספרים</b></div>
+    <div class="lead" style="margin:12px 0 4px;"><h2>הגדרות ופרטיות</h2></div>
+    <div class="set-group">
+      <div class="set-title">בטיחות</div>
+      <button type="button" class="set-row" onclick="openBlockedList()"><span>🚫 משתמשים שחסמתי</span><b id="set-blocked-count"></b></button>
+      <div class="set-note">חסימה ודיווח על משתמש: דרך הכפתור ⋯ בכרטיס הפרופיל או בצ׳אט.</div>
+    </div>
+    <div class="set-group">
+      <div class="set-title">מסמכים</div>
+      <button type="button" class="set-row" onclick="openLegal('privacy')"><span>🔒 מדיניות פרטיות</span><b>‹</b></button>
+      <button type="button" class="set-row" onclick="openLegal('terms')"><span>📄 תנאי שימוש</span><b>‹</b></button>
+    </div>
+    <div class="set-group">
+      <div class="set-title">חשבון</div>
+      <button type="button" class="set-row" onclick="logoutToAuthChoice()"><span>🚪 יציאה מהחשבון</span><b>‹</b></button>
+      <button type="button" class="set-row set-danger" onclick="openDeleteAccount()"><span>🗑️ מחיקת חשבון</span><b>‹</b></button>
+    </div>
+    <div class="skip-link" onclick="go('screen-match')">חזרה להתאמות</div>
   </div>
 
   <!-- מסך חדש: השיחות שלי -->
@@ -522,8 +640,26 @@
       <div class="field"><label>גיל</label><input type="number" id="profile-age" placeholder="29"></div>
       <div class="field"><label>עיר</label><input type="text" id="profile-city" placeholder="תל אביב"></div>
     </div>
+    <div class="field-row">
+      <div class="field"><label>גובה (ס״מ)</label><input type="number" id="pf-height" inputmode="numeric" min="120" max="230" placeholder="לא חובה"></div>
+      <div class="field"><label>מצב משפחתי</label>
+        <select id="pf-marital"><option value="">לא צוין</option><option value="רווק/ה">רווק/ה</option><option value="גרוש/ה">גרוש/ה</option><option value="פרוד/ה">פרוד/ה</option><option value="אלמן/ה">אלמן/ה</option></select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>ילדים</label>
+        <select id="pf-children"><option value="">לא צוין</option><option value="לא">לא</option><option value="כן">כן</option></select></div>
+      <div class="field" id="pf-childcount-wrap" style="display:none"><label>כמה ילדים</label><input type="number" id="pf-childcount" inputmode="numeric" min="1" max="20"></div>
+      <div class="field"><label>עישון</label>
+        <select id="pf-smoking"><option value="">לא צוין</option><option value="לא">לא</option><option value="כן">כן</option></select></div>
+    </div>
+    <div class="pf-section">טווח גילאים רצוי להיכרות</div>
+    <div class="field-row">
+      <div class="field"><label>מגיל</label><input type="number" id="pf-agemin" inputmode="numeric" min="18" max="99" placeholder="18"></div>
+      <div class="field"><label>עד גיל</label><input type="number" id="pf-agemax" inputmode="numeric" min="18" max="99" placeholder="99"></div>
+    </div>
     <div class="form-status" id="profile-status"></div>
     <button class="btn" type="button" id="profile-save-btn">שמירה</button>
+    <div class="my-chats-link" onclick="openSettings()">⚙️ הגדרות, פרטיות ובטיחות</div>
     <div class="skip-link" id="profile-back">חזרה להתאמות</div>
   </div>
 
@@ -542,6 +678,7 @@
     <div class="chat-head">
       <div class="avatar" id="chat-avatar"></div>
       <div><h3 id="chat-name">–</h3><span id="chat-sub"></span></div>
+      <button type="button" class="chat-more" aria-label="חסימה או דיווח" onclick="openUserActions('chat')">⋯</button>
     </div>
     <div class="msgs" id="chat-msgs"></div>
     <div class="composer">
@@ -556,7 +693,7 @@
   </div>
 
   <!-- כפתור בדיקה: החלפת משתמש -->
-  <button type="button" class="switch-user-btn" id="switch-user-btn">🔄 החלף משתמש<span id="switch-user-sub"></span></button>
+  <button type="button" class="switch-user-btn" id="switch-user-btn">🚪 יציאה<span id="switch-user-sub"></span></button>
 
   <!-- בדיקה: שני משתמשים נפרדים באותו מכשיר -->
   <button type="button" class="test-user-chip" id="test-user-chip" style="display:none"></button>
@@ -575,6 +712,7 @@
         <button type="button" class="auth-btn auth-btn-secondary" onclick="chooseAuth('login')">התחברות</button>
       </div>
       <p class="auth-note">כבר רשומים? בחרו התחברות</p>
+      <p class="legal-links"><a href="#" onclick="openLegal('privacy');return false;">מדיניות פרטיות</a> · <a href="#" onclick="openLegal('terms');return false;">תנאי שימוש</a></p>
     </div>
   </div>
 
@@ -605,6 +743,7 @@
         <div class="su-pass"><input type="password" id="su-pass" dir="ltr" autocomplete="new-password"><button type="button" onclick="toggleSignupPass(this)">הצגה</button></div>
         <div class="su-hint">לפחות 8 תווים</div><span class="su-err"></span></div>
 
+      <p class="legal-links su-legal">ההרשמה מיועדת לגילאי 18 ומעלה. <a href="#" onclick="openLegal('terms');return false;">תנאי שימוש</a> · <a href="#" onclick="openLegal('privacy');return false;">מדיניות פרטיות</a></p>
       <button type="button" class="su-submit" onclick="submitSignup()">המשך</button>
       <div class="su-status" id="su-status" role="status"></div>
     </div>
@@ -626,6 +765,29 @@
 
       <div class="su-field" id="su2-f-looking"><label for="su2-looking">מחפש/ת</label>
         <select id="su2-looking"><option value="">בחרו</option><option value="גברים">גברים</option><option value="נשים">נשים</option><option value="כולם">כולם</option></select><span class="su-err"></span></div>
+
+      <div class="su-section">עוד קצת עליך</div>
+      <div class="su-row">
+        <div class="su-field" id="su2-f-height"><label for="su2-height">גובה (ס״מ)</label>
+          <input type="number" id="su2-height" inputmode="numeric" min="120" max="230" placeholder="לא חובה"><span class="su-err"></span></div>
+        <div class="su-field" id="su2-f-marital"><label for="su2-marital">מצב משפחתי</label>
+          <select id="su2-marital"><option value="">בחרו</option><option value="רווק/ה">רווק/ה</option><option value="גרוש/ה">גרוש/ה</option><option value="פרוד/ה">פרוד/ה</option><option value="אלמן/ה">אלמן/ה</option></select><span class="su-err"></span></div>
+      </div>
+      <div class="su-row">
+        <div class="su-field" id="su2-f-children"><label for="su2-children">ילדים</label>
+          <select id="su2-children"><option value="">בחרו</option><option value="לא">לא</option><option value="כן">כן</option></select><span class="su-err"></span></div>
+        <div class="su-field" id="su2-f-childcount" style="display:none"><label for="su2-childcount">כמה ילדים</label>
+          <input type="number" id="su2-childcount" inputmode="numeric" min="1" max="20"><span class="su-err"></span></div>
+      </div>
+      <div class="su-field" id="su2-f-smoking"><label for="su2-smoking">עישון</label>
+        <select id="su2-smoking"><option value="">בחרו</option><option value="לא">לא</option><option value="כן">כן</option></select><span class="su-err"></span></div>
+      <div class="su-section">את מי הייתי רוצה להכיר</div>
+      <div class="su-row">
+        <div class="su-field" id="su2-f-agemin"><label for="su2-agemin">מגיל</label>
+          <input type="number" id="su2-agemin" inputmode="numeric" min="18" max="99" placeholder="18"><span class="su-err"></span></div>
+        <div class="su-field" id="su2-f-agemax"><label for="su2-agemax">עד גיל</label>
+          <input type="number" id="su2-agemax" inputmode="numeric" min="18" max="99" placeholder="99"><span class="su-err"></span></div>
+      </div>
 
       <div class="su-field" id="su2-f-bio"><label for="su2-bio">כמה מילים על עצמי</label>
         <textarea id="su2-bio" rows="3" maxlength="150" placeholder="מה חשוב לך, מה את/ה אוהב/ת..."></textarea>
@@ -680,6 +842,21 @@
       <button type="button" class="su-submit" id="li-submit" onclick="submitLogin()">התחבר</button>
       <div class="su-status" id="li-status" role="status"></div>
     </div>
+  </div>
+
+  <!-- מדיניות פרטיות / תנאי שימוש (נוסח זמני עד אישור משפטי) -->
+  <div class="signup legal" id="legal-screen" aria-hidden="true">
+    <div class="signup-inner">
+      <button type="button" class="signup-back" onclick="closeLegal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
+      <h2 class="signup-title" id="legal-title">מדיניות פרטיות</h2>
+      <div class="legal-draft">⚠️ טיוטת מבנה בלבד — הנוסח המשפטי הסופי טרם אושר ויתווסף כאן.</div>
+      <div id="legal-body"></div>
+    </div>
+  </div>
+
+  <!-- חלון תחתון: חסימה / דיווח / מחיקת חשבון -->
+  <div class="hdm-sheet-back" id="hdm-sheet-back" onclick="if(event.target===this)closeSheet()">
+    <div class="hdm-sheet" id="hdm-sheet" role="dialog" aria-modal="true"></div>
   </div>
 
   <!-- מסך פתיחה מקורי -->
@@ -943,7 +1120,7 @@
     }
 
     // ---- העברת הנתונים הקיימים מהאפליקציה ב-Claude (פעם אחת; לא דורס שום דבר שכבר קיים ב-Supabase) ----
-    var MIGRATION_DOCS = [{"collection": "chatReads", "id": "demo1___demo1__u_RhlgKHtVjGNF1PGtkM50Kw", "data": {"lastRead": 1790797897882}}, {"collection": "chatReads", "id": "u_RhlgKHtVjGNF1PGtkM50Kw___demo1__u_RhlgKHtVjGNF1PGtkM50Kw", "data": {"lastRead": 1790797897882}}, {"collection": "chats", "id": "demo1__u_RhlgKHtVjGNF1PGtkM50Kw", "data": {"messages": [{"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "שלום", "ts": 1790729865879}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "היי נועה", "ts": 1790754437592}, {"senderId": "demo1", "text": "היי שמוליק", "ts": 1790755375189}, {"senderId": "demo1", "text": "מה איתך", "ts": 1790755907833}, {"senderId": "demo1", "text": "איך מרגיש", "ts": 1790755922320}, {"senderId": "demo1", "text": "טוב טוב", "ts": 1790755990747}, {"senderId": "demo1", "text": "טוב טוב", "ts": 1790755997647}, {"senderId": "demo1", "text": "היי היי", "ts": 1790756052308}, {"senderId": "demo1", "text": "בדיקה", "ts": 1790756189656}, {"senderId": "demo1", "text": "בדיקה חדשה", "ts": 1790757156645}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה 123", "ts": 1790757534057}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "הודעה חדשה לבדיקה", "ts": 1790757936193}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה אחרי תיקון", "ts": 1790758232260}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה אחרי תיקון 2", "ts": 1790758335662}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה 456", "ts": 1790758681966}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "שלום נועה זאת הודעה משמוליק", "ts": 1790759327457}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה משמוליק", "ts": 1790759633537}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה משמוליק", "ts": 1790759806572}, {"senderId": "demo1", "text": "בדיקה מנועה", "ts": 1790760007384}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה משמוליק לנועה", "ts": 1790760772713}, {"senderId": "demo1", "text": "בדיקה 123", "ts": 1790766093814}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדירה 789", "ts": 1790766241915}, {"senderId": "demo1", "text": "בדיקת מונה 1", "ts": 1790766567591}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקת קריאה", "ts": 1790766932129}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקת קריאה 2", "ts": 1790767257906}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקת קריאה 3", "ts": 1790767825011}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקת קריאה 4", "ts": 1790768164627}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקת קריאה 5", "ts": 1790768581571}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקת זמן אמת", "ts": 1790769174460}, {"senderId": "demo1", "text": "בדיקה מנועה בזמן אמת", "ts": 1790769585723}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה חדש 1", "ts": 1790770007255}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה חדשה 2", "ts": 1790770017326}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה 3", "ts": 1790770259620}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה 4", "ts": 1790770268809}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקת התראה", "ts": 1790770885857}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה אחרונה", "ts": 1790771022649}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה חדשה", "ts": 1790772999447}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "קיבלתי", "ts": 1790773070941}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה מנועה", "ts": 1790773257251}, {"senderId": "u_RhlgKHtVjGNF1PGtkM50Kw", "text": "בדיקה משמוליק", "ts": 1790793876515}, {"senderId": "demo1", "text": "הודעת בדיקה 1", "ts": 1790797897882}], "updatedAt": 1790797898485}}, {"collection": "interests", "id": "u_RhlgKHtVjGNF1PGtkM50Kw__demo1", "data": {"from": "u_RhlgKHtVjGNF1PGtkM50Kw", "to": "demo1", "ts": 1790793134410}}];
+    var MIGRATION_DOCS = [];   // הנתונים של משתמשי הדמו לא נזרעים יותר
     var seeded = (async function(){
       if(!sb) return;
       try{
@@ -1156,13 +1333,8 @@
       likes: [], isDemo: true
     };
   }
-  var demoProfiles = [
-    buildDemoProfile('demo1','נועה','כהן','30','אישה','גברים','תל אביב','מעצבת גרפית','יוגה, ציור, טיולים','אוהבת שקיעות ושיחות עומק, מחפשת חיבור אמיתי.','1996-05-14'),
-    buildDemoProfile('demo2','איתן','לוי','33','גבר','נשים','חיפה','מהנדס תוכנה','שחייה, בישול, מוזיקה','רגוע, סקרן ואוהב ללמוד דברים חדשים כל הזמן.','1993-07-22'),
-    buildDemoProfile('demo3','מאיה','שרון','36','אישה','גברים','ירושלים','מטפלת הוליסטית','מדיטציה, טבע, ספרות','מאמינה שהיקום מדבר אלינו במספרים ובסימנים.','1990-01-02'),
-    buildDemoProfile('demo4','דניאל','אזולאי','34','גבר','כולם','באר שבע','יזם','אופניים, סטארטאפים, קפה טוב','אנרגטי, ישיר, ומחפש מישהי שתאתגר אותו.','1992-01-07'),
-    buildDemoProfile('demo5','שירה','בן דוד','26','אישה','גברים','רמת גן','סטודנטית לפסיכולוגיה','ריקוד, קולנוע, כתיבה','חמה, סקרנית ומאמינה בגורל.','2000-09-18')
-  ];
+  // פרופילי הדמו הוסרו לפני ההשקה — מוצגים רק משתמשים אמיתיים שנרשמו
+  var demoProfiles = [];
 
   // ---- Real backend: db + user + assets ----
   var dbCap=null, userCap=null, assetsCap=null, myId=null;
@@ -1239,6 +1411,12 @@
         }
         var existing = await dbCap.doc('profiles/'+myId).get();
         profile.likes = (existing.exists && existing.data().likes) || [];
+        if(existing.exists){   // שומרים את הפרטים הנוספים (גובה, מצב משפחתי וכו') שלא מופיעים בטופס הזה
+          var ex = existing.data() || {};
+          ['height','maritalStatus','hasChildren','childrenCount','smoking','ageMin','ageMax','createdAt','bio','interests'].forEach(function(k){
+            if(ex[k] != null && (profile[k] == null || profile[k] === '')) profile[k] = ex[k];
+          });
+        }
         if(!profile.photoUrl && existing.exists){
           profile.photoUrl = existing.data().photoUrl || '';
           profile.photoAssetId = existing.data().photoAssetId || '';
@@ -1257,6 +1435,7 @@
     document.getElementById('match-name').textContent = 'אין עוד התאמות כרגע';
     document.getElementById('match-age').textContent = '';
     document.getElementById('match-num').textContent = '–';
+    var mx = document.getElementById('match-extra'); if(mx) mx.textContent = '';
     document.getElementById('match-pct').textContent = '';
     document.getElementById('match-why').textContent = 'חזרו מאוחר יותר, משתמשים חדשים מצטרפים כל הזמן.';
     document.getElementById('match-photo').style.backgroundImage = '';
@@ -1267,6 +1446,7 @@
     document.getElementById('match-age').textContent =
       (data.age ? 'גיל '+data.age : '') + (data.location ? ' · '+data.location : '');
     document.getElementById('match-num').textContent = data.lifePathNumber;
+    try{ document.getElementById('match-extra').textContent = hdmExtraLine(data); }catch(e){}
     var result = overallCompatibility(myProfile, data);
     document.getElementById('match-pct').textContent = matchCategoryLabel(result);
     document.getElementById('match-why').textContent = generateWhy(result);
@@ -1376,15 +1556,118 @@
     return matchQueue.map(function(e){ return e.id; }).indexOf(realUserId);
   }
 
+  // ---- סינון לפי מגדר ולפי מי שכל צד מחפש (בשני הכיוונים) ----
+  function hdmGenderCode(v){
+    var s = String(v == null ? '' : v).trim().toLowerCase();
+    if(!s) return '';
+    if(['גבר','גברים','זכר','male','man','men','m'].indexOf(s) !== -1) return 'm';
+    if(['אישה','אשה','נשים','נקבה','female','woman','women','f'].indexOf(s) !== -1) return 'f';
+    return 'o';   // "אחר" או ערך אחר
+  }
+  function hdmSeekCode(v){
+    var s = String(v == null ? '' : v).trim().toLowerCase();
+    if(!s || ['כולם','הכל','הכול','all','any','both','everyone'].indexOf(s) !== -1) return 'all';
+    var g = hdmGenderCode(s);
+    return (g === 'm' || g === 'f') ? g : 'all';
+  }
+  // האם seeker מחפש מישהו במגדר של person. מגדר לא ידוע לא נפסל (אין לפי מה לסנן)
+  function hdmSeeks(seeker, person){
+    var want = hdmSeekCode(seeker && seeker.lookingFor);
+    if(want === 'all') return true;
+    var g = hdmGenderCode(person && person.gender);
+    if(!g) return true;
+    return g === want;
+  }
+  // כרטיס מוצג רק אם אני מחפש/ת את המגדר שלו/ה וגם הוא/היא מחפש/ת את המגדר שלי
+  function passesGenderFilter(entry, ownerProfile){
+    if(!ownerProfile || !entry) return true;
+    var d = entry.data || {};
+    return hdmSeeks(ownerProfile, d) && hdmSeeks(d, ownerProfile);
+  }
+  function genderPrefKey(p){ return p ? (hdmGenderCode(p.gender) + '|' + hdmSeekCode(p.lookingFor) + '|' + (p.ageMin || '') + '-' + (p.ageMax || '')) : ''; }
+
+  // ---- פרופילים פיקטיביים (דמו / בדיקה) לא מוצגים לאף אחד ----
+  function isFictitiousId(id){
+    id = String(id || '');
+    return /^demo\d*$/.test(id) || id.slice(-6) === '-test2';
+  }
+
+  // ---- טווח גילאים רצוי (בשני הכיוונים). גיל או טווח שלא ידועים — לא פוסלים ----
+  function hdmAgeOf(p){
+    if(!p) return null;
+    var a = parseInt(p.age, 10);
+    if(!(a > 0) && p.birthdate){
+      var b = new Date(p.birthdate + 'T00:00:00'), now = new Date();
+      if(!isNaN(b.getTime())){
+        a = now.getFullYear() - b.getFullYear();
+        if(now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) a--;
+      }
+    }
+    return a > 0 ? a : null;
+  }
+  function hdmAgeAccepts(seeker, person){
+    var age = hdmAgeOf(person);
+    if(age === null || !seeker) return true;
+    var mn = parseInt(seeker.ageMin, 10), mx = parseInt(seeker.ageMax, 10);
+    if(mn > 0 && age < mn) return false;
+    if(mx > 0 && age > mx) return false;
+    return true;
+  }
+
+  // ---- חסימות: blocks/<חוסם>__<נחסם>. חסימה פועלת בשני הכיוונים (לא רואים, לא 🎯, לא הודעות) ----
+  var hdmBlocks = [];          // [{by, target}]
+  var hdmBlocksLoadedAt = 0;
+  async function loadBlocks(){
+    if(!dbCap) return hdmBlocks;
+    try{
+      var qs = await dbCap.collection('blocks').get();
+      hdmBlocks = qs.docs.map(function(d){ var v = d.data() || {}; return { id: d.id, by: v.by, target: v.target }; })
+                         .filter(function(b){ return b.by && b.target; });
+      hdmBlocksLoadedAt = Date.now();
+    }catch(e){}
+    return hdmBlocks;
+  }
+  function isBlockedPair(otherId, me){
+    me = me || myId;
+    if(!me || !otherId) return false;
+    return hdmBlocks.some(function(b){ return (b.by === me && b.target === otherId) || (b.by === otherId && b.target === me); });
+  }
+  function iBlocked(otherId){ return hdmBlocks.some(function(b){ return b.by === myId && b.target === otherId; }); }
+  // בדיקה טרייה מול המסד (לפני שליחת הודעה / 🎯), כדי שחסימה שנעשתה זה עתה תיכנס לתוקף מיד
+  async function isBlockedPairFresh(otherId){
+    if(!dbCap || !myId || !otherId) return isBlockedPair(otherId);
+    try{
+      var r = await Promise.all([
+        dbCap.collection('blocks').doc(myId + '__' + otherId).get(),
+        dbCap.collection('blocks').doc(otherId + '__' + myId).get()
+      ]);
+      return !!(r[0].exists || r[1].exists);
+    }catch(e){ return isBlockedPair(otherId); }
+  }
+  setInterval(function(){ if(dbCap && myId && !document.hidden) loadBlocks(); }, 15000);
+
+  // כרטיס מוצג רק אם: לא פיקטיבי, לא חסום, מגדר ומגדר-מבוקש תואמים, וטווח הגילאים תואם — בשני הכיוונים
+  function passesMatchPrefs(entry, ownerProfile){
+    if(!entry) return false;
+    if(isFictitiousId(entry.id)) return false;
+    if(isBlockedPair(entry.id)) return false;
+    if(!passesGenderFilter(entry, ownerProfile)) return false;
+    if(!ownerProfile) return true;
+    var d = entry.data || {};
+    return hdmAgeAccepts(ownerProfile, d) && hdmAgeAccepts(d, ownerProfile);
+  }
+  var matchQueuePrefKey = null;
+
   async function buildMatchQueueIfNeeded(){
-    if(matchQueue && matchQueueFor === myId) return;
+    if(matchQueue && matchQueueFor === myId && matchQueuePrefKey === genderPrefKey(myProfile)) return;
     var owner = myId, ownerProfile = myProfile;
     var pool = demoProfiles.filter(function(p){ return p.id !== myId; }).map(function(p){ return {id:p.id, data:p}; });
+    if(dbCap && myId){ try{ await loadBlocks(); }catch(e){} }
     if(dbCap && myId){
       try{
         var snap = await dbCap.collection('profiles').get();
         snap.docs.forEach(function(d){
-          if(d.id === myId || !d.data().lifePathNumber || !isVisibleTestProfile(d.id)) return;
+          if(d.id === myId || !d.data().lifePathNumber || !isVisibleTestProfile(d.id) || isFictitiousId(d.id)) return;
           var same = pool.filter(function(x){ return x.id === d.id; })[0];
           if(same){ same.data = Object.assign({}, same.data, d.data()); }
           else{ pool.push({id:d.id, data:d.data()}); }
@@ -1393,6 +1676,8 @@
     }
     if(myId !== owner) return;   // המשתמש הוחלף בזמן הטעינה — הרשימה הזו לא שלו
     pool = pool.filter(function(e){ return !isSelfCard(e, owner, ownerProfile); });
+    pool = pool.filter(function(e){ return passesMatchPrefs(e, ownerProfile); });
+    matchQueuePrefKey = genderPrefKey(ownerProfile);
     matchQueue = pool; // every candidate stays browsable via swipe, regardless of past 🎯 taps
     matchQueueFor = owner;
     matchQueueIndex = 0;
@@ -1409,7 +1694,15 @@
       var ni = matchQueue.map(function(e){ return e.id; }).indexOf(wantedId);
       if(ni !== -1) index = ni;
     }
-    if(!matchQueue || matchQueue.length === 0){ currentMatchId=null; renderNoMoreMatches(); return; }
+    // הגנה נוספת: כרטיס שלא מתאים למגדר / להעדפה לא מוצג לעולם
+    if(matchQueue && matchQueue.some(function(e){ return !passesMatchPrefs(e, myProfile); })){
+      var keepEntry = matchQueue[Math.max(0, Math.min(index, matchQueue.length - 1))];
+      var keepId = keepEntry && keepEntry.id;
+      matchQueue = matchQueue.filter(function(e){ return passesMatchPrefs(e, myProfile); });
+      var ki = matchQueue.map(function(e){ return e.id; }).indexOf(keepId);
+      index = ki !== -1 ? ki : Math.min(index, Math.max(0, matchQueue.length - 1));
+    }
+    if(!matchQueue || matchQueue.length === 0){ currentMatchId=null; renderNoMoreMatches(); updateCardArrows(); return; }
     if(index < 0) index = 0;
     if(index > matchQueue.length - 1) index = matchQueue.length - 1;
     matchQueueIndex = index;
@@ -1417,6 +1710,42 @@
     currentMatchId = entry.id;
     currentMatchData = entry.data;
     renderMatchCard(currentMatchData);
+    updateCardArrows();
+  }
+
+  // ---- חצים למעבר בין פרופילים: אותה פעולה כמו החלקה (שמאלה = הבא, ימינה = הקודם) ----
+  function updateCardArrows(){
+    var prev = document.getElementById('card-prev'), next = document.getElementById('card-next');
+    if(!prev || !next) return;
+    var len = (matchQueue && matchQueue.length) || 0;
+    var hide = len <= 1;
+    prev.classList.toggle('hidden', hide); next.classList.toggle('hidden', hide);
+    prev.disabled = !(matchQueueIndex > 0);
+    next.disabled = !(matchQueueIndex < len - 1);
+    var more = document.getElementById('card-more'); if(more) more.classList.toggle('hidden', !len || !currentMatchId);
+  }
+  var cardNavBusy = false;
+  function navCard(dir){
+    if(cardNavBusy || !matchQueue || !matchQueue.length) return;
+    var target = matchQueueIndex + dir;
+    if(target < 0 || target > matchQueue.length - 1) return;
+    var card = document.getElementById('match-card');
+    cardNavBusy = true;
+    if(card){
+      card.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+      card.style.transform = 'translateX(' + (dir > 0 ? -window.innerWidth : window.innerWidth) + 'px) rotate(' + (dir > 0 ? -20 : 20) + 'deg)';
+      card.style.opacity = 0;
+    }
+    setTimeout(function(){
+      if(card){
+        card.style.transition = 'none';
+        card.style.transform = 'translateX(0px) rotate(0deg)';
+        card.style.opacity = 1;
+        void card.offsetWidth;
+        card.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
+      }
+      try{ showCardAt(target); }finally{ cardNavBusy = false; }
+    }, 200);
   }
 
   async function loadNextMatch(){
@@ -1430,6 +1759,7 @@
 
   // פרופיל דמו שאינו משתמש אמיתי באפליקציה (נועה היא משתמשת 2, ולכן לא נחשבת דמו כאן)
   function isAutoLikeDemo(id){
+    return false;   // אין יותר פרופילי דמו שמחזירים 🎯 אוטומטית
     var second = (typeof SECOND_USER_ID !== 'undefined') ? SECOND_USER_ID : 'demo1';
     return !!id && id.indexOf('demo') === 0 && id !== second;
   }
@@ -1510,6 +1840,7 @@
     var token = targetBusySince;
     function release(){ if(targetBusySince === token){ targetBusy = false; targetBusyFor = null; } }
     try{
+      if(await isBlockedPairFresh(targetId)){ flashTargetHint('לא ניתן ליצור קשר עם משתמש זה'); return; }
       // חיווי מיידי, כדי שהלחיצה תמיד תגיב גם כשהרשת איטית
       var hintEl = document.getElementById('match-hint');
       clearTimeout(flashTargetHint.t);
@@ -1742,8 +2073,9 @@
   var switchUserBtn = document.getElementById('switch-user-btn');
   if(switchUserBtn){
     switchUserBtn.addEventListener('click', function(){
-      // "החלף משתמש": מתנתקים וחוזרים למסך הרשמה / התחברות (בלי החלפה אוטומטית בין שמוליק לנועה)
-      if(typeof logoutToAuthChoice === 'function'){ logoutToAuthChoice(); return; }
+      // "יציאה": מתנתקים מהחשבון (Supabase Auth + הגיבוי) וחוזרים למסך הרשמה / התחברות
+      if(typeof logoutToAuthChoice === 'function'){ logoutToAuthChoice(); }
+      return;
       // החלפת משתמש אמיתית: כל האפליקציה עוברת למשתמש השני, והחיווי מחושב מחדש לפיו
       if(realUserId && dbCap){ switchTestUser(); return; }
       if(!currentMatchId){ return; }
@@ -1791,7 +2123,7 @@
     });
     try{
       var u = await claude.use('user');
-      if(u && await u.isOwner()) bar.style.display = '';
+      // סרגל הבדיקה ("מעבר למשתמש 2") הוסר מהממשק — לא מוצג יותר
     }catch(e){}
   })();
 
@@ -1820,6 +2152,11 @@
     var text = input.value.trim();
     if(!text) return;
     var matchId = currentMatchId;
+    if(await isBlockedPairFresh(matchId)){
+      input.value = '';
+      try{ hdmToast('לא ניתן לשלוח הודעות למשתמש זה'); }catch(e){}
+      return;
+    }
     var newMsg = {senderId: loggedInUserId(), text:text, ts: Date.now()};   // תמיד המשתמש המחובר בזמן השליחה
     // מציגים מיד, ושומרים ברקע
     lastChatMessages = (lastChatMessages || []).slice();
@@ -1924,6 +2261,8 @@
     allChatDocs.forEach(function(d){
       var parts = d.id.split('__');
       if(parts.indexOf(myId) === -1) return;
+      var otherOfConv = parts[0] === myId ? parts[1] : parts[0];
+      if(isFictitiousId(otherOfConv) || isBlockedPair(otherOfConv)) return;   // שיחות עם חסומים / דמו לא נספרות
       total += unreadCount(myId, d.id, (d.data && d.data.messages) || []);
     });
     if(total > 0){ badge.textContent = total > 99 ? '99+' : String(total); badge.style.display = ''; }
@@ -2181,6 +2520,7 @@
     setTimeout(function(){ if(el.style.opacity === '0') el.style.display = 'none'; }, 260);
   }
   function showNewMsgToast(otherId){
+    if(isBlockedPair(otherId) || isFictitiousId(otherId)) return;   // אין התראות ממשתמש חסום
     var el = toastEl();
     el.setAttribute('data-from', otherId);
     var name = toastProfileName(otherId);
@@ -2285,6 +2625,7 @@
     };
   }
   function readDiagWrite(extra){
+    return;   // יומן האבחון כבוי — לא כותבים יותר מצב משתמשים למסד
     if(!dbCap) return;
     try{
       var s = readDiagState();
@@ -2367,6 +2708,7 @@
       if(parts.length !== 2 || parts.indexOf(viewer) === -1) return;
       var otherId = parts[0] === viewer ? parts[1] : parts[0];
       if(chatsListMutualIds.indexOf(otherId) === -1) return;   // שיחה מוצגת רק כשיש התאמה הדדית 🎯 משני הצדדים
+      if(isBlockedPair(otherId, viewer)) return;                // שיחה עם משתמש חסום לא מוצגת
       var msgs = (d.data && d.data.messages) || [];
       if(!msgs.length && !(d.data && d.data.createdBy === viewer)) return;   // שיחה ריקה מוצגת רק למי שפתח אותה
       var row = { id: otherId, last: msgs.length ? newestChatMsg(msgs) : null, unread: unreadCount(viewer, d.id, msgs) };
@@ -2379,6 +2721,7 @@
       rowsById[otherId] = row;
     });
     chatsListMutualIds.forEach(function(id){
+      if(isBlockedPair(id, viewer)) return;
       if(!rowsById[id]) rowsById[id] = { id: id, last: null };
     });
 
@@ -2465,8 +2808,9 @@
     if(dbCap && myId){
       try{
         var snap = await dbCap.collection('profiles').get();
-        snap.docs.forEach(function(d){ chatsListProfiles[d.id] = d.data(); });
+        snap.docs.forEach(function(d){ if(!isFictitiousId(d.id)) chatsListProfiles[d.id] = d.data(); });
       }catch(e){}
+      try{ await loadBlocks(); }catch(e){}
     }
 
     // התאמות הדדיות של הצופה, כדי להציג גם שיחות שעוד לא התחילו
@@ -2577,6 +2921,7 @@
     document.getElementById('profile-birthdate').value = p.birthdate || '';
     document.getElementById('profile-age').value = p.age || '';
     document.getElementById('profile-city').value = p.location || '';
+    try{ hdmFillExtraForm('pf', p); }catch(e){}
     profilePendingPhoto = null;
     document.getElementById('profile-photo-input').value = '';
     showProfilePhoto(p.photoUrl || '');
@@ -2594,11 +2939,13 @@
 
     if(!name){ setProfileStatus('נא למלא שם', 'err'); return; }
     if(!birthdate){ setProfileStatus('נא לבחור תאריך לידה', 'err'); return; }
+    var extra = hdmReadExtraForm('pf');
+    if(extra.error){ setProfileStatus(extra.error, 'err'); return; }
 
     btn.disabled = true;
     setProfileStatus('שומר...');
 
-    var changes = { currentName: name, birthdate: birthdate, age: age, location: city };
+    var changes = Object.assign({ currentName: name, birthdate: birthdate, age: age, location: city }, extra.values);
     // המספרים שנגזרים מתאריך הלידה מתעדכנים יחד איתו
     if(!myProfile || birthdate !== myProfile.birthdate){
       changes.lifePathNumber = calcLifePathNumber(birthdate);
@@ -2640,6 +2987,8 @@
     document.getElementById('profile-photo-input').value = '';
     if(myId && typeof chatsListProfiles === 'object') chatsListProfiles[myId] = myProfile;
     if(currentMatchData){ try{ renderMatchCard(currentMatchData); }catch(e){} }
+    // טווח הגילאים השתנה? הרשימה תיבנה מחדש בכניסה הבאה למסך ההתאמות
+    try{ if(genderPrefKey(myProfile) !== matchQueuePrefKey){ loadNextMatch(); } }catch(e){}
 
     btn.disabled = false;
     if(!dbCap || !myId){
@@ -2720,7 +3069,7 @@
   function updateTestUserChip(){
     var chip = document.getElementById('test-user-chip');
     if(!chip) return;
-    if(!realUserId || !dbCap){ chip.style.display = 'none'; return; }
+    chip.style.display = 'none'; return;   // כפתור המעבר בין משתמש 1 / משתמש 2 הוסר מהממשק
     chip.style.display = '';
     var name = (myProfile && (myProfile.currentName || myProfile.birthFirstName)) || '';
     var n = isSecondUserActive() ? 2 : 1;
@@ -2837,7 +3186,7 @@
           if(!loaded && Date.now() - readyAt < 6000) return;
           if(switchingUser) return;
           restored = true;
-          if(readSaved() === '2' && !isSecondUserActive() && !window.__authSignedIn) switchTestUser();
+          // המעבר האוטומטי למשתמש 2 בוטל יחד עם כפתור המעבר
           return;
         }
         // אחרי השחזור: שומרים כל שינוי של המשתמש המחובר
@@ -3202,8 +3551,13 @@
     var looking = document.getElementById('su2-looking').value;
     suSetErr('su2-f-looking', looking ? '' : 'נא לבחור');
     var status = document.getElementById('su2-status');
-    if(!looking){ status.className = 'su-status'; status.textContent = ''; return; }
-    signupDraft = Object.assign({}, signupDraft || {}, { lookingFor: looking, bio: document.getElementById('su2-bio').value.trim() });
+    var extra = hdmReadExtraForm('su2', true);
+    if(!looking || extra.error){
+      status.className = 'su-status'; status.style.color = '#F0A396'; status.textContent = extra.error || '';
+      var bad = document.querySelector('#signup-step2 .su-field.bad'); if(bad) bad.scrollIntoView({ block:'center', behavior:'smooth' });
+      return;
+    }
+    signupDraft = Object.assign({}, signupDraft || {}, extra.values, { lookingFor: looking, bio: document.getElementById('su2-bio').value.trim() });
     status.className = 'su-status'; status.textContent = '';
     openSignupStep3();   // ממשיכים לשלב 3
   }
@@ -3268,7 +3622,9 @@
       birthFirstName: d.birthFirstName || '', birthLastName: d.birthLastName || '',
       currentName: d.name || '', birthdate: d.birth || '', age: '', gender: d.gender || '',
       lookingFor: d.lookingFor || '', location: d.city || '', occupation: d.occupation || '',
-      interests: d.interests || '', bio: d.bio || '', likes: [], createdAt: Date.now()
+      interests: d.interests || '', bio: d.bio || '', likes: [], createdAt: Date.now(),
+      height: d.height || '', maritalStatus: d.maritalStatus || '', hasChildren: d.hasChildren || '',
+      childrenCount: d.childrenCount || '', smoking: d.smoking || '', ageMin: d.ageMin || '', ageMax: d.ageMax || ''
     };
     try{ profile.lifePathNumber = calcLifePathNumber(d.birth); }catch(e){}
     try{ profile.expressionNumber = calcExpressionNumber(fullName); }catch(e){}
@@ -3677,5 +4033,360 @@
     }, 300);
   })();
 </script>
+<script>
+  // =====================================================================
+  // פרטיות ובטיחות: חסימה, דיווח, מחיקת חשבון, מדיניות ותנאים, פרטים נוספים בפרופיל
+  // תוספת עצמאית — משתמשת בפונקציות הקיימות (dbCap, myId, go, logoutToAuthChoice) בלי לשנות אותן
+  // =====================================================================
+  function hdmEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  function hdmName(p){ return (p && (p.currentName || p.birthFirstName)) || 'המשתמש/ת'; }
+
+  var hdmToastTimer = null;
+  function hdmToast(text){
+    var phone = document.querySelector('.phone');
+    var el = document.getElementById('hdm-toast');
+    if(!el){ el = document.createElement('div'); el.id = 'hdm-toast'; el.className = 'hdm-toast'; phone.appendChild(el); }
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(hdmToastTimer);
+    hdmToastTimer = setTimeout(function(){ el.classList.remove('show'); }, 2800);
+  }
+
+  // ---------- חלון תחתון ----------
+  function openSheet(html){
+    var sh = document.getElementById('hdm-sheet');
+    sh.innerHTML = html;
+    document.getElementById('hdm-sheet-back').classList.add('open');
+    sh.scrollTop = 0;
+  }
+  function closeSheet(){ document.getElementById('hdm-sheet-back').classList.remove('open'); }
+
+  // ---------- פרטים נוספים: גובה, מצב משפחתי, ילדים, עישון, טווח גילאים ----------
+  function hdmExtraLine(p){
+    if(!p) return '';
+    var parts = [];
+    var h = parseInt(p.height, 10); if(h > 0) parts.push(h + ' ס״מ');
+    if(p.maritalStatus) parts.push(p.maritalStatus);
+    if(p.hasChildren === 'כן'){ var n = parseInt(p.childrenCount, 10); parts.push(n > 0 ? (n === 1 ? 'ילד/ה 1' : n + ' ילדים') : 'עם ילדים'); }
+    else if(p.hasChildren === 'לא') parts.push('ללא ילדים');
+    if(p.smoking === 'כן') parts.push('מעשן/ת'); else if(p.smoking === 'לא') parts.push('לא מעשן/ת');
+    return parts.join(' · ');
+  }
+  function hdmToggleChildCount(prefix){
+    var sel = document.getElementById(prefix + '-children');
+    var wrap = document.getElementById(prefix === 'su2' ? 'su2-f-childcount' : 'pf-childcount-wrap');
+    if(sel && wrap) wrap.style.display = sel.value === 'כן' ? '' : 'none';
+  }
+  function hdmFillExtraForm(prefix, p){
+    p = p || {};
+    function set(id, v){ var el = document.getElementById(prefix + '-' + id); if(el) el.value = (v == null ? '' : v); }
+    set('height', p.height); set('marital', p.maritalStatus); set('children', p.hasChildren);
+    set('childcount', p.childrenCount); set('smoking', p.smoking); set('agemin', p.ageMin); set('agemax', p.ageMax);
+    hdmToggleChildCount(prefix);
+  }
+  // קורא את השדות ובודק אותם. required = בהרשמה (מצב משפחתי, ילדים, עישון וטווח גילאים חובה; גובה רשות)
+  function hdmReadExtraForm(prefix, required){
+    function val(id){ var el = document.getElementById(prefix + '-' + id); return el ? String(el.value || '').trim() : ''; }
+    var su = prefix === 'su2';
+    var errors = [];
+    function err(field, msg){
+      if(su) suSetErr('su2-f-' + field, msg || '');
+      if(msg) errors.push(msg);
+    }
+    var height = val('height'), marital = val('marital'), children = val('children'),
+        count = val('childcount'), smoking = val('smoking'), amin = val('agemin'), amax = val('agemax');
+    var hN = parseInt(height, 10);
+    err('height', height && !(hN >= 120 && hN <= 230) ? 'גובה בין 120 ל־230 ס״מ' : '');
+    err('marital', required && !marital ? 'נא לבחור' : '');
+    err('children', required && !children ? 'נא לבחור' : '');
+    var cN = parseInt(count, 10);
+    err('childcount', children === 'כן' && count && !(cN >= 1 && cN <= 20) ? 'מספר בין 1 ל־20' :
+                      (children === 'כן' && required && !count ? 'נא למלא' : ''));
+    err('smoking', required && !smoking ? 'נא לבחור' : '');
+    var mn = parseInt(amin, 10), mx = parseInt(amax, 10);
+    var minMsg = '', maxMsg = '';
+    if(required && !amin) minMsg = 'נא למלא';
+    else if(amin && !(mn >= 18 && mn <= 99)) minMsg = 'גיל בין 18 ל־99';
+    if(required && !amax) maxMsg = 'נא למלא';
+    else if(amax && !(mx >= 18 && mx <= 99)) maxMsg = 'גיל בין 18 ל־99';
+    else if(amin && amax && mn > mx) maxMsg = 'הגיל המקסימלי קטן מהמינימלי';
+    err('agemin', minMsg); err('agemax', maxMsg);
+    if(errors.length){
+      return { error: su ? 'יש להשלים את השדות המסומנים' : ('פרטים נוספים: ' + errors[0]) };
+    }
+    return { values: {
+      height: height ? String(hN) : '',
+      maritalStatus: marital, hasChildren: children,
+      childrenCount: children === 'כן' && count ? String(cN) : '',
+      smoking: smoking,
+      ageMin: amin ? String(mn) : '', ageMax: amax ? String(mx) : ''
+    }};
+  }
+  (function initExtraFields(){
+    ['su2', 'pf'].forEach(function(prefix){
+      var sel = document.getElementById(prefix + '-children');
+      if(sel) sel.addEventListener('change', function(){ hdmToggleChildCount(prefix); });
+    });
+    // מנקים שגיאה של שדה ברגע שמתקנים אותו
+    var step2 = document.getElementById('signup-step2');
+    if(step2) step2.addEventListener('change', function(e){
+      var f = e.target.closest && e.target.closest('.su-field'); if(f && f.id) suSetErr(f.id, '');
+    });
+  })();
+
+  // ---------- מדיניות פרטיות / תנאי שימוש (מבנה בלבד, בלי נוסח משפטי) ----------
+  var HDM_LEGAL = {
+    privacy: { title: 'מדיניות פרטיות', sections: [
+      ['מי אנחנו ואיך יוצרים קשר', 'פרטי מפעיל האפליקציה ודרכי יצירת קשר בנושאי פרטיות.'],
+      ['איזה מידע נאסף', 'פרטי הרשמה, פרטי פרופיל ותמונה, 🎯 והתאמות, הודעות בצ׳אט, חסימות ודיווחים.'],
+      ['למה המידע משמש', 'הצגת פרופילים והתאמות, צ׳אט, בטיחות המשתמשים וטיפול בדיווחים.'],
+      ['איפה המידע נשמר', 'שירות האחסון (Supabase) ומיקום השרתים.'],
+      ['מי רואה את המידע', 'מה מוצג למשתמשים אחרים ומה לא, ושיתוף עם צדדים שלישיים.'],
+      ['כמה זמן המידע נשמר', 'תקופות שמירה, כולל מה קורה לדיווחים אחרי מחיקת חשבון.'],
+      ['הזכויות שלך', 'עיון, תיקון ומחיקה של המידע, ומחיקת החשבון מתוך האפליקציה.'],
+      ['אבטחת מידע', 'האמצעים שננקטים להגנה על המידע.'],
+      ['שינויים במדיניות', 'איך יעודכנו המשתמשים על שינויים.']
+    ]},
+    terms: { title: 'תנאי שימוש', sections: [
+      ['מי רשאי להשתמש', 'גיל מינימלי (18 ומעלה) ותנאי הרשמה.'],
+      ['החשבון שלך', 'אחריות על פרטי ההתחברות ודיוק הפרטים בפרופיל.'],
+      ['התנהגות מותרת ואסורה', 'כללי התנהגות כלפי משתמשים אחרים ותוכן אסור.'],
+      ['חסימה ודיווח', 'איך פועלות חסימה ודיווח ומה נעשה עם דיווחים.'],
+      ['השעיה וסגירת חשבון', 'מתי ניתן להשעות חשבון, ומחיקה ביוזמת המשתמש.'],
+      ['התאמה נומרולוגית', 'אופי ההתאמות והמידע הנומרולוגי באפליקציה.'],
+      ['הגבלת אחריות', 'אחריות המפעיל והמשתמשים במפגשים ובקשרים.'],
+      ['שינויים בתנאים ודין חל', 'עדכון התנאים, דין וסמכות שיפוט.']
+    ]}
+  };
+  function openLegal(kind){
+    var d = HDM_LEGAL[kind] || HDM_LEGAL.privacy;
+    document.getElementById('legal-title').textContent = d.title;
+    document.getElementById('legal-body').innerHTML = d.sections.map(function(s){
+      return '<h4>' + hdmEsc(s[0]) + '</h4><p>יפורט כאן: ' + hdmEsc(s[1]) + '</p>';
+    }).join('');
+    var f = document.getElementById('legal-screen');
+    f.classList.add('open'); f.setAttribute('aria-hidden', 'false'); f.scrollTop = 0;
+  }
+  function closeLegal(){
+    var f = document.getElementById('legal-screen');
+    f.classList.remove('open'); f.setAttribute('aria-hidden', 'true');
+  }
+
+  // ---------- הגדרות ----------
+  async function openSettings(){
+    go('screen-settings');
+    var c = document.getElementById('set-blocked-count');
+    if(c) c.textContent = '';
+    try{ await loadBlocks(); }catch(e){}
+    var n = hdmBlocks.filter(function(b){ return b.by === myId; }).length;
+    if(c) c.textContent = n ? String(n) : '‹';
+  }
+
+  // ---------- חסימה / דיווח ----------
+  var hdmActionTarget = null;   // { id, data }
+  function openUserActions(ctx){
+    if(!currentMatchId || !myId) return;
+    hdmActionTarget = { id: currentMatchId, data: currentMatchData || {}, ctx: ctx };
+    var name = hdmEsc(hdmName(hdmActionTarget.data));
+    var blocked = iBlocked(hdmActionTarget.id);
+    openSheet(
+      '<h3>' + name + '</h3>' +
+      (blocked
+        ? '<button type="button" class="sheet-btn" onclick="hdmUnblock(hdmActionTarget.id, true)">ביטול חסימה</button>'
+        : '<button type="button" class="sheet-btn" onclick="hdmConfirmBlock()">🚫 חסימה</button>') +
+      '<button type="button" class="sheet-btn" onclick="hdmOpenReport()">⚠️ דיווח</button>' +
+      '<button type="button" class="sheet-btn" onclick="closeSheet()">ביטול</button>'
+    );
+  }
+  function hdmConfirmBlock(){
+    if(!hdmActionTarget) return;
+    var name = hdmEsc(hdmName(hdmActionTarget.data));
+    openSheet(
+      '<h3>לחסום את ' + name + '?</h3>' +
+      '<ul><li>הפרופיל לא יוצג לך, ושלך לא יוצג ל' + name + '.</li>' +
+      '<li>לא תוכלו לשלוח הודעות או 🎯 זה לזה, והשיחה ביניכם תוסתר.</li>' +
+      '<li>' + name + ' לא יקבל/תקבל הודעה על החסימה.</li>' +
+      '<li>אפשר לבטל בכל עת בהגדרות ← משתמשים שחסמתי.</li></ul>' +
+      '<button type="button" class="sheet-btn danger" id="hdm-block-go" onclick="hdmDoBlock()">חסימה</button>' +
+      '<button type="button" class="sheet-btn" onclick="closeSheet()">ביטול</button>' +
+      '<div class="sheet-status" id="hdm-sheet-status"></div>'
+    );
+  }
+  async function hdmBlockUser(targetId){
+    if(!dbCap || !myId || !targetId || targetId === myId) throw new Error('no-db');
+    await dbCap.collection('blocks').doc(myId + '__' + targetId).set({ by: myId, target: targetId, ts: Date.now() });
+    if(!iBlocked(targetId)) hdmBlocks.push({ id: myId + '__' + targetId, by: myId, target: targetId });
+    // אם הצ'אט עם המשתמש פתוח — סוגרים אותו
+    if(currentMatchId === targetId && document.getElementById('screen-chat').classList.contains('active')){
+      try{ stopChatListening(); }catch(e){}
+      go('screen-match');
+    }
+    // הכרטיס יוצא מהרשימה מיד
+    try{ if(matchQueue && document.getElementById('screen-match').classList.contains('active')) showCardAt(matchQueueIndex); }catch(e){}
+    try{ updateUnreadBadge(); }catch(e){}
+    if(document.getElementById('screen-chats').classList.contains('active')){ try{ loadMyConversations(); }catch(e){} }
+  }
+  async function hdmDoBlock(){
+    var btn = document.getElementById('hdm-block-go');
+    if(btn) btn.disabled = true;
+    try{
+      await hdmBlockUser(hdmActionTarget.id);
+      closeSheet();
+      hdmToast('המשתמש/ת נחסם/ה');
+    }catch(e){
+      var st = document.getElementById('hdm-sheet-status'); if(st) st.textContent = 'החסימה נכשלה. נסו שוב.';
+      if(btn) btn.disabled = false;
+    }
+  }
+  async function hdmUnblock(targetId, fromActions){
+    try{
+      await dbCap.collection('blocks').doc(myId + '__' + targetId).delete();
+      hdmBlocks = hdmBlocks.filter(function(b){ return !(b.by === myId && b.target === targetId); });
+      matchQueue = null;   // הפרופיל יחזור לרשימה (אם הוא מתאים להעדפות)
+      try{ await buildMatchQueueIfNeeded(); }catch(e){}
+      hdmToast('החסימה בוטלה');
+      if(fromActions){ closeSheet(); try{ showCardAt(matchQueueIndex); }catch(e){} }
+      else openBlockedList();
+    }catch(e){ hdmToast('ביטול החסימה נכשל. נסו שוב.'); }
+  }
+  async function openBlockedList(){
+    openSheet('<h3>משתמשים שחסמתי</h3><p>טוען…</p>');
+    try{ await loadBlocks(); }catch(e){}
+    var mine = hdmBlocks.filter(function(b){ return b.by === myId; });
+    var rows = await Promise.all(mine.map(async function(b){
+      var name = 'משתמש/ת';
+      try{ var s = await dbCap.doc('profiles/' + b.target).get(); if(s.exists) name = hdmName(s.data()); else name = 'חשבון שנמחק'; }catch(e){}
+      return '<div class="blocked-row"><span>' + hdmEsc(name) + '</span><button type="button" onclick="hdmUnblock(\'' + hdmEsc(b.target) + '\')">ביטול חסימה</button></div>';
+    }));
+    openSheet('<h3>משתמשים שחסמתי</h3>' + (rows.length ? rows.join('') : '<p>לא חסמת אף אחד.</p>') +
+              '<button type="button" class="sheet-btn" onclick="closeSheet(); openSettings();">סגירה</button>');
+    var c = document.getElementById('set-blocked-count'); if(c) c.textContent = mine.length ? String(mine.length) : '‹';
+  }
+
+  var HDM_REPORT_REASONS = ['הטרדה או התנהגות פוגענית', 'פרופיל מזויף או התחזות', 'תוכן מיני או לא הולם',
+                            'ספאם, הונאה או בקשת כסף', 'נראה/ית מתחת לגיל 18', 'אחר'];
+  function hdmOpenReport(){
+    if(!hdmActionTarget) return;
+    var name = hdmEsc(hdmName(hdmActionTarget.data));
+    openSheet(
+      '<h3>דיווח על ' + name + '</h3><p>הדיווח חסוי — ' + name + ' לא יידע/תדע מי דיווח.</p>' +
+      HDM_REPORT_REASONS.map(function(r, i){
+        return '<label class="sheet-opt"><input type="radio" name="hdm-reason" value="' + hdmEsc(r) + '"' + (i === 0 ? '' : '') + '>' + hdmEsc(r) + '</label>';
+      }).join('') +
+      '<textarea id="hdm-report-details" rows="3" maxlength="500" placeholder="פרטים נוספים (לא חובה)"></textarea>' +
+      '<label class="sheet-opt" style="border:none"><input type="checkbox" id="hdm-report-block" checked>לחסום גם את ' + name + '</label>' +
+      '<button type="button" class="sheet-btn primary" id="hdm-report-go" onclick="hdmSendReport()">שליחת דיווח</button>' +
+      '<button type="button" class="sheet-btn" onclick="closeSheet()">ביטול</button>' +
+      '<div class="sheet-status" id="hdm-sheet-status"></div>'
+    );
+  }
+  async function hdmSendReport(){
+    var st = document.getElementById('hdm-sheet-status');
+    var picked = document.querySelector('input[name="hdm-reason"]:checked');
+    if(!picked){ st.textContent = 'נא לבחור סיבה'; return; }
+    var btn = document.getElementById('hdm-report-go'); btn.disabled = true;
+    var t = hdmActionTarget;
+    try{
+      var id = 'rep_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      await dbCap.collection('reports').doc(id).set({
+        by: myId, target: t.id, reason: picked.value,
+        details: (document.getElementById('hdm-report-details').value || '').trim().slice(0, 500),
+        context: t.ctx || '', ts: Date.now(), status: 'new'
+      });
+      if(document.getElementById('hdm-report-block').checked && !iBlocked(t.id)){
+        try{ await hdmBlockUser(t.id); }catch(e){}
+      }
+      closeSheet();
+      hdmToast('הדיווח נשלח. תודה ששמרת על הקהילה');
+    }catch(e){
+      st.textContent = 'שליחת הדיווח נכשלה. נסו שוב.';
+      btn.disabled = false;
+    }
+  }
+
+  // ---------- מחיקת חשבון ----------
+  // מוחקים רק חשבון שמחובר באמת (אימייל + סיסמה) — כדי שלעולם לא יימחק פרופיל אחר בטעות
+  async function hdmSignedInProfileId(){
+    var ids = [];
+    try{
+      var raw = (window.__hdmAuthStorage || localStorage).getItem('hdm_auth_session_v1');
+      var rec = raw ? JSON.parse(raw) : null;
+      if(rec && rec.profileId) ids.push(rec.profileId);
+    }catch(e){}
+    try{
+      var a = window.__sbAuth;
+      if(a){ var r = await a.auth.getSession(); var s = r && r.data && r.data.session;
+             var pid = s && s.user && s.user.user_metadata && s.user.user_metadata.profileId; if(pid) ids.push(pid); }
+    }catch(e){}
+    return ids.indexOf(myId) !== -1 ? myId : null;
+  }
+  function openDeleteAccount(){
+    openSheet(
+      '<h3>מחיקת חשבון</h3>' +
+      '<p>המחיקה סופית ואי אפשר לשחזר אותה. יימחקו:</p>' +
+      '<ul><li>הפרופיל, התמונה וכל הפרטים שלך</li>' +
+      '<li>פרטי ההתחברות (אימייל וסיסמה)</li>' +
+      '<li>ה־🎯, ההתאמות, השיחות וההודעות שלך — שיחה נמחקת גם אצל הצד השני</li>' +
+      '<li>חסימות שעשית ושנעשו כלפיך</li></ul>' +
+      '<p>דיווחים שנשלחו נשמרים לצורכי בטיחות.</p>' +
+      '<p>כדי לאשר, הקלידו <b>מחיקה</b>:</p>' +
+      '<input type="text" id="hdm-del-confirm" autocomplete="off">' +
+      '<button type="button" class="sheet-btn danger" id="hdm-del-go" onclick="hdmDeleteAccount()">מחיקת החשבון לצמיתות</button>' +
+      '<button type="button" class="sheet-btn" onclick="closeSheet()">ביטול</button>' +
+      '<div class="sheet-status" id="hdm-sheet-status"></div>'
+    );
+  }
+  async function hdmDeleteAccount(){
+    var st = document.getElementById('hdm-sheet-status');
+    if((document.getElementById('hdm-del-confirm').value || '').trim() !== 'מחיקה'){ st.textContent = 'נא להקליד "מחיקה" לאישור'; return; }
+    var me = await hdmSignedInProfileId();
+    if(!me || !dbCap){ st.textContent = 'אפשר למחוק רק חשבון שמחובר עם אימייל וסיסמה. התחברו מחדש ונסו שוב.'; return; }
+    var btn = document.getElementById('hdm-del-go'); btn.disabled = true; btn.textContent = 'מוחק…';
+    st.style.color = 'var(--muted)'; st.textContent = '';
+    var failed = 0, jobs = [];
+    function del(col, id){
+      var j = dbCap.collection(col).doc(id).delete().catch(function(){ failed++; });
+      jobs.push(j); return j;
+    }
+    async function rows(col){ try{ return (await dbCap.collection(col).get()).docs; }catch(e){ failed++; return []; } }
+    function inPair(id){ return String(id).split('__').indexOf(me) !== -1; }
+    try{
+      // 1. הפרופיל (כולל התמונה, שנשמרת בתוכו) — קודם, כדי שייעלם מיד מהמשתמשים האחרים
+      await del('profiles', me);
+      if(failed) throw new Error('profile-delete-failed');
+      // 2. פרטי ההתחברות וה-sessions
+      var vid = null; try{ vid = await authViewerId(); }catch(e){}
+      if(vid){ (await rows('data/users/' + vid)).forEach(function(d){ if((d.data() || {}).profileId === me) del('data/users/' + vid, d.id); }); }
+      (await rows('authSessions')).forEach(function(d){ if((d.data() || {}).profileId === me) del('authSessions', d.id); });
+      // 3. 🎯, התאמות, שיחות, סימוני קריאה, חסימות
+      (await rows('interests')).forEach(function(d){ var v = d.data() || {}; if(v.from === me || v.to === me || inPair(d.id)) del('interests', d.id); });
+      (await rows('matches')).forEach(function(d){ var u = (d.data() || {}).users || []; if(u.indexOf(me) !== -1 || inPair(d.id)) del('matches', d.id); });
+      (await rows('chats')).forEach(function(d){ if(inPair(d.id)) del('chats', d.id); });
+      (await rows('chatReads')).forEach(function(d){ var k = String(d.id); if(k.indexOf(me + '___') === 0 || inPair(k.split('___')[1] || '')) del('chatReads', d.id); });
+      (await rows('blocks')).forEach(function(d){ var v = d.data() || {}; if(v.by === me || v.target === me) del('blocks', d.id); });
+      (await rows('chatReadsDebug')).forEach(function(d){ if((d.data() || {}).myId === me) del('chatReadsDebug', d.id); });
+      // נעילות קצרות של שיחות (המזהה שלהן מכיל "/", ולכן נמחקות ישירות בטבלה)
+      (await rows('__lease')).forEach(function(d){
+        if(String(d.id).indexOf(me) === -1 || !window.__sb) return;
+        jobs.push(Promise.resolve(window.__sb.from('docs').delete().eq('collection', '__lease').eq('id', d.id)).catch(function(){}));
+      });
+      // 4. נתונים ישנים מגרסה קודמת של האפליקציה
+      (await rows('data/users/' + me + '/profile/chats')).forEach(function(d){ del('data/users/' + me + '/profile/chats', d.id); });
+      try{ await dbCap.doc('data/users/' + me + '/profile').delete(); }catch(e){}
+      await Promise.all(jobs);   // מחכים שכל המחיקות יסתיימו
+      // 5. ניתוק מ-Supabase Auth אחרי שמסמנים שהחשבון נמחק
+      try{ var a = window.__sbAuth; if(a) await a.auth.updateUser({ data: { profileId: null, deleted: true, deletedAt: Date.now() } }); }catch(e){}
+    }catch(e){ failed++; }
+    if(failed){
+      btn.disabled = false; btn.textContent = 'מחיקת החשבון לצמיתות';
+      st.style.color = ''; st.textContent = 'חלק מהמחיקה נכשל. נסו שוב (מה שכבר נמחק לא יחזור).';
+      return;
+    }
+    closeSheet();
+    try{ logoutToAuthChoice(); }catch(e){}
+    hdmToast('החשבון נמחק');
+  }
+</script>
+
 </body>
 </html>
