@@ -927,7 +927,10 @@
   (function(){
     var SUPABASE_URL = 'https://qtspzigjlbtckqfyaubp.supabase.co';
     var SUPABASE_KEY = 'sb_publishable_wwoXFH3xChSfQxHKZEbTKA_t_u5aGMP';   // מפתח ציבורי (publishable) — מותר בדף
-    var OWNER_ID = 'u_RhlgKHtVjGNF1PGtkM50Kw';   // שלב בדיקה: משתמש 1 (שמוליק), כמו באפליקציה ב-Claude
+    // שם התיקייה במסד שבה שמורים פרטי ההתחברות של כל החשבונות (data/users/<שם>/acct_...).
+    // זה לא משתמש מחובר — רק כתובת אחסון קבועה, כדי שהחשבונות הקיימים ימשיכו להתחבר כרגיל.
+    var ACCOUNTS_NS = 'u_RhlgKHtVjGNF1PGtkM50Kw';
+    window.__hdmAccountsNs = ACCOUNTS_NS;
     var TABLE = 'docs';
 
     var sb = null;
@@ -1167,7 +1170,7 @@
 
     var db = { doc: docRef, collection: colRef };
     var user = {
-      id: async function(){ return OWNER_ID; },
+      id: async function(){ return null; },   // אין משתמש קבוע: נכנסים לחשבון רק דרך התחברות
       isOwner: async function(){ return true; },
       canEdit: async function(){ return true; }
     };
@@ -1373,6 +1376,7 @@
         }
       }
     }catch(e){ /* fall back to the registration screen */ }
+    window.__hdmInitDone = true;
   }
 
   async function onCalculate(){
@@ -3097,6 +3101,7 @@
 
   var switchingUser = false;
   async function switchTestUser(){
+    return;   // מצב הבדיקה (מעבר בין משתמש 1 למשתמש 2) הוסר לפני ההשקה
     if(switchingUser || !realUserId || !dbCap) return;
     switchingUser = true;
     var chip = document.getElementById('test-user-chip');
@@ -3161,10 +3166,7 @@
   (function initTestUsers(){
     var chip = document.getElementById('test-user-chip');
     if(chip) chip.addEventListener('click', function(){ switchTestUser(); });
-    var t = setInterval(function(){
-      if(!realUserId && myId && dbCap) realUserId = myId;
-      if(realUserId) updateTestUserChip();
-    }, 700);
+    // מצב הבדיקה כבוי: realUserId נשאר ריק, ולכן אין מעבר בין משתמשים
   })();
 
   // ---- זכירת המשתמש המחובר (משתמש 1 / משתמש 2) אחרי סגירה, פתיחה מחדש או רענון ----
@@ -3770,8 +3772,7 @@
     return authB64(bits);
   }
   async function authViewerId(){
-    if(typeof userCap !== 'undefined' && userCap){ try{ var v = await userCap.id(); if(v) return v; }catch(e){} }
-    return (typeof realUserId !== 'undefined' && realUserId) ? realUserId : null;
+    return window.__hdmAccountsNs || null;
   }
   async function authAccountRef(email){
     if(typeof dbCap === 'undefined' || !dbCap) return null;
@@ -4002,13 +4003,10 @@
       if(busy) return;
       try{
         // מחכים שהחיבור למסד יהיה מוכן ושהטעינה הרגילה של האפליקציה (initApp) תסתיים — בפתיחה קרה זה לוקח יותר זמן
-        if(!hasDb() || typeof myId === 'undefined' || !myId){
+        if(!hasDb() || !window.__hdmInitDone){
           if(Date.now() - startedAt > 30000){ clearInterval(t); window.__authSignedIn = false; }
           return;
         }
-        if(!readyAt) readyAt = Date.now();
-        var initDone = !!myProfile && document.getElementById('screen-match').classList.contains('active');
-        if(!initDone && Date.now() - readyAt < 8000) return;
         if(typeof switchingUser !== 'undefined' && switchingUser) return;
         if(window.__loggedOut){ clearInterval(t); return; }   // המשתמש התנתק בינתיים
         busy = true;
