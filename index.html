@@ -153,6 +153,13 @@
   .set-row b{ color:var(--muted); font-weight:400; }
   .set-danger span{ color:var(--rose); font-weight:500; }
   .set-note{ font-size:12px; color:var(--muted); padding:4px 16px 8px; line-height:1.5; }
+  /* „המידע שלי” */
+  .md-row{ display:flex; justify-content:space-between; gap:12px; padding:9px 16px; border-top:1px solid var(--line); font-size:14px; }
+  .set-title + .md-row{ border-top:none; }
+  .md-row span{ color:var(--muted); flex:none; }
+  .md-row b{ font-weight:400; color:var(--cream); text-align:left; overflow-wrap:anywhere; }
+  .md-msg{ padding:14px 16px; font-size:14px; line-height:1.6; color:var(--cream); }
+  .md-msg.err{ color:var(--rose); }
   /* חלון תחתון */
   .hdm-sheet-back{ position:absolute; inset:0; z-index:300; background:rgba(59,36,41,.45); display:none; align-items:flex-end; }
   .hdm-sheet-back.open{ display:flex; }
@@ -624,11 +631,29 @@
       <button type="button" class="set-row" onclick="openLegal('terms')"><span>📄 תנאי שימוש</span><b>‹</b></button>
     </div>
     <div class="set-group">
+      <div class="set-title">פרטיות</div>
+      <button type="button" class="set-row" onclick="openMyData()"><span>🗂️ המידע שלי</span><b>‹</b></button>
+    </div>
+    <div class="set-group">
       <div class="set-title">חשבון</div>
       <button type="button" class="set-row" onclick="logoutToAuthChoice()"><span>🚪 יציאה מהחשבון</span><b>‹</b></button>
       <button type="button" class="set-row set-danger" onclick="openDeleteAccount()"><span>🗑️ מחיקת חשבון</span><b>‹</b></button>
     </div>
     <div class="skip-link" onclick="go('screen-match')">חזרה להתאמות</div>
+  </div>
+
+  <!-- מסך חדש: המידע שלי (עיון במידע ובקשת עותק) -->
+  <div class="screen" id="screen-mydata">
+    <div class="brand">חיים <b>דרך מספרים</b></div>
+    <div class="lead" style="margin:12px 0 4px;"><h2>המידע שלי</h2></div>
+    <div id="md-body"></div>
+    <div class="set-group" id="md-request-box" style="display:none">
+      <div class="set-title">עותק מהמידע</div>
+      <div class="set-note">אפשר לבקש עותק מלא של המידע השמור עליך. הבקשה מגיעה למנהלי האפליקציה, ונשיב תוך 30 ימים.</div>
+      <button type="button" class="set-row" id="md-request-btn" onclick="requestMyDataCopy()"><span>📩 בקשת עותק מהמידע שלי</span><b>‹</b></button>
+      <div class="md-msg" id="md-request-status" role="status" style="display:none"></div>
+    </div>
+    <div class="skip-link" onclick="openSettings()">חזרה להגדרות</div>
   </div>
 
   <!-- מסך חדש: השיחות שלי -->
@@ -3665,6 +3690,7 @@
         if(d.photoFile && typeof assetsCap !== 'undefined' && assetsCap){
           try{ var up = await assetsCap.upload(d.photoFile); profile.photoAssetId = up.id; profile.photoUrl = up.url; }catch(e){}
         }
+        await hdmRegisterNewProfile(newId, d.email);   // „המידע שלי”: רישום מאובטח של הבעלים (לא עוצר את ההרשמה)
         await dbCap.doc('profiles/' + newId).set(profile);
         await authSaveAccount(d.email, d.pass, newId);   // פרטי ההתחברות: באזור הפרטי, הסיסמה רק כגיבוב
         try{ if(window.authSupabaseSignIn) authSupabaseSignIn(d.email, d.pass, newId); }catch(e){}   // session של Supabase Auth
@@ -3940,6 +3966,7 @@
         var s = (await a.auth.getSession()).data.session;
         var meta = (s && s.user && s.user.user_metadata) || {};
         if(s && meta.profileId !== profileId){ try{ await a.auth.updateUser({ data: { profileId: profileId } }); }catch(e){} }
+        if(s){ try{ a.rpc('hdm_claim_profile', { p_profile_id: profileId }).then(function(){}, function(){}); }catch(e){} }   // „המידע שלי”: קישור מאובטח לפרופיל
         return !!s;
       }catch(e){ return false; }
     };
@@ -4189,7 +4216,7 @@
         'רשומת ההתחברות (כתובת האימייל) במערכת ההתחברות מנותקת מהפרופיל ומסומנת כמחוקה. למחיקה מלאה של כתובת האימייל ממערכת ההתחברות אפשר לפנות אלינו בכתובת ' + HDM_CONTACT_EMAIL + '.',
         'ייתכן שעותקי גיבוי של מסד הנתונים נשמרים אצל ספק השירות לתקופה מוגבלת. מידע שנמחק נמחק גם מהגיבויים במהלך מחזור הגיבוי הרגיל.'],
       ['הזכויות שלך',
-        'עיון: באפשרותך לבקש לעיין במידע שנשמר עליך.',
+        'עיון: אפשר לראות את המידע השמור עליך באפליקציה, בהגדרות ← „המידע שלי”. שם אפשר גם לבקש עותק מהמידע. אפשר לבקש לעיין במידע גם באימייל לכתובת ' + HDM_CONTACT_EMAIL + '.',
         'תיקון: אפשר לעדכן את פרטי הפרופיל בכל עת בעמוד „הפרופיל שלי”, או לבקש מאיתנו לתקן מידע שגוי.',
         'מחיקה: אפשר למחוק את החשבון בעצמך מתוך האפליקציה, או לבקש מאיתנו למחוק מידע.',
         'בקשות יש לשלוח לכתובת ' + HDM_CONTACT_EMAIL + '. נשיב תוך 30 ימים. ייתכן שנבקש פרטים לאימות זהותך לפני הטיפול בבקשה.'],
@@ -4293,6 +4320,140 @@
     try{ await loadBlocks(); }catch(e){}
     var n = hdmBlocks.filter(function(b){ return b.by === myId; }).length;
     if(c) c.textContent = n ? String(n) : '‹';
+  }
+
+  // ---------- המידע שלי ----------
+  // בהרשמה: רישום הפרופיל החדש בשרת עם האימייל של הנרשם, לפני שהפרופיל נשמר. כך רק בעל האימייל
+  // (אחרי אישור האימייל) יוכל לקשר את עצמו לפרופיל. כל כשל או איטיות — ההרשמה ממשיכה כרגיל.
+  async function hdmRegisterNewProfile(profileId, email){
+    try{
+      var a = window.__sbAuth;
+      if(!a || !a.rpc) return false;
+      var call = Promise.resolve(a.rpc('hdm_register_new_profile', { p_profile_id: profileId, p_email: String(email || '').trim().toLowerCase() }));
+      var r = await Promise.race([call, new Promise(function(res){ setTimeout(function(){ res(null); }, 4000); })]);
+      return !!(r && !r.error && r.data === true);
+    }catch(e){ return false; }
+  }
+  // המידע נטען מהשרת דרך פונקציה מאובטחת ב-Supabase (hdm_my_data), שמחזירה רק את המידע של המשתמש
+  // שמחובר ב-Supabase Auth ומקושר לפרופיל שלו. בלי חיבור מאומת — לא מוצג שום מידע.
+  var HDM_MD_LABELS = [
+    ['currentName', 'שם'], ['birthFirstName', 'שם פרטי מלידה'], ['birthLastName', 'שם משפחה מלידה'],
+    ['birthdate', 'תאריך לידה'], ['age', 'גיל'], ['gender', 'מין'], ['lookingFor', 'מחפש/ת'],
+    ['location', 'עיר'], ['occupation', 'עיסוק'], ['interests', 'תחומי עניין'], ['bio', 'כמה מילים על עצמי'],
+    ['height', 'גובה'], ['maritalStatus', 'מצב משפחתי'], ['hasChildren', 'ילדים'], ['childrenCount', 'מספר ילדים'],
+    ['smoking', 'עישון'], ['ageMin', 'טווח גילאים: מגיל'], ['ageMax', 'טווח גילאים: עד גיל'],
+    ['lifePathNumber', 'מספר שביל החיים'], ['expressionNumber', 'מספר הביטוי'], ['birthdayNumber', 'מספר יום הלידה'],
+    ['vowelNumber', 'מספר התנועות'], ['consonantsNumber', 'מספר העיצורים'], ['createdAt', 'תאריך הרשמה']
+  ];
+  var HDM_MD_ACTIVITY = [
+    ['interestsSent', 'סימוני 🎯 ששלחת'], ['matches', 'התאמות'], ['conversations', 'שיחות'],
+    ['messagesSent', 'הודעות ששלחת'], ['blocksMade', 'משתמשים שחסמת'], ['reportsSent', 'דיווחים ששלחת']
+  ];
+  var HDM_MD_STATUS = { 'new': 'התקבלה', 'in_progress': 'בטיפול', 'done': 'טופלה', 'rejected': 'נדחתה' };
+  function hdmMdError(e){
+    var t = ''; try{ t = [e && e.code, e && e.message, e && e.details, e && e.hint, String(e)].join(' '); }catch(x){}
+    var m = /HDM_([A-Z_]+)/.exec(t); return m ? m[1] : (/PGRST202|could not find the function|function .* does not exist/i.test(t) ? 'NOT_INSTALLED' : 'FAILED');
+  }
+  function hdmMdErrorText(code){
+    var mail = (typeof HDM_CONTACT_EMAIL !== 'undefined') ? HDM_CONTACT_EMAIL : '';
+    switch(code){
+      case 'NO_SESSION':
+      case 'NOT_AUTHENTICATED':
+        return 'כדי לראות את המידע שלך צריך לאמת את הזהות. יש לצאת מהחשבון ולהתחבר שוב עם האימייל והסיסמה.';
+      case 'EMAIL_NOT_CONFIRMED':
+        return 'כתובת האימייל עוד לא אומתה. יש לאשר אותה דרך הקישור שנשלח באימייל, ולנסות שוב.';
+      case 'NOT_LINKED': case 'LINK_TAKEN': case 'LINK_MISMATCH':
+        return 'לא הצלחנו לאמת שהחשבון הזה שייך לך. אפשר לפנות אלינו בכתובת ' + mail + ' ונטפל בזה.';
+      case 'TOO_MANY_REQUESTS':
+        return 'כבר נשלחו כמה בקשות בחודש האחרון. אפשר לפנות אלינו בכתובת ' + mail + '.';
+      case 'NOT_INSTALLED':
+        return 'האפשרות הזו עוד לא הופעלה. בינתיים אפשר לבקש לעיין במידע באימייל: ' + mail + '.';
+      default:
+        return 'לא הצלחנו לטעון את המידע. בדקו את החיבור ונסו שוב.';
+    }
+  }
+  function hdmMdFormat(key, v){
+    if(v == null || v === '') return '';
+    if(key === 'createdAt' && /^\d{10,16}$/.test(String(v))){ try{ return new Date(Number(v)).toLocaleDateString('he-IL'); }catch(e){} }
+    if(key === 'birthdate' && /^\d{4}-\d{2}-\d{2}$/.test(String(v))){ var p = String(v).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+    if(Array.isArray(v)) return v.join(', ');
+    if(typeof v === 'object') return '';
+    return String(v);
+  }
+  function hdmMdGroup(title, rows){
+    var g = document.createElement('div'); g.className = 'set-group';
+    var t = document.createElement('div'); t.className = 'set-title'; t.textContent = title; g.appendChild(t);
+    rows.forEach(function(r){
+      var row = document.createElement('div'); row.className = 'md-row';
+      var a = document.createElement('span'); a.textContent = r[0];
+      var b = document.createElement('b'); b.textContent = r[1];
+      row.appendChild(a); row.appendChild(b); g.appendChild(row);
+    });
+    return g;
+  }
+  function hdmMdMessage(text, isErr){
+    var body = document.getElementById('md-body'); body.innerHTML = '';
+    var g = document.createElement('div'); g.className = 'set-group';
+    var m = document.createElement('div'); m.className = 'md-msg' + (isErr ? ' err' : ''); m.textContent = text;
+    g.appendChild(m); body.appendChild(g);
+  }
+  async function hdmMdCall(fn){
+    var a = window.__sbAuth;
+    if(!a) throw { message: 'HDM_NO_SESSION' };
+    var s = null;
+    try{ s = (await a.auth.getSession()).data.session; }catch(e){}
+    if(!s) throw { message: 'HDM_NO_SESSION' };
+    try{ await a.rpc('hdm_claim_profile', { p_profile_id: myId }); }catch(e){}   // קישור (אם עוד לא קושר); השרת מחליט
+    var r = await a.rpc(fn);
+    if(r.error) throw r.error;
+    return r.data;
+  }
+  async function openMyData(){
+    go('screen-mydata');
+    document.getElementById('md-request-box').style.display = 'none';
+    var st = document.getElementById('md-request-status'); st.style.display = 'none'; st.textContent = '';
+    hdmMdMessage('טוען...');
+    var d;
+    try{ d = await hdmMdCall('hdm_my_data'); }
+    catch(e){ hdmMdMessage(hdmMdErrorText(hdmMdError(e)), true); return; }
+    if(!d || d.profileId !== myId){   // החיבור המאומת שייך לחשבון אחר — לא מציגים
+      hdmMdMessage(hdmMdErrorText('NOT_AUTHENTICATED'), true); return;
+    }
+    var body = document.getElementById('md-body'); body.innerHTML = '';
+    var acct = d.account || {};
+    body.appendChild(hdmMdGroup('פרטי חשבון', [['אימייל', acct.email || ''], ['תאריך יצירת החשבון', hdmMdFormat('createdAt', acct.createdAt)]]
+      .filter(function(r){ return r[1]; })));
+    var prof = d.profile || {};
+    var rows = HDM_MD_LABELS.map(function(l){ return [l[1], hdmMdFormat(l[0], prof[l[0]])]; }).filter(function(r){ return r[1]; });
+    rows.push(['תמונת פרופיל', prof.photoUrl ? 'שמורה' : 'אין']);
+    body.appendChild(hdmMdGroup('פרטי הפרופיל', rows));
+    var act = d.activity || {};
+    body.appendChild(hdmMdGroup('פעילות באפליקציה', HDM_MD_ACTIVITY.map(function(l){ return [l[1], String(act[l[0]] || 0)]; })));
+    var reqs = Array.isArray(d.requests) ? d.requests : [];
+    if(reqs.length){
+      body.appendChild(hdmMdGroup('בקשות עותק', reqs.map(function(r){
+        var when = ''; try{ when = new Date(r.createdAt).toLocaleDateString('he-IL'); }catch(e){}
+        return [when, HDM_MD_STATUS[r.status] || ''];
+      })));
+    }
+    var note = document.createElement('div'); note.className = 'set-note';
+    note.textContent = 'מוצג רק המידע שלך. פרטים של משתמשים אחרים אינם מוצגים. כדי לתקן פרטים — „הפרופיל שלי”.';
+    body.appendChild(note);
+    document.getElementById('md-request-box').style.display = '';
+  }
+  var hdmMdBusy = false;
+  async function requestMyDataCopy(){
+    if(hdmMdBusy) return;
+    hdmMdBusy = true;
+    var st = document.getElementById('md-request-status'), btn = document.getElementById('md-request-btn');
+    btn.disabled = true; st.style.display = ''; st.className = 'md-msg'; st.textContent = 'שולח...';
+    try{
+      var r = await hdmMdCall('hdm_request_data_copy');
+      st.textContent = r && r.existing ? 'כבר יש לך בקשה פתוחה. נטפל בה ונחזור אליך באימייל תוך 30 ימים.'
+                                       : 'הבקשה התקבלה. נשלח אליך עותק מהמידע באימייל תוך 30 ימים.';
+    }catch(e){
+      st.className = 'md-msg err'; st.textContent = hdmMdErrorText(hdmMdError(e));
+    }finally{ hdmMdBusy = false; btn.disabled = false; }
   }
 
   // ---------- חסימה / דיווח ----------
