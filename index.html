@@ -854,6 +854,21 @@
     </div>
   </div>
 
+  <!-- הגבלת גיל: השלמת תאריך לידה למשתמשים קיימים / חסימה מתחת לגיל 18 -->
+  <div class="signup" id="age-gate-screen" aria-hidden="true" style="z-index:200">
+    <div class="signup-inner">
+      <h2 class="signup-title" id="ag-title">השלמת תאריך לידה</h2>
+      <p class="signup-lead" id="ag-lead"></p>
+      <div id="ag-form">
+        <div class="su-field" id="ag-f-birth"><label for="ag-birth">תאריך לידה</label>
+          <input type="date" id="ag-birth" autocomplete="bday"><span class="su-err"></span></div>
+        <button type="button" class="su-submit" id="ag-submit" onclick="hdmAgeGateSubmit()">המשך</button>
+      </div>
+      <div class="su-status" id="ag-status" role="status"></div>
+      <button type="button" class="signup-back" id="ag-exit" style="position:static;margin:22px auto 0;display:flex" onclick="hdmAgeGateExit()">יציאה</button>
+    </div>
+  </div>
+
   <!-- מדיניות פרטיות / תנאי שימוש -->
   <div class="signup legal" id="legal-screen" aria-hidden="true">
     <div class="signup-inner">
@@ -1381,6 +1396,10 @@
       alert('כדי לחשב את המספר שלכם, בחרו קודם תאריך לידה');
       return;
     }
+    var calcAge = hdmAgeFromBirthdate(dateVal);
+    if(calcAge === null){ alert('תאריך לידה לא תקין'); return; }
+    if(calcAge < HDM_MIN_AGE){ alert(HDM_AGE_MSG); return; }
+    document.getElementById('age').value = String(calcAge);
     var number = calcLifePathNumber(dateVal);
     var profile = {
       birthFirstName: document.getElementById('birthFirstName').value,
@@ -2948,6 +2967,10 @@
 
     if(!name){ setProfileStatus('נא למלא שם', 'err'); return; }
     if(!birthdate){ setProfileStatus('נא לבחור תאריך לידה', 'err'); return; }
+    var bdAge = hdmAgeFromBirthdate(birthdate);
+    if(bdAge === null){ setProfileStatus('תאריך לידה לא תקין', 'err'); return; }
+    if(bdAge < HDM_MIN_AGE){ setProfileStatus(HDM_AGE_MSG, 'err'); return; }
+    age = String(bdAge);   // הגיל נקבע לפי תאריך הלידה
     var extra = hdmReadExtraForm('pf');
     if(extra.error){ setProfileStatus(extra.error, 'err'); return; }
 
@@ -3462,6 +3485,130 @@
   }
 </script>
 <script>
+  // ===== הגבלת גיל: 18 ומעלה בלבד =====
+  // הגיל מחושב תמיד מתאריך הלידה (לא משדה "גיל" שהוזן ידנית).
+  // אותה בדיקה נאכפת גם במסד הנתונים (טריגר על טבלת docs — ראו supabase/age_gate.sql).
+  // תאריך לידה שהמשתמש מזין הוא הצהרה בלבד ואינו אימות זהות.
+  var HDM_MIN_AGE = 18;
+  var HDM_AGE_MSG = 'הכניסה לאפליקציית חיים דרך מספרים מותרת מגיל 18 ומעלה בלבד.';
+  // גיל בשנים מלאות, או null אם התאריך חסר / לא תקין / עתידי
+  function hdmAgeFromBirthdate(str, today){
+    str = String(str || '').trim();
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+    if(!m) return null;
+    var y = +m[1], mo = +m[2], d = +m[3];
+    var dt = new Date(y, mo - 1, d);
+    if(dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;   // למשל 31 בפברואר
+    var now = today || new Date();
+    if(y < 1900 || dt > now) return null;
+    var age = now.getFullYear() - y;
+    if(now.getMonth() < mo - 1 || (now.getMonth() === mo - 1 && now.getDate() < d)) age--;
+    return age;
+  }
+  // 'ok' | 'blocked' (מתחת לגיל 18) | 'needs_birthdate' (משתמש קיים בלי תאריך לידה תקין)
+  function hdmAgeGateStatus(p){
+    if(!p) return 'needs_birthdate';
+    if(p.ageBlocked === true) return 'blocked';
+    var a = hdmAgeFromBirthdate(p.birthdate);
+    if(a === null) return 'needs_birthdate';
+    return a < HDM_MIN_AGE ? 'blocked' : 'ok';
+  }
+  // קוד השגיאה שהמסד מחזיר כשהטריגר דוחה כתיבה
+  function hdmDbAgeError(e){
+    var t = '';
+    try{ t = [e && e.message, e && e.details, e && e.hint, String(e)].join(' '); }catch(x){}
+    var m = /HDM_(UNDERAGE|AGE_BLOCKED|BIRTHDATE_REQUIRED|BIRTHDATE_INVALID)/.exec(t);
+    return m ? m[1] : null;
+  }
+  function hdmMaxBirthdate(){
+    var d = new Date(); d.setFullYear(d.getFullYear() - HDM_MIN_AGE);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+
+  // ---- מסך הגבלת הגיל ----
+  var hdmAgeGate = null;   // { profileId, profile, onPass }
+  window.__hdmAgeGateOpen = false;
+  function hdmShowAgeGate(state, profileId, profile, onPass){
+    var f = document.getElementById('age-gate-screen');
+    var lead = document.getElementById('ag-lead'), form = document.getElementById('ag-form');
+    var status = document.getElementById('ag-status');
+    status.className = 'su-status'; status.textContent = ''; suSetErr('ag-f-birth', '');
+    try{ closeLogin(); }catch(e){}
+    if(state === 'blocked'){
+      hdmAgeGate = null;
+      document.getElementById('ag-title').textContent = 'הגבלת גיל';
+      lead.textContent = HDM_AGE_MSG;
+      form.style.display = 'none';
+      try{ logoutToAuthChoice(); }catch(e){}   // לא נשארים מחוברים, ולא מוחקים שום נתון
+    }else{
+      hdmAgeGate = { profileId: profileId, profile: profile, onPass: onPass || null };
+      document.getElementById('ag-title').textContent = 'השלמת תאריך לידה';
+      lead.textContent = 'כדי להמשיך להשתמש באפליקציה יש להשלים תאריך לידה. ' + HDM_AGE_MSG;
+      form.style.display = '';
+      var b = document.getElementById('ag-birth'); b.value = ''; b.max = hdmMaxBirthdate();
+      var btn = document.getElementById('ag-submit'); btn.disabled = false; btn.textContent = 'המשך';
+    }
+    window.__hdmAgeGateOpen = true;
+    f.classList.add('open'); f.setAttribute('aria-hidden', 'false'); f.scrollTop = 0;
+  }
+  function hdmCloseAgeGate(){
+    var f = document.getElementById('age-gate-screen');
+    f.classList.remove('open'); f.setAttribute('aria-hidden', 'true');
+    window.__hdmAgeGateOpen = false;
+  }
+  function hdmAgeGateExit(){
+    var pending = hdmAgeGate;
+    hdmAgeGate = null;
+    hdmCloseAgeGate();
+    if(pending){ try{ logoutToAuthChoice(); }catch(e){} }
+  }
+  var hdmAgeGateBusy = false;
+  async function hdmAgeGateSubmit(){
+    if(hdmAgeGateBusy || !hdmAgeGate) return;
+    var g = hdmAgeGate;
+    var birth = document.getElementById('ag-birth').value;
+    var status = document.getElementById('ag-status');
+    status.className = 'su-status'; status.style.color = '#F0A396'; status.textContent = '';
+    var age = hdmAgeFromBirthdate(birth);
+    if(!birth){ suSetErr('ag-f-birth', 'נא לבחור תאריך לידה'); return; }
+    if(age === null){ suSetErr('ag-f-birth', 'תאריך לא תקין'); return; }
+    suSetErr('ag-f-birth', '');
+    var btn = document.getElementById('ag-submit');
+    hdmAgeGateBusy = true; btn.disabled = true; btn.textContent = 'שומר...';
+    try{
+      if(age < HDM_MIN_AGE){
+        // נשמר רק סימון חסימה (בלי תאריך הלידה), כדי שלא אפשר יהיה להיכנס שוב לחשבון הזה
+        try{ await dbCap.doc('profiles/' + g.profileId).update({ ageBlocked: true, ageBlockedAt: Date.now() }); }catch(e){}
+        hdmShowAgeGate('blocked');
+        return;
+      }
+      var p = g.profile || {};
+      var changes = { birthdate: birth, age: String(age), ageCheckedAt: Date.now() };
+      if(!p.lifePathNumber){ try{ changes.lifePathNumber = calcLifePathNumber(birth); }catch(e){} }
+      if(!p.birthdayNumber){ try{ changes.birthdayNumber = calcBirthdayNumber(birth); }catch(e){} }
+      try{
+        await dbCap.doc('profiles/' + g.profileId).update(changes);
+      }catch(e){
+        var code = hdmDbAgeError(e);
+        if(code === 'UNDERAGE' || code === 'AGE_BLOCKED'){ hdmShowAgeGate('blocked'); return; }
+        status.textContent = 'השמירה נכשלה. בדקו את החיבור ונסו שוב.';
+        return;
+      }
+      hdmAgeGate = null;
+      hdmCloseAgeGate();
+      var entered = false;
+      try{ entered = await authEnterProfile(g.profileId); }catch(e){}
+      if(entered){
+        var intro = document.getElementById('intro-screen');
+        if(intro && intro.style.display !== 'none'){ intro.classList.add('intro-hide'); setTimeout(function(){ intro.style.display = 'none'; }, 480); }
+        if(g.onPass){ try{ await g.onPass(); }catch(e){} }
+      }
+    }finally{
+      hdmAgeGateBusy = false; btn.disabled = false; btn.textContent = 'המשך';
+    }
+  }
+</script>
+<script>
   // טופס הרשמה חדש — שלב ראשון: מסך ובדיקת שדות בלבד. עדיין לא נוצר חשבון ושום דבר לא נשמר.
   function openSignup(){
     var f = document.getElementById('signup-screen');
@@ -3496,14 +3643,12 @@
     function check(id, msg){ suSetErr(id, msg); if(msg){ ok = false; if(!first) first = id; } }
 
     check('su-f-name', name.length < 2 ? 'נא למלא שם' : '');
-    var birthMsg = '';
+    var birthMsg = '', underage = false;
     if(!birth){ birthMsg = 'נא לבחור תאריך לידה'; }
     else{
-      var bd = new Date(birth + 'T00:00:00'), now = new Date();
-      var age = now.getFullYear() - bd.getFullYear();
-      if(now.getMonth() < bd.getMonth() || (now.getMonth() === bd.getMonth() && now.getDate() < bd.getDate())) age--;
-      if(isNaN(age)) birthMsg = 'תאריך לא תקין';
-      else if(age < 18) birthMsg = 'ההרשמה מגיל 18 ומעלה';
+      var age = hdmAgeFromBirthdate(birth);
+      if(age === null) birthMsg = 'תאריך לא תקין';
+      else if(age < HDM_MIN_AGE){ birthMsg = HDM_AGE_MSG; underage = true; }
     }
     check('su-f-birth', birthMsg);
     check('su-f-gender', gender ? '' : 'נא לבחור');
@@ -3514,6 +3659,7 @@
     var status = document.getElementById('su-status');
     if(!ok){
       status.className = 'su-status'; status.textContent = '';
+      if(underage){ status.style.color = '#F0A396'; status.textContent = HDM_AGE_MSG; }
       var el = document.getElementById(first);
       if(el){ el.scrollIntoView({ block:'center', behavior:'smooth' }); var inp = el.querySelector('input,select'); if(inp) inp.focus({ preventScroll:true }); }
       return;
@@ -3640,12 +3786,16 @@
     try{ profile.birthdayNumber = calcBirthdayNumber(d.birth); }catch(e){}
     try{ profile.vowelNumber = calcVowelLettersNumber(fullName); }catch(e){}
     try{ profile.consonantsNumber = calcConsonantsNumber(fullName); }catch(e){}
-    try{
-      var bd = new Date(d.birth + 'T00:00:00'), now = new Date();
-      var age = now.getFullYear() - bd.getFullYear();
-      if(now.getMonth() < bd.getMonth() || (now.getMonth() === bd.getMonth() && now.getDate() < bd.getDate())) age--;
-      if(!isNaN(age)) profile.age = String(age);
-    }catch(e){}
+    var suAge = hdmAgeFromBirthdate(d.birth);
+    if(suAge === null || suAge < HDM_MIN_AGE){
+      signupSaving = false;
+      if(btn){ btn.disabled = false; btn.textContent = 'סיום הרשמה'; }
+      status.className = 'su-status'; status.style.color = '#F0A396';
+      status.textContent = suAge === null ? 'נא להזין תאריך לידה תקין' : HDM_AGE_MSG;
+      return;
+    }
+    profile.age = String(suAge);
+    profile.ageCheckedAt = Date.now();
     var newId = 'reg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
     // האימייל עוד לא רשום?
@@ -3674,7 +3824,9 @@
       signupSaving = false;
       if(btn){ btn.disabled = false; btn.textContent = 'סיום הרשמה'; }
       status.className = 'su-status'; status.style.color = '#F0A396';
-      status.textContent = 'השמירה נכשלה. בדקו את החיבור ונסו שוב.';
+      var ageErr = hdmDbAgeError(e);
+      status.textContent = (ageErr === 'UNDERAGE' || ageErr === 'AGE_BLOCKED') ? HDM_AGE_MSG :
+                           ageErr ? 'נא להזין תאריך לידה תקין' : 'השמירה נכשלה. בדקו את החיבור ונסו שוב.';
       return;
     }
 
@@ -3742,6 +3894,8 @@
     try{
       if(dbCap){
         var snap = await dbCap.doc('profiles/' + myId).get();
+        var reAge = snap.exists ? hdmAgeGateStatus(snap.data()) : 'ok';
+        if(reAge !== 'ok'){ var reId = myId; myId = null; hdmShowAgeGate(reAge, reId, snap.data()); return; }   // הגבלת גיל
         if(snap.exists && snap.data().lifePathNumber){
           myProfile = snap.data(); window.userProfile = myProfile;
           await loadNextMatch();
@@ -3833,10 +3987,18 @@
         ok = (await authHash(pass, authFromB64(acct.salt), acct.iterations || 150000)) === acct.hash;
       }
       if(!ok){ status.textContent = 'האימייל או הסיסמה שגויים.'; return; }
+      var finishLogin = function(){
+        try{ if(window.authSaveSession) authSaveSession(acct.profileId); }catch(e){}   // שמירת ההתחברות לרענון / פתיחה מחדש
+        try{ if(window.authSupabaseSignIn) authSupabaseSignIn(email, pass, acct.profileId); }catch(e){}   // session של Supabase Auth
+      };
+      window.__hdmAgeGateOnPass = finishLogin;   // אם נדרשת השלמת תאריך לידה — ההתחברות תושלם אחריה
       var entered = await authEnterProfile(acct.profileId);
-      if(!entered){ status.textContent = 'לא נמצא פרופיל לחשבון הזה.'; return; }
-      try{ if(window.authSaveSession) authSaveSession(acct.profileId); }catch(e){}   // שמירת ההתחברות לרענון / פתיחה מחדש
-      try{ if(window.authSupabaseSignIn) authSupabaseSignIn(email, pass, acct.profileId); }catch(e){}   // session של Supabase Auth
+      window.__hdmAgeGateOnPass = null;
+      if(!entered){
+        if(!window.__hdmAgeGateOpen) status.textContent = 'לא נמצא פרופיל לחשבון הזה.';
+        return;
+      }
+      finishLogin();
     }catch(e){
       status.textContent = 'ההתחברות נכשלה. נסו שוב.';
     }finally{
@@ -3856,6 +4018,13 @@
     }catch(e){}
     if(!loaded && demoBase) loaded = Object.assign({}, demoBase);
     if(!loaded) return false;
+
+    // הגבלת גיל: מתחת לגיל 18 — אין כניסה; משתמש קיים בלי תאריך לידה — משלים אותו לפני המשך השימוש
+    var ageState = hdmAgeGateStatus(loaded);
+    if(ageState !== 'ok'){
+      hdmShowAgeGate(ageState, profileId, loaded, window.__hdmAgeGateOnPass || null);
+      return false;
+    }
 
     try{ stopChatListening(); }catch(e){}
     try{ stopChatsListListening(); }catch(e){}
@@ -4023,6 +4192,7 @@
         for(var i = 0; i < 4 && !entered; i++){
           if(window.__loggedOut) return;
           try{ entered = await authEnterProfile(profileId); }catch(e){}
+          if(!entered && window.__hdmAgeGateOpen) return;   // הגבלת גיל: ממתינים להשלמת תאריך לידה או שהחשבון חסום
           if(!entered) await new Promise(function(r){ setTimeout(r, 1500); });
         }
         if(!entered){ window.__authSignedIn = false; return; }   // לא מוחקים את ה-session: ננסה שוב בפתיחה הבאה
