@@ -3690,6 +3690,7 @@
         if(d.photoFile && typeof assetsCap !== 'undefined' && assetsCap){
           try{ var up = await assetsCap.upload(d.photoFile); profile.photoAssetId = up.id; profile.photoUrl = up.url; }catch(e){}
         }
+        await hdmRegisterNewProfile(newId, d.email);   // „המידע שלי”: רישום מאובטח של הבעלים (לא עוצר את ההרשמה)
         await dbCap.doc('profiles/' + newId).set(profile);
         await authSaveAccount(d.email, d.pass, newId);   // פרטי ההתחברות: באזור הפרטי, הסיסמה רק כגיבוב
         try{ if(window.authSupabaseSignIn) authSupabaseSignIn(d.email, d.pass, newId); }catch(e){}   // session של Supabase Auth
@@ -4322,6 +4323,17 @@
   }
 
   // ---------- המידע שלי ----------
+  // בהרשמה: רישום הפרופיל החדש בשרת עם האימייל של הנרשם, לפני שהפרופיל נשמר. כך רק בעל האימייל
+  // (אחרי אישור האימייל) יוכל לקשר את עצמו לפרופיל. כל כשל או איטיות — ההרשמה ממשיכה כרגיל.
+  async function hdmRegisterNewProfile(profileId, email){
+    try{
+      var a = window.__sbAuth;
+      if(!a || !a.rpc) return false;
+      var call = Promise.resolve(a.rpc('hdm_register_new_profile', { p_profile_id: profileId, p_email: String(email || '').trim().toLowerCase() }));
+      var r = await Promise.race([call, new Promise(function(res){ setTimeout(function(){ res(null); }, 4000); })]);
+      return !!(r && !r.error && r.data === true);
+    }catch(e){ return false; }
+  }
   // המידע נטען מהשרת דרך פונקציה מאובטחת ב-Supabase (hdm_my_data), שמחזירה רק את המידע של המשתמש
   // שמחובר ב-Supabase Auth ומקושר לפרופיל שלו. בלי חיבור מאומת — לא מוצג שום מידע.
   var HDM_MD_LABELS = [
