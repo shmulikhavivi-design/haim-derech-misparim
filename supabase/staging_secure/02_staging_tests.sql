@@ -1,6 +1,6 @@
 -- =====================================================================
 -- חיים דרך מספרים — בדיקות אוטומטיות לסביבת הניסוי
--- להרצה אחרי 01_staging_setup.sql, רק בפרויקט Haim Derech Misparim Staging.
+-- להרצה אחרי 01_staging_setup.sql ו-03_staging_fixes.sql, רק בפרויקט Haim Derech Misparim Staging.
 --
 -- הבדיקה יוצרת משתמשים ופרופילים מומצאים, מתחברת בשם כל אחד מהם (כמו האפליקציה),
 -- מנסה פעולות מותרות ואסורות בכל מסלול, ובסוף מבטלת הכול: שום דבר לא נשמר.
@@ -13,6 +13,9 @@ do $$
 begin
   if to_regclass('public.hdm_staging_marker') is null then
     raise exception 'עצירה: זה לא פרויקט ניסוי שהוקם עם 01_staging_setup.sql. שום דבר לא הורץ.';
+  end if;
+  if not exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1_fixes') then
+    raise exception 'עצירה: צריך להריץ קודם את 03_staging_fixes.sql. שום דבר לא הורץ.';
   end if;
 end $$;
 
@@ -47,6 +50,15 @@ declare
   F text; B text; P text; V text; Q text[] := '{}';
   r text; i int; pair text;
 begin
+  -- הגנה גם בתוך הבדיקה עצמה: אם הקובץ רץ פקודה-פקודה (ולא בבת אחת) וההגנה שבראש הקובץ דולגה,
+  -- הבדיקה נעצרת כאן — לפני כל כתיבה — בכל פרויקט שאינו פרויקט ניסוי מותקן.
+  if to_regclass('public.hdm_staging_marker') is null then
+    raise exception 'עצירה: זה לא פרויקט ניסוי שהוקם עם 01_staging_setup.sql. שום דבר לא הורץ.';
+  end if;
+  if not exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1_fixes') then
+    raise exception 'עצירה: צריך להריץ קודם את 03_staging_fixes.sql. שום דבר לא הורץ.';
+  end if;
+
   begin
     -- ---------- הכנה: משתמשי Auth מומצאים ופרופילים ----------
     insert into auth.users (id, email, aud, role)
@@ -375,6 +387,28 @@ begin
 
     r := pg_temp.as_user(uB, format($q$ select count(*)::text from public.docs where collection='profiles' and id=%L $q$, Q[2]));
     t_area := t_area || text 'חסימה'; t_name := t_name || text 'מי שנחסם לא רואה את הפרופיל של החוסם';
+    t_exp := t_exp || text 'ok:0'; t_got := t_got || r;
+
+    r := pg_temp.as_user(uB, format($q$ select count(*)::text from public.docs where collection='blocks' and id=%L $q$, Q[2] || '__' || B));
+    t_area := t_area || text 'חסימה'; t_name := t_name || text 'מי שנחסם לא יכול לגלות מי חסם אותו (תיקון 3)';
+    t_exp := t_exp || text 'ok:0'; t_got := t_got || r;
+
+    r := pg_temp.as_user(uQ[2], format($q$ select count(*)::text from public.docs where collection='blocks' and id=%L $q$, Q[2] || '__' || B));
+    t_area := t_area || text 'חסימה'; t_name := t_name || text 'החוסם עדיין רואה את החסימה שלו (תיקון 3)';
+    t_exp := t_exp || text 'ok:1'; t_got := t_got || r;
+
+    -- ================= דיווחים (תיקון 2) =================
+    -- בדיוק כמו שהאפליקציה שולחת (upsert), כולל ניסיון לזייף את "מי דיווח"
+    r := pg_temp.as_user(uB, format($q$ insert into public.docs (collection, id, data) values ('reports', %L, jsonb_build_object('by', %L, 'target', %L, 'reason', 'בדיקה')) on conflict (collection, id) do update set data = excluded.data returning data->>'by' $q$, pfx || '_rep1', P, F));
+    t_area := t_area || text 'דיווח'; t_name := t_name || text 'דיווח מהאפליקציה נשמר, והשרת רושם את המדווח האמיתי (תיקון 2)';
+    t_exp := t_exp || (text 'ok:' || B); t_got := t_got || r;
+
+    r := pg_temp.as_user(uB, format($q$ insert into public.docs (collection, id, data) values ('reports', %L, '{"reason":"שונה"}') on conflict (collection, id) do update set data = excluded.data returning id $q$, pfx || '_rep1'));
+    t_area := t_area || text 'דיווח'; t_name := t_name || text 'אי אפשר לשנות דיווח שכבר נשלח (תיקון 2)';
+    t_exp := t_exp || text 'err:HDM_READONLY'; t_got := t_got || r;
+
+    r := pg_temp.as_user(uP, format($q$ select count(*)::text from public.docs where collection='reports' and id=%L $q$, pfx || '_rep1'));
+    t_area := t_area || text 'דיווח'; t_name := t_name || text 'משתמש אחר לא רואה את הדיווח (תיקון 2)';
     t_exp := t_exp || text 'ok:0'; t_got := t_got || r;
 
     r := pg_temp.as_user(uB, format($q$ select public.hdm_send_target(%L)::text $q$, B));
