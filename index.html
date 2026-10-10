@@ -601,6 +601,54 @@
   /* כפתור תפריט (שלושה קווים) */
   .top-icon-btn.menu-btn{ display:flex; align-items:center; justify-content:center; color:var(--cream); }
   .top-icon-btn.menu-btn svg{ width:18px; height:18px; }
+
+  /* ===== מנויים ===== */
+  .hdm-card-plan{ margin-top:10px; font-size:13px; line-height:1.55; }
+  .hdm-card-plan:empty{ display:none; }
+  .hdm-card-plan button{ background:none; border:1px solid var(--gold-soft); color:var(--gold); border-radius:999px; padding:7px 14px;
+    font-family:'Heebo',sans-serif; font-size:13px; font-weight:500; cursor:pointer; }
+  .hdm-card-plan .hdm-lock{ color:var(--muted); cursor:pointer; }
+  .hdm-sub-links{ display:flex; justify-content:center; gap:10px; margin-top:10px; color:var(--muted); font-size:13.5px; }
+  .hdm-sub-links span[id]{ color:var(--gold); font-weight:500; cursor:pointer; }
+  .hdm-chat-tools{ font-size:12.5px; padding:6px 0 0; text-align:center; }
+  .hdm-chat-tools:empty{ display:none; }
+  .hdm-chat-tools button{ background:none; border:none; color:var(--gold); font-family:'Heebo',sans-serif; font-size:13px; font-weight:500; cursor:pointer; padding:4px 8px; }
+  .hdm-chat-lock{ background:var(--card2); border:1px solid var(--line); color:var(--cream); border-radius:12px; padding:10px 12px;
+    font-size:13px; line-height:1.55; margin-top:8px; text-align:center; cursor:pointer; }
+  .hdm-chat-lock b{ color:var(--gold); }
+  .phone.hdm-chat-locked #screen-chat .composer{ opacity:.45; pointer-events:none; }
+  .hdm-quota{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; font-size:13px;
+    color:var(--cream); line-height:1.55; margin:6px 0 10px; cursor:pointer; }
+  .hdm-quota b{ color:var(--gold); }
+  .hdm-layer .hdm-note{ color:#BFB4A6; font-size:13.5px; line-height:1.6; margin:0 0 14px; text-align:center; }
+  .hdm-layer .hdm-current{ border:1px solid rgba(226,183,105,.55); border-radius:16px; padding:14px 16px; margin:0 0 18px;
+    background:rgba(226,183,105,.08); color:#F2EADF; font-size:14.5px; line-height:1.7; }
+  .hdm-layer .hdm-current b{ color:#F2D59A; }
+  .hdm-plan{ border:1px solid rgba(226,183,105,.3); border-radius:16px; padding:14px 16px; margin:0 0 12px; background:rgba(255,255,255,.03); }
+  .hdm-plan.is-current{ border-color:#E2B769; box-shadow:0 0 0 1px #E2B769 inset; }
+  .hdm-plan-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .hdm-plan-head h3{ font-family:'Frank Ruhl Libre',serif; font-size:20px; color:#F2D59A; margin:0; }
+  .hdm-plan-price{ color:#F2EADF; font-size:15px; font-weight:500; white-space:nowrap; }
+  .hdm-plan-price small{ color:#A99E90; font-weight:400; font-size:12px; }
+  .hdm-plan ul{ margin:10px 0 0; padding:0 18px 0 0; color:#E3D9CC; font-size:14px; line-height:1.7; }
+  .hdm-plan .hdm-plan-btn{ width:100%; margin-top:12px; border-radius:12px; padding:11px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:500;
+    border:1px solid rgba(226,183,105,.5); background:transparent; color:#A99E90; }
+  .hdm-plan.is-current .hdm-plan-btn{ background:#E2B769; color:#1a1526; border-color:#E2B769; font-weight:700; }
+  .hdm-badge{ display:inline-block; font-size:11.5px; color:#1a1526; background:#E2B769; border-radius:999px; padding:1px 9px; margin-inline-start:6px; vertical-align:middle; font-weight:600; }
+  .hdm-vip-book{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .hdm-vip-book a{ flex:1; min-width:120px; text-align:center; text-decoration:none; border:1px solid #E2B769; color:#F2D59A; border-radius:12px; padding:10px; font-size:14px; }
+  .hdm-an-row{ border-top:1px solid rgba(226,183,105,.25); padding:12px 0; }
+  .hdm-an-row:first-of-type{ border-top:none; }
+  .hdm-an-row h4{ color:#E2B769; font-size:15px; margin:0 0 4px; font-weight:600; }
+  .hdm-an-nums{ color:#F2EADF; font-size:14px; margin-bottom:4px; }
+  .hdm-an-row p{ color:#D9CFC2; font-size:13.5px; line-height:1.65; margin:0; }
+  .hdm-an-tag{ display:inline-block; font-size:12px; border-radius:999px; padding:1px 9px; margin-inline-start:6px; border:1px solid rgba(226,183,105,.5); color:#F2D59A; }
+  .hdm-an-verdict{ border:1px solid rgba(226,183,105,.55); border-radius:14px; padding:12px 14px; color:#F2EADF; font-size:14.5px; line-height:1.7; margin:4px 0 14px; }
+  .hdm-liked-row{ display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid rgba(226,183,105,.2); cursor:pointer; }
+  .hdm-liked-row:first-child{ border-top:none; }
+  .hdm-liked-row .avatar{ width:46px; height:46px; border-radius:50%; background:#2a2440 center/cover no-repeat; flex-shrink:0; }
+  .hdm-liked-row h4{ margin:0; color:#F2EADF; font-size:15px; font-weight:500; }
+  .hdm-liked-row p{ margin:2px 0 0; color:#A99E90; font-size:12.5px; }
 </style>
 </head>
 <body>
@@ -679,6 +727,7 @@
         <div class="match-extra" id="match-extra"></div>
         <div class="match-pct" id="match-pct"></div>
         <div class="why" id="match-why"></div>
+        <div class="hdm-card-plan" id="hdm-card-plan"></div>
       </div>
     </div>
     </div>
@@ -686,12 +735,17 @@
     <div class="hint" id="match-hint">לחצו על המטרה אם יש עניין</div>
     <div class="my-chats-link" id="my-chats-link">💬 השיחות שלי<span class="unread-badge" id="my-chats-badge" style="display:none"></span></div>
     <div class="my-chats-link" id="my-profile-link">👤 הפרופיל שלי</div>
+    <div class="hdm-sub-links"><span id="hdm-liked-link" onclick="hdmOpenLikedMe()">🎯 מי סימן אותי</span><span aria-hidden="true">·</span><span id="hdm-plans-link" onclick="hdmOpenPlans()">💎 המנוי שלי</span></div>
   </div>
 
   <!-- הגדרות, פרטיות ובטיחות -->
   <div class="screen" id="screen-settings">
     <div class="brand">חיים <b>דרך מספרים</b></div>
     <div class="lead" style="margin:12px 0 4px;"><h2>הגדרות ופרטיות</h2></div>
+    <div class="set-group">
+      <div class="set-title">מנוי</div>
+      <button type="button" class="set-row" onclick="hdmOpenPlans()"><span>💎 המנוי שלי</span><b id="set-plan-name">‹</b></button>
+    </div>
     <div class="set-group">
       <div class="set-title">בטיחות</div>
       <button type="button" class="set-row" onclick="openBlockedList()"><span>🚫 משתמשים שחסמתי</span><b id="set-blocked-count"></b></button>
@@ -775,7 +829,9 @@
       <div><h3 id="chat-name">–</h3><span id="chat-sub"></span></div>
       <button type="button" class="chat-more" aria-label="חסימה או דיווח" onclick="openUserActions('chat')">⋯</button>
     </div>
+    <div class="hdm-chat-tools" id="hdm-chat-tools"></div>
     <div class="msgs" id="chat-msgs"></div>
+    <div class="hdm-chat-lock" id="hdm-chat-lock" style="display:none"></div>
     <div class="composer">
       <input type="text" id="chat-input" placeholder="כתבו הודעה..." onkeydown="if(event.key==='Enter'){sendChatMessage();}">
       <button type="button" id="send-chat-btn">שלח</button>
@@ -1043,6 +1099,29 @@
         <a href="https://www.instagram.com/life_through_numbers" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="hdm-ig-grad-about" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#F9CE34"/><stop offset=".5" stop-color="#EE2A7B"/><stop offset="1" stop-color="#6228D7"/></linearGradient></defs><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="none" stroke="url(#hdm-ig-grad-about)" stroke-width="2"/><circle cx="12" cy="12" r="4.3" fill="none" stroke="url(#hdm-ig-grad-about)" stroke-width="2"/><circle cx="17.4" cy="6.6" r="1.3" fill="#EE2A7B"/></svg>אינסטגרם</a>
         <a href="https://www.facebook.com/share/1E1hDMnWRq/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#1877F2"/><path fill="#fff" d="M13.4 21.4v-6.9h2.3l.35-2.7H13.4v-1.7c0-.78.22-1.31 1.34-1.31h1.43V6.4a19 19 0 0 0-2.08-.1c-2.06 0-3.47 1.26-3.47 3.57v1.98H8.3v2.7h2.33v6.9z"/></svg>פייסבוק</a>
       </div>
+    </div>
+  </div>
+
+  <!-- מנויים: המסלולים, ניתוח מורחב, מי סימן אותי -->
+  <div class="signup about hdm-layer" id="hdm-plans-screen" aria-hidden="true">
+    <div class="signup-inner">
+      <button type="button" class="signup-back" onclick="hdmCloseLayer('hdm-plans-screen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
+      <h2 class="about-title">המנוי שלי</h2>
+      <div id="hdm-plans-body"></div>
+    </div>
+  </div>
+  <div class="signup about hdm-layer" id="hdm-analysis-screen" aria-hidden="true">
+    <div class="signup-inner">
+      <button type="button" class="signup-back" onclick="hdmCloseLayer('hdm-analysis-screen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
+      <h2 class="about-title">ניתוח נומרולוגי מורחב</h2>
+      <div id="hdm-analysis-body"></div>
+    </div>
+  </div>
+  <div class="signup about hdm-layer" id="hdm-liked-screen" aria-hidden="true">
+    <div class="signup-inner">
+      <button type="button" class="signup-back" onclick="hdmCloseLayer('hdm-liked-screen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
+      <h2 class="about-title">🎯 מי סימן אותי</h2>
+      <div id="hdm-liked-body"></div>
     </div>
   </div>
 
@@ -2057,6 +2136,9 @@
   var targetBusy = false, targetBusySince = 0, targetBusyFor = null;
   async function onTargetClick(){
     if(!currentMatchId){ return; }
+    // מנוי: 🎯 זמין מהמסלול הבסיסי ומעלה (נאכף גם בשרת)
+    try{ await hdmEnsurePlan(); }catch(e){}
+    if(!hdmFeatures().target){ hdmUpsell('target'); return; }
     // לחיצה קודמת שעדיין רצה חוסמת רק אם היא של אותו משתמש ולא נתקעה (עד 15 שניות)
     if(targetBusy && targetBusyFor === myId && Date.now() - targetBusySince < 15000){ return; }
     targetBusy = true; targetBusySince = Date.now(); targetBusyFor = myId;
@@ -2075,9 +2157,10 @@
       if(likes.indexOf(targetId) === -1) likes.push(targetId);
       if(myProfile) myProfile.likes = likes;
       var saveInterest = Promise.resolve();
+      var interestPlanErr = null;
       if(dbCap && me){
         saveInterest = Promise.all([
-          dbCap.collection('interests').doc(interestDocId(me, targetId)).set({ from: me, to: targetId, ts: Date.now() }).catch(function(){}),
+          dbCap.collection('interests').doc(interestDocId(me, targetId)).set({ from: me, to: targetId, ts: Date.now() }).catch(function(e){ if(hdmPlanErrCode(e)) interestPlanErr = e; }),
           dbCap.doc('profiles/'+me).update({likes: likes}).catch(function(){ /* למשתמשת 2 אין מסמך פרופיל — העניין כבר נשמר למעלה */ })
         ]);
       }
@@ -2092,6 +2175,9 @@
       var alreadyMatched = checks[0];
       var mutual = demo ? true : (alreadyMatched || checks[1]);
       if(me !== myId){ return; }   // המשתמש הוחלף בזמן הבדיקה — לא עושים כלום
+      if(interestPlanErr){ hdmRefreshPlan(true); flashTargetHint(hdmPlanErrText(interestPlanErr)); return; }   // השרת דחה את ה-🎯 (מסלול)
+      hdmPairStatusForget(targetId);
+      try{ hdmApplyCardPlan(); }catch(e){}
 
       // אין עדיין התאמה הדדית — רק שומרים את העניין, לא יוצרים שיחה ולא פותחים צ'אט
       if(!mutual){
@@ -2101,7 +2187,13 @@
 
       // 3. שומרים את ההתאמה ויוצרים את השיחה — רק אם עוד לא קיימת, כדי לא ליצור כפולה ולא לדרוס הודעות
       if(dbCap && me && !demo && !alreadyMatched){
-        try{ await dbCap.collection('matches').doc(conversationId(me, targetId)).set({ users: [me, targetId].sort(), ts: Date.now() }); }catch(e){}
+        // מנוי: שיחה חדשה נספרת במכסה החודשית של המסלול הבסיסי (נאכף גם בשרת)
+        if(!hdmCanOpenNewChat()){ flashTargetHint(hdmPlanErrText({ message: 'HDM_CHAT_LIMIT' })); return; }
+        try{ await dbCap.collection('matches').doc(conversationId(me, targetId)).set({ users: [me, targetId].sort(), ts: Date.now() }); }
+        catch(e){
+          if(hdmPlanErrCode(e)){ try{ await hdmRefreshPlan(true); }catch(x){} flashTargetHint(hdmPlanErrText(e, true)); return; }
+        }
+        hdmRefreshPlan(true);
       }
       await ensureConversation(me, targetId);
       if(me !== myId){ return; }
@@ -2216,7 +2308,10 @@
   async function saveChatMessages(matchId, msgs){
     if(!dbCap || !myId || !matchId) return;
     try{ await chatDocRef(matchId).set({ messages: msgs, updatedAt: Date.now() }); }
-    catch(e){ /* keep working for the current view even if the write fails */ }
+    catch(e){
+      if(hdmPlanErrCode(e)) throw e;   // דחייה של השרת בגלל המנוי — המסך צריך לדעת
+      /* keep working for the current view even if the write fails */
+    }
   }
 
   function paintMessages(msgs){
@@ -2376,6 +2471,7 @@
     var text = input.value.trim();
     if(!text) return;
     var matchId = currentMatchId;
+    if(!hdmFeatures().chat && hdmPlanKnown()){ hdmUpsell('chat'); return; }   // מנוי: שליחת הודעות למנויים פעילים
     if(await isBlockedPairFresh(matchId)){
       input.value = '';
       try{ hdmToast('לא ניתן לשלוח הודעות למשתמש זה'); }catch(e){}
@@ -2387,7 +2483,18 @@
     lastChatMessages.push(newMsg);
     paintMessages(lastChatMessages);
     input.value = '';
-    try{ await appendChatMessage(matchId, newMsg); }catch(e){ /* the message stays visible even if saving fails */ }
+    try{ await appendChatMessage(matchId, newMsg); }
+    catch(e){
+      if(hdmPlanErrCode(e)){
+        // השרת דחה בגלל המנוי: מורידים את ההודעה מהמסך ומחזירים את הטקסט לשדה
+        lastChatMessages = (lastChatMessages || []).filter(function(m){ return m !== newMsg; });
+        if(currentMatchId === matchId) paintMessages(lastChatMessages);
+        if(!input.value) input.value = text;
+        hdmRefreshPlan(true);
+        try{ hdmToast(hdmPlanErrText(e)); }catch(x){}
+      }
+      /* otherwise the message stays visible even if saving fails */
+    }
   }
 
   var chatPollTimer = null;   // בדיקה מהירה ותקופתית בזמן שהצ'אט פתוח, כגיבוי לעדכון החי
@@ -5198,6 +5305,397 @@
   // ---------- 3. מאחורי המספרים ----------
   function hdmOpenAbout(){ hdmOpenLayer('about-screen'); }
   function hdmCloseAbout(){ hdmCloseLayer('about-screen'); }
+</script>
+<script>
+  // =====================================================================
+  // מנויים: חינם / בסיסי / פלוס / VIP
+  // המסלול נקרא מהשרת (hdm_my_entitlements). ההגבלות על 🎯, פתיחת שיחות והודעות
+  // נאכפות גם במסד עצמו (supabase/subscriptions_enforce.sql); כאן רק מתאימים את המסך.
+  // אין כאן שום חיוב ושום פרטי תשלום.
+  // =====================================================================
+  var HDM_PLAN_INFO = {
+    free:  { name: 'חינם',  price: '₪0',     per: '',
+             items: ['צפייה בפרופילים ובתמונות בלבד', 'ללא שליחת 🎯', 'ללא צ׳אטים', 'ללא הצגת דירוגי התאמה'] },
+    basic: { name: 'בסיסי', price: '₪29.90', per: 'לחודש',
+             items: ['הצגת רמת התאמה: מצוינת, טובה או חלשה (ללא הסבר)', 'שליחת 🎯 ופתיחת צ׳אט רק לאחר סימון הדדי', 'עד 5 שיחות חדשות בכל חודש חיוב', 'הודעות ללא הגבלה בשיחות קיימות כל עוד המנוי פעיל'] },
+    plus:  { name: 'פלוס',  price: '₪48.90', per: 'לחודש',
+             items: ['התאמות ושיחות ללא הגבלה', 'אפשרות לראות מי סימן אותי ב־🎯', 'ניתוח נומרולוגי מורחב לאחר סימון 🎯 הדדי'] },
+    vip:   { name: 'VIP',   price: '₪79.90', per: 'לחודש',
+             items: ['כל הטבות פלוס', 'ניתוח נומרולוגי מורחב מיד לאחר סימון 🎯, גם ללא הדדיות', 'פתיחת צ׳אט עדיין מחייבת סימון הדדי', '30% הנחה על שירותים נומרולוגיים זכאים של לימור רון', 'הזמנת השירותים דרך WhatsApp או אימייל'] }
+  };
+  var HDM_PLAN_ORDER = ['free', 'basic', 'plus', 'vip'];
+  var HDM_PLAN_FEATURES = {
+    free:  { target: false, chat: false, chatLimit: 0,    score: 'none',  whoLiked: false, analysis: 'none',   vip: false },
+    basic: { target: true,  chat: true,  chatLimit: 5,    score: 'label', whoLiked: false, analysis: 'none',   vip: false },
+    plus:  { target: true,  chat: true,  chatLimit: null, score: 'full',  whoLiked: true,  analysis: 'mutual', vip: false },
+    vip:   { target: true,  chat: true,  chatLimit: null, score: 'full',  whoLiked: true,  analysis: 'own',    vip: true }
+  };
+  // מערכת המנויים עוד לא הותקנה במסד: האפליקציה עובדת בדיוק כמו היום
+  var HDM_LEGACY_FEATURES  = { target: true, chat: true, chatLimit: null, score: 'full', whoLiked: false, analysis: 'none', vip: false, legacy: true };
+  // המסלול עוד נטען / תקלה זמנית: לא מציגים דירוג, והפעולות נבדקות בשרת
+  var HDM_LOADING_FEATURES = { target: true, chat: true, chatLimit: null, score: 'none', whoLiked: false, analysis: 'none', vip: false, loading: true };
+
+  // הזמנת שירותים מלימור (VIP). מספר וואטסאפ בפורמט בינלאומי בלי + (למשל 9725XXXXXXXX); ריק = רק אימייל
+  var HDM_LIMOR_WHATSAPP = '';
+  var HDM_LIMOR_EMAIL = 'life.through.numbers333@gmail.com';
+
+  var hdmEnt = null, hdmEntLoading = null, hdmPlansMsg = '';
+
+  function hdmPlanKnown(){ return !!(myId && hdmEnt && hdmEnt.forId === myId); }
+  function hdmFeatures(){
+    if(!hdmPlanKnown() || hdmEnt.error) return HDM_LOADING_FEATURES;
+    if(!hdmEnt.installed) return HDM_LEGACY_FEATURES;
+    return HDM_PLAN_FEATURES[hdmEnt.plan] || HDM_PLAN_FEATURES.free;
+  }
+  function hdmPlanId(){ return (hdmPlanKnown() && !hdmEnt.error && hdmEnt.installed) ? hdmEnt.plan : null; }
+  function hdmIsActive(screenId){ var el = document.getElementById(screenId); return !!(el && el.classList.contains('active')); }
+  function hdmLayerOpen(id){ var el = document.getElementById(id); return !!(el && el.classList.contains('open')); }
+  function hdmFmtDate(iso){ try{ return new Date(iso).toLocaleDateString('he-IL'); }catch(e){ return ''; } }
+
+  async function hdmRefreshPlan(force){
+    var id = myId;
+    if(!id){ hdmEnt = null; return null; }
+    if(!force && hdmEnt && hdmEnt.forId === id && !hdmEnt.error && Date.now() - hdmEnt.at < 30000) return hdmEnt;
+    if(!force && hdmEntLoading && hdmEntLoading.id === id) return hdmEntLoading.p;
+    var p = (async function(){
+      var sb = window.__sb, ent;
+      if(!sb) return hdmEnt;
+      try{
+        var r = await sb.rpc('hdm_my_entitlements', { p_profile: id });
+        if(r && r.error){
+          var code = String(r.error.code || ''), msg = String(r.error.message || '');
+          if(code === 'PGRST202' || code === '42883' || /could not find the function|does not exist/i.test(msg)) ent = { installed: false };
+          else throw r.error;
+        }else{
+          ent = (r && r.data && typeof r.data === 'object') ? r.data : { installed: false };
+        }
+      }catch(e){
+        if(hdmEnt && hdmEnt.forId === id && !hdmEnt.error) return hdmEnt;   // משאירים את מה שכבר ידוע
+        ent = { error: true };
+      }
+      if(myId !== id) return hdmEnt;
+      hdmEnt = Object.assign({}, ent, { forId: id, at: Date.now() });
+      try{ hdmApplyPlanUI(); }catch(e){}
+      return hdmEnt;
+    })();
+    hdmEntLoading = { id: id, p: p };
+    try{ return await p; }finally{ if(hdmEntLoading && hdmEntLoading.p === p) hdmEntLoading = null; }
+  }
+  function hdmEnsurePlan(){ return hdmRefreshPlan(false); }
+
+  function hdmCanOpenNewChat(){
+    var f = hdmFeatures();
+    if(!f.chat) return false;
+    if(f.chatLimit == null || !hdmPlanId()) return true;
+    return hdmEnt.chatsLeft == null || hdmEnt.chatsLeft > 0;
+  }
+
+  // ---- שגיאות מהשרת ----
+  function hdmPlanErrCode(e){
+    if(!e) return null;
+    var t = typeof e === 'string' ? e : [e.message, e.details, e.hint].join(' ');
+    var m = String(t).match(/HDM_(PLAN_REQUIRED|CHAT_LIMIT|PLAN_INACTIVE)/);
+    return m ? m[0] : null;
+  }
+  function hdmPlanErrText(e, pairContext){
+    var code = hdmPlanErrCode(e);
+    // השרת דחה פתיחת שיחה, אבל המסלול שלי מאפשר אותה — הסיבה אצל הצד השני (לא חושפים מה בדיוק)
+    if(pairContext && (code === 'HDM_PLAN_REQUIRED' || code === 'HDM_CHAT_LIMIT') && hdmCanOpenNewChat())
+      return 'העניין נשמר — השיחה תיפתח כשגם הצד השני יוכל לפתוח שיחה חדשה';
+    if(code === 'HDM_CHAT_LIMIT') return 'נוצלו 5 השיחות החדשות לחודש זה. השיחה תיפתח בחודש החיוב הבא או בשדרוג לפלוס';
+    if(code === 'HDM_PLAN_INACTIVE') return 'שליחת הודעות זמינה למנויים פעילים. השיחה שמורה';
+    return 'שליחת 🎯 ופתיחת שיחות זמינות מהמסלול הבסיסי ומעלה';
+  }
+  function hdmUpsell(kind){
+    var f = hdmFeatures();
+    if(f.legacy){ try{ hdmToast('האפשרות תיפתח עם הפעלת מערכת המנויים'); }catch(e){} return; }
+    var msg = kind === 'target' ? 'שליחת 🎯 זמינה מהמסלול הבסיסי ומעלה'
+      : kind === 'chat' ? 'שליחת הודעות זמינה למנויים פעילים. השיחות שלך שמורות'
+      : kind === 'liked' ? 'אפשרות לראות מי סימן אותי ב־🎯 זמינה במסלולי פלוס ו־VIP'
+      : kind === 'analysis' ? 'הניתוח הנומרולוגי המורחב זמין במסלולי פלוס ו־VIP'
+      : '';
+    hdmOpenPlans(msg);
+  }
+
+  // ---- סטטוס זוג: מי סימן את מי ----
+  var hdmPairCache = {};
+  function hdmPairStatusForget(id){ delete hdmPairCache[id]; }
+  async function hdmPairStatus(id){
+    var me = myId;
+    var c = hdmPairCache[id];
+    if(c && c.forMe === me && Date.now() - c.at < 30000) return c;
+    var r = await Promise.all([ hasInterest(me, id), hasInterest(id, me) ]);
+    var matched = false;
+    if(!(r[0] && r[1]) && dbCap){
+      try{ matched = !!(await dbCap.collection('matches').doc(conversationId(me, id)).get()).exists; }catch(e){}
+    }
+    c = { forMe: me, at: Date.now(), mine: r[0], theirs: r[1], mutual: matched || (r[0] && r[1]) };
+    hdmPairCache[id] = c;
+    return c;
+  }
+  function hdmAnalysisAllowed(st){
+    var f = hdmFeatures();
+    if(!st) return false;
+    if(f.analysis === 'own') return !!(st.mine || st.mutual);
+    if(f.analysis === 'mutual') return !!st.mutual;
+    return false;
+  }
+
+  // ---- כרטיס ההתאמה ----
+  function hdmApplyCardPlan(){
+    var pct = document.getElementById('match-pct'), why = document.getElementById('match-why'), box = document.getElementById('hdm-card-plan');
+    if(!pct || !why || !box) return;
+    var id = currentMatchId, data = currentMatchData;
+    if(!id || !data || !myProfile){ pct.style.display = ''; why.style.display = ''; box.innerHTML = ''; return; }
+    var f = hdmFeatures();
+    pct.style.display = f.score === 'none' ? 'none' : '';
+    why.style.display = f.score === 'full' ? '' : 'none';
+    var plan = hdmPlanId();
+    if(!plan){ box.innerHTML = ''; return; }
+    if(plan === 'free'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 דירוג התאמה, 🎯 ושיחות — מהמסלול הבסיסי</span>'; return; }
+    if(plan === 'basic'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 הסבר וניתוח מורחב — במסלולי פלוס ו־VIP</span>'; return; }
+    box.innerHTML = '';
+    hdmPairStatus(id).then(function(st){
+      if(currentMatchId !== id || hdmPlanId() !== plan) return;
+      if(hdmAnalysisAllowed(st)) box.innerHTML = '<button type="button" onpointerdown="event.stopPropagation()" onclick="hdmOpenAnalysis()">✨ ניתוח נומרולוגי מורחב</button>';
+      else box.innerHTML = '<span class="hdm-lock">' + (plan === 'vip' ? '✨ לחצו 🎯 כדי לפתוח את הניתוח המורחב' : '✨ הניתוח המורחב ייפתח אחרי 🎯 הדדי') + '</span>';
+    }).catch(function(){});
+  }
+
+  // ---- הצ'אט ----
+  function hdmApplyChatPlan(){
+    var f = hdmFeatures(), sub = document.getElementById('chat-sub');
+    if(sub){
+      if(sub.textContent) sub.dataset.hdmLabel = sub.textContent;
+      sub.textContent = f.score === 'none' ? '' : (sub.dataset.hdmLabel || '');
+    }
+    var locked = hdmPlanKnown() && !f.chat;
+    var lock = document.getElementById('hdm-chat-lock');
+    var phone = document.querySelector('.phone');
+    if(lock){
+      lock.style.display = locked ? '' : 'none';
+      lock.innerHTML = locked ? 'השיחה שמורה. שליחת הודעות זמינה למנויים פעילים — <b>לצפייה במסלולים</b>' : '';
+      lock.onclick = locked ? function(){ hdmOpenPlans(); } : null;
+    }
+    if(phone) phone.classList.toggle('hdm-chat-locked', locked);
+    var tools = document.getElementById('hdm-chat-tools');
+    if(!tools) return;
+    tools.innerHTML = '';
+    var id = currentMatchId, plan = hdmPlanId();
+    if(!id || (plan !== 'plus' && plan !== 'vip')) return;
+    hdmPairStatus(id).then(function(st){
+      if(currentMatchId !== id || !hdmIsActive('screen-chat')) return;
+      if(hdmAnalysisAllowed(st)) tools.innerHTML = '<button type="button" onclick="hdmOpenAnalysis()">✨ ניתוח נומרולוגי מורחב</button>';
+    }).catch(function(){});
+  }
+
+  // ---- הכול יחד, אחרי כל טעינה של המסלול ----
+  function hdmApplyPlanUI(){
+    var f = hdmFeatures(), plan = hdmPlanId();
+    var sn = document.getElementById('set-plan-name');
+    if(sn) sn.textContent = plan ? HDM_PLAN_INFO[plan].name : (hdmPlanKnown() && !hdmEnt.error && !hdmEnt.installed ? 'בקרוב' : '‹');
+    var ll = document.getElementById('hdm-liked-link');
+    if(ll) ll.textContent = '🎯 מי סימן אותי' + (plan && !f.whoLiked ? ' 🔒' : '');
+    try{ hdmApplyCardPlan(); }catch(e){}
+    try{ if(hdmIsActive('screen-chat')) hdmApplyChatPlan(); }catch(e){}
+    try{ if(hdmIsActive('screen-chats') && typeof lastListDocs !== 'undefined' && lastListDocs) renderConversations(lastListDocs); }catch(e){}
+    try{ if(hdmLayerOpen('hdm-plans-screen')) hdmRenderPlans(); }catch(e){}
+  }
+
+  // ---- מסך המנויים ----
+  function hdmVipBookingHtml(){
+    var name = hdmName(myProfile);
+    var subject = 'הזמנת שירות נומרולוגי — הטבת VIP (30% הנחה)';
+    var body = 'שלום לימור,\nאני מנוי/ה VIP באפליקציית חיים דרך מספרים ואשמח להזמין שירות נומרולוגי עם הנחת 30%.\n\nשם: ' + name + '\nמזהה משתמש: ' + (myId || '') + '\n';
+    var html = '<div class="hdm-vip-book">';
+    if(HDM_LIMOR_WHATSAPP) html += '<a href="https://wa.me/' + encodeURIComponent(HDM_LIMOR_WHATSAPP) + '?text=' + encodeURIComponent(body) + '" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>';
+    html += '<a href="mailto:' + HDM_LIMOR_EMAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body) + '">✉️ אימייל</a>';
+    return html + '</div>';
+  }
+  function hdmRenderPlans(){
+    var body = document.getElementById('hdm-plans-body');
+    if(!body) return;
+    var e = hdmPlanKnown() ? hdmEnt : null, plan = hdmPlanId();
+    var html = '';
+    if(hdmPlansMsg) html += '<p class="hdm-note" style="color:#F2D59A">' + hdmEsc(hdmPlansMsg) + '</p>';
+    html += '<div class="hdm-current">';
+    if(!myId) html += 'יש להתחבר כדי לראות את המנוי.';
+    else if(!e) html += 'בודקים את המנוי שלך…';
+    else if(e.error) html += 'לא הצלחנו לבדוק את המנוי כרגע. נסו שוב בעוד רגע.';
+    else if(!e.installed) html += 'מערכת המנויים עדיין לא הופעלה. בינתיים כל האפשרויות הקיימות פתוחות, בדיוק כמו היום.';
+    else{
+      html += 'המסלול שלך: <b>' + hdmEsc(HDM_PLAN_INFO[plan].name) + '</b>' + (e.source === 'test' ? '<span class="hdm-badge">מנוי בדיקה</span>' : '');
+      if(plan === 'basic'){
+        html += '<br>שיחות חדשות החודש: נותרו <b>' + (e.chatsLeft == null ? '—' : e.chatsLeft) + '</b> מתוך ' + (e.chatsLimit || 5);
+        if(e.periodReset) html += '<br>המכסה מתחדשת ב־' + hdmFmtDate(e.periodReset);
+      }
+      if(e.periodEnd) html += '<br>בתוקף עד ' + hdmFmtDate(e.periodEnd);
+    }
+    html += '</div>';
+    HDM_PLAN_ORDER.forEach(function(k){
+      var info = HDM_PLAN_INFO[k], cur = plan === k;
+      html += '<div class="hdm-plan' + (cur ? ' is-current' : '') + '">';
+      html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
+      html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
+      if(k === 'vip' && cur) html += hdmVipBookingHtml();
+      html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'שדרוג — יופעל בקרוב')) + '</button>';
+      html += '</div>';
+    });
+    html += '<p class="hdm-note">התשלום באפליקציה עדיין לא פעיל, ולא מתבצע שום חיוב. בשלב הבדיקות המסלול מוגדר ידנית על ידי צוות האפליקציה.</p>';
+    body.innerHTML = html;
+  }
+  function hdmOpenPlans(msg){
+    hdmPlansMsg = msg || '';
+    hdmRenderPlans();
+    hdmOpenLayer('hdm-plans-screen');
+    hdmRefreshPlan(true).then(function(){ if(hdmLayerOpen('hdm-plans-screen')) hdmRenderPlans(); }).catch(function(){});
+  }
+
+  // ---- ניתוח נומרולוגי מורחב ----
+  async function hdmOpenAnalysis(){
+    var id = currentMatchId, data = currentMatchData;
+    if(!id || !data || !myProfile) return;
+    await hdmEnsurePlan();
+    var f = hdmFeatures();
+    if(f.analysis === 'none'){ hdmUpsell('analysis'); return; }
+    var st = await hdmPairStatus(id);
+    if(!hdmAnalysisAllowed(st)){
+      try{ hdmToast(f.analysis === 'own' ? 'לחצו 🎯 כדי לפתוח את הניתוח המורחב' : 'הניתוח המורחב ייפתח אחרי 🎯 הדדי'); }catch(e){}
+      return;
+    }
+    var r = overallCompatibility(myProfile, data);
+    var other = hdmName(data), meName = hdmName(myProfile);
+    var html = '<p class="hdm-note">' + hdmEsc(meName) + ' ו־' + hdmEsc(other) + '</p>';
+    var label = matchCategoryLabel(r);
+    html += '<div class="hdm-an-verdict"><b>' + hdmEsc(label) + '</b>' + (r.verdict && r.verdict !== label ? '<br>' + hdmEsc(r.verdict) : '') + '<br>' + hdmEsc(generateWhy(r)) + '</div>';
+    var myLp = myProfile.lifePathNumber, theirLp = data.lifePathNumber;
+    if(myLp || theirLp){
+      html += '<div class="hdm-an-row"><h4>מספרי דרך החיים</h4>';
+      if(myLp) html += '<p><b>' + hdmEsc(meName) + ' (' + myLp + '):</b> ' + hdmEsc(lifePathMeanings[myLp] || '') + '</p>';
+      if(theirLp) html += '<p><b>' + hdmEsc(other) + ' (' + theirLp + '):</b> ' + hdmEsc(lifePathMeanings[theirLp] || '') + '</p>';
+      html += '</div>';
+    }
+    r.categories.forEach(function(c){
+      var k = c.combo;
+      html += '<div class="hdm-an-row"><h4>' + hdmEsc(c.label) + (k.good ? '<span class="hdm-an-tag">משלים</span>' : '') + (k.karmic ? '<span class="hdm-an-tag">קארמתי</span>' : '') + '</h4>';
+      html += '<div class="hdm-an-nums">' + k.a + ' + ' + k.b + ' = ' + k.rawSum + (k.rawSum !== k.reduced ? ' → ' + k.reduced : '') + '</div>';
+      var p = 'אנרגיית החיבור (' + k.reduced + '): ' + (lifePathMeanings[k.reduced] || '') + ' ';
+      p += k.good ? 'שילוב שנחשב תומך ומשלים בזוגיות.' : 'שילוב שמזמין יותר הקשבה והתאמה הדדית.';
+      if(k.karmic) p += ' הסכום ' + k.rawSum + ' הוא מספר קארמתי — קשר שמרגיש מוכר ומזמין למידה משותפת.';
+      html += '<p>' + hdmEsc(p) + '</p></div>';
+    });
+    html += '<p class="hdm-note" style="margin-top:14px">הניתוח מבוסס על עקרונות הנומרולוגיה ומשמש כלי להכוונה אישית, ולא לקביעה ודאית של התאמה זוגית.</p>';
+    if(hdmPlanId() === 'vip') html += '<div class="hdm-current">כמנוי/ה VIP מגיעה לך הנחה של 30% על שירותים נומרולוגיים זכאים של לימור רון.' + hdmVipBookingHtml() + '</div>';
+    document.getElementById('hdm-analysis-body').innerHTML = html;
+    hdmOpenLayer('hdm-analysis-screen');
+  }
+
+  // ---- מי סימן אותי ב-🎯 ----
+  async function hdmOpenLikedMe(){
+    await hdmEnsurePlan();
+    if(!hdmFeatures().whoLiked){ hdmUpsell('liked'); return; }
+    var body = document.getElementById('hdm-liked-body');
+    body.innerHTML = '<p class="hdm-note">טוען…</p>';
+    hdmOpenLayer('hdm-liked-screen');
+    var me = myId, who = {}, mine = {}, profiles = {};
+    ((myProfile && myProfile.likes) || []).forEach(function(x){ mine[x] = true; });
+    try{
+      var iq = await dbCap.collection('interests').get();
+      iq.docs.forEach(function(d){
+        var v = d.data() || {};
+        if(v.to === me && v.from) who[v.from] = Math.max(who[v.from] || 0, v.ts || 0);
+        if(v.from === me && v.to) mine[v.to] = true;
+      });
+      var pq = await dbCap.collection('profiles').get();
+      pq.docs.forEach(function(d){
+        profiles[d.id] = d.data() || {};
+        if((profiles[d.id].likes || []).indexOf(me) !== -1 && !(d.id in who)) who[d.id] = 0;
+      });
+      try{ await loadBlocks(); }catch(e){}
+    }catch(e){
+      if(myId === me) body.innerHTML = '<p class="hdm-note">לא הצלחנו לטעון כרגע. נסו שוב בעוד רגע.</p>';
+      return;
+    }
+    if(myId !== me) return;
+    var ids = Object.keys(who).filter(function(id){
+      return id !== me && profiles[id] && !isFictitiousId(id) && !isBlockedPair(id, me);
+    }).sort(function(a, b){ return (who[b] || 0) - (who[a] || 0); });
+    if(!ids.length){ body.innerHTML = '<p class="hdm-note">עוד אף אחד לא סימן אותך ב־🎯. כשזה יקרה, תראו את זה כאן.</p>'; return; }
+    body.innerHTML = '';
+    ids.forEach(function(id){
+      var p = profiles[id];
+      var row = document.createElement('div');
+      row.className = 'hdm-liked-row';
+      var av = document.createElement('div');
+      av.className = 'avatar';
+      var src = p.photoUrl || (p.photoAssetId ? '/_blob/' + p.photoAssetId : '');
+      if(src) av.style.backgroundImage = 'url("' + String(src).replace(/"/g, '%22') + '")';
+      var txt = document.createElement('div');
+      var h = document.createElement('h4'); h.textContent = hdmName(p);
+      var sub = document.createElement('p');
+      sub.textContent = [p.age ? 'גיל ' + p.age : '', p.location || '', mine[id] ? 'התאמה הדדית 🎯' : 'לחצו לצפייה בכרטיס'].filter(Boolean).join(' · ');
+      txt.appendChild(h); txt.appendChild(sub);
+      row.appendChild(av); row.appendChild(txt);
+      row.addEventListener('click', function(){
+        hdmCloseLayer('hdm-liked-screen');
+        currentMatchId = id; currentMatchData = p;
+        try{ renderMatchCard(p); }catch(e){}
+        go('screen-match');
+      });
+      body.appendChild(row);
+    });
+  }
+
+  // ---- חיבור לפונקציות הקיימות (בלי לשנות את מה שהן עושות) ----
+  var hdmRenderMatchCardOrig = renderMatchCard;
+  renderMatchCard = function(){
+    var r = hdmRenderMatchCardOrig.apply(this, arguments);
+    try{ hdmApplyCardPlan(); }catch(e){}
+    return r;
+  };
+  var hdmRenderNoMoreOrig = renderNoMoreMatches;
+  renderNoMoreMatches = function(){
+    var r = hdmRenderNoMoreOrig.apply(this, arguments);
+    try{ hdmApplyCardPlan(); }catch(e){}
+    return r;
+  };
+  var hdmOpenChatOrig = openChat;
+  openChat = function(){
+    try{ var sub = document.getElementById('chat-sub'); if(sub) sub.dataset.hdmLabel = sub.textContent || ''; }catch(e){}
+    var r = hdmOpenChatOrig.apply(this, arguments);
+    try{ hdmApplyChatPlan(); }catch(e){}
+    return r;
+  };
+  var hdmRenderConversationsOrig = renderConversations;
+  renderConversations = function(){
+    var r = hdmRenderConversationsOrig.apply(this, arguments);
+    try{
+      var list = document.getElementById('chats-list'), plan = hdmPlanId(), e = hdmEnt;
+      var title = list && list.querySelector('h2');
+      if(title && !listViewerId && (plan === 'basic' || plan === 'free')){
+        var note = document.createElement('div');
+        note.className = 'hdm-quota';
+        note.innerHTML = plan === 'basic'
+          ? 'נותרו <b>' + (e.chatsLeft == null ? '—' : e.chatsLeft) + '</b> מתוך ' + (e.chatsLimit || 5) + ' שיחות חדשות בחודש החיוב הזה' + (e.periodReset ? ' · מתחדש ב־' + hdmFmtDate(e.periodReset) : '')
+          : '🔒 השיחות שלך שמורות. פתיחת שיחות ושליחת הודעות זמינות מהמסלול הבסיסי — <b>לצפייה במסלולים</b>';
+        note.addEventListener('click', function(){ hdmOpenPlans(); });
+        title.insertAdjacentElement('afterend', note);
+      }
+    }catch(err){}
+    return r;
+  };
+  var hdmGoPlans = go;
+  go = function(id){
+    var r = hdmGoPlans.apply(this, arguments);
+    if(id === 'screen-match' || id === 'screen-chats' || id === 'screen-chat' || id === 'screen-settings'){
+      hdmRefreshPlan(false).catch(function(){});
+      if(id === 'screen-settings') try{ hdmApplyPlanUI(); }catch(e){}
+    }
+    return r;
+  };
+  // רענון תקופתי (שינוי מסלול, מכסה שהתחדשה, החלפת משתמש)
+  setInterval(function(){ if(myId && !document.hidden) hdmRefreshPlan(false).catch(function(){}); }, 60000);
+  setTimeout(function tick(){ if(myId && window.__sb){ hdmRefreshPlan(false).catch(function(){}); } else setTimeout(tick, 1500); }, 1500);
 </script>
 
 </body>
