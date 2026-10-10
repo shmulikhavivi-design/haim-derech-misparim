@@ -522,6 +522,42 @@
   .intro-cta svg{ position:absolute; right:26px; top:50%; width:18px; height:18px; transform:translateY(-50%);
     stroke:#1d1409; stroke-width:2.4; fill:none; }
   .intro-foot{ position:relative; z-index:2; margin:14px 0 0; font-size:15.5px; color:#F2EADF; }
+
+  /* ===== שכחתי סיסמה / איפוס סיסמה ===== */
+  .li-forgot{ display:block; margin:-4px 0 4px auto; background:none; border:none; padding:6px 0; cursor:pointer;
+    font-family:'Heebo',sans-serif; font-size:13.5px; color:#E2B769; text-decoration:underline; }
+  .li-forgot:focus-visible{ outline:2px solid #F8DFA4; outline-offset:3px; }
+  .signup.hdm-top{ z-index:220; }
+  .rp-link{ display:block; margin:16px auto 0; background:none; border:none; cursor:pointer;
+    font-family:'Heebo',sans-serif; font-size:14px; color:#E2B769; text-decoration:underline; }
+  .su-status.ok{ color:#A8D5A2 !important; }
+
+  /* ===== חובה להעלות תמונת פרופיל ===== */
+  .signup.photo-gate{ z-index:210; }
+  .pg-circle{ width:140px; height:140px; border-radius:50%; margin:6px auto 18px; cursor:pointer;
+    border:2px dashed rgba(226,183,105,.75); background:rgba(255,255,255,.04) center/cover no-repeat;
+    display:flex; align-items:center; justify-content:center; color:#E2B769; }
+  .pg-circle.has{ border-style:solid; }
+  .pg-circle svg{ width:40px; height:40px; stroke:currentColor; fill:none; stroke-width:1.6; }
+  .pg-circle.has svg{ display:none; }
+  .pg-msg{ text-align:center; color:#F2D59A; font-weight:600; font-size:15.5px; margin:0 0 6px; }
+  .su-photo.required .su-photo-circle{ border-color:#E2B769; }
+  #signup-step2 .su-photo.bad .su-photo-circle{ border-color:#E58A7C; }
+
+  /* ===== מאחורי המספרים ===== */
+  .signup.about{ z-index:150; }
+  .about-frame{ margin:4px 0 22px; padding:6px; border:1px solid rgba(226,183,105,.45); border-radius:18px; background:rgba(255,255,255,.03); }
+  .about-frame img{ display:block; width:100%; height:auto; }
+  .about-title{ font-family:'Frank Ruhl Libre',serif; font-weight:900; font-size:24px; line-height:1.35; margin:0 0 16px; text-align:center;
+    background:linear-gradient(180deg,#F8DFA4 0%,#E2B769 55%,#C99447 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .about-title .about-heart{ -webkit-text-fill-color:initial; color:initial; }
+  .about-text p{ color:#E3D9CC; font-size:15.5px; line-height:1.75; margin:0 0 14px; }
+  .about-text p:last-child{ color:#BFB4A6; font-size:14px; border-top:1px solid rgba(226,183,105,.25); padding-top:14px; }
+
+  /* ===== קישורים לרשתות החברתיות ===== */
+  a.set-row{ text-decoration:none; -webkit-tap-highlight-color:transparent; }
+  .set-row .set-ico{ display:inline-flex; align-items:center; gap:10px; }
+  .set-row .set-ico svg{ width:20px; height:20px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -622,6 +658,12 @@
       <div class="set-title">מסמכים</div>
       <button type="button" class="set-row" onclick="openLegal('privacy')"><span>🔒 מדיניות פרטיות</span><b>‹</b></button>
       <button type="button" class="set-row" onclick="openLegal('terms')"><span>📄 תנאי שימוש</span><b>‹</b></button>
+    </div>
+    <div class="set-group">
+      <div class="set-title">אודות</div>
+      <button type="button" class="set-row" id="set-about" onclick="hdmOpenAbout()"><span>✨ מאחורי המספרים</span><b>‹</b></button>
+      <a class="set-row" id="set-instagram" href="https://www.instagram.com/life_through_numbers?rpxt=bXRmenA0M2ljcXF3&amp;utm_source=qr" target="_blank" rel="noopener noreferrer"><span class="set-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="hdm-ig-grad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#F9CE34"/><stop offset=".5" stop-color="#EE2A7B"/><stop offset="1" stop-color="#6228D7"/></linearGradient></defs><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="none" stroke="url(#hdm-ig-grad)" stroke-width="2"/><circle cx="12" cy="12" r="4.3" fill="none" stroke="url(#hdm-ig-grad)" stroke-width="2"/><circle cx="17.4" cy="6.6" r="1.3" fill="#EE2A7B"/></svg>אינסטגרם</span><b>‹</b></a>
+      <a class="set-row" id="set-facebook" href="https://www.facebook.com/share/1E1hDMnWRq/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"><span class="set-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#1877F2"/><path fill="#fff" d="M13.4 21.4v-6.9h2.3l.35-2.7H13.4v-1.7c0-.78.22-1.31 1.34-1.31h1.43V6.4a19 19 0 0 0-2.08-.1c-2.06 0-3.47 1.26-3.47 3.57v1.98H8.3v2.7h2.33v6.9z"/></svg>פייסבוק</span><b>‹</b></a>
     </div>
     <div class="set-group">
       <div class="set-title">חשבון</div>
@@ -767,9 +809,9 @@
       <h2 class="signup-title" id="su2-hello">נעים להכיר</h2>
       <div class="su-num"><b id="su2-num">–</b><span>מספר שביל החיים שלך,<br>לפי תאריך הלידה שהזנת</span></div>
 
-      <label class="su-photo" for="su2-photo-input">
+      <label class="su-photo required" id="su2-f-photo" for="su2-photo-input">
         <span class="su-photo-circle" id="su2-photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
-        <span class="su-photo-text">הוספת תמונת פרופיל<small>אפשר גם בהמשך</small></span>
+        <span class="su-photo-text">הוספת תמונת פרופיל<small>חובה</small></span>
       </label>
       <input type="file" id="su2-photo-input" accept="image/*" style="display:none">
 
@@ -848,6 +890,7 @@
       <div class="su-field" id="li-f-pass"><label for="li-pass">סיסמה</label>
         <div class="su-pass"><input type="password" id="li-pass" dir="ltr" autocomplete="current-password" onkeydown="if(event.key==='Enter'){submitLogin();}"><button type="button" onclick="toggleLoginPass(this)">הצגה</button></div>
         <span class="su-err"></span></div>
+      <button type="button" class="li-forgot" id="li-forgot" onclick="hdmOpenForgot()">שכחתי סיסמה?</button>
 
       <button type="button" class="su-submit" id="li-submit" onclick="submitLogin()">התחבר</button>
       <div class="su-status" id="li-status" role="status"></div>
@@ -875,6 +918,70 @@
       <button type="button" class="signup-back" onclick="closeLegal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
       <h2 class="signup-title" id="legal-title">מדיניות פרטיות</h2>
       <div id="legal-body"></div>
+    </div>
+  </div>
+
+  <!-- שכחתי סיסמה: שליחת קישור איפוס למייל -->
+  <div class="signup hdm-top" id="forgot-screen" aria-hidden="true">
+    <div class="signup-inner">
+      <button type="button" class="signup-back" onclick="hdmCloseForgot()"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
+      <h2 class="signup-title">שכחתי סיסמה</h2>
+      <p class="signup-lead">הזינו את כתובת האימייל של החשבון, ונשלח אליה קישור מאובטח להגדרת סיסמה חדשה.</p>
+      <div id="fp-form">
+        <div class="su-field" id="fp-f-email"><label for="fp-email">אימייל</label>
+          <input type="email" id="fp-email" dir="ltr" autocomplete="email" inputmode="email" placeholder="name@example.com" onkeydown="if(event.key==='Enter'){hdmSubmitForgot();}"><span class="su-err"></span></div>
+        <button type="button" class="su-submit" id="fp-submit" onclick="hdmSubmitForgot()">שליחת קישור לאיפוס</button>
+      </div>
+      <div class="su-status" id="fp-status" role="status"></div>
+      <button type="button" class="rp-link" id="fp-back-login" style="display:none" onclick="hdmCloseForgot()">חזרה להתחברות</button>
+    </div>
+  </div>
+
+  <!-- איפוס סיסמה: נפתח מהקישור שנשלח למייל -->
+  <div class="signup hdm-top" id="reset-screen" aria-hidden="true">
+    <div class="signup-inner">
+      <h2 class="signup-title">הגדרת סיסמה חדשה</h2>
+      <p class="signup-lead" id="rp-lead">בחרו סיסמה חדשה לחשבון שלכם.</p>
+      <div id="rp-form">
+        <div class="su-field" id="rp-f-pass"><label for="rp-pass">סיסמה חדשה</label>
+          <div class="su-pass"><input type="password" id="rp-pass" dir="ltr" autocomplete="new-password"><button type="button" onclick="hdmToggleResetPass(this)">הצגה</button></div>
+          <div class="su-hint">לפחות 8 תווים</div><span class="su-err"></span></div>
+        <div class="su-field" id="rp-f-pass2"><label for="rp-pass2">אימות הסיסמה</label>
+          <input type="password" id="rp-pass2" dir="ltr" autocomplete="new-password" onkeydown="if(event.key==='Enter'){hdmSubmitReset();}"><span class="su-err"></span></div>
+        <button type="button" class="su-submit" id="rp-submit" onclick="hdmSubmitReset()">שמירת הסיסמה</button>
+      </div>
+      <div class="su-status" id="rp-status" role="status"></div>
+      <button type="button" class="su-submit" id="rp-new-link" style="display:none" onclick="hdmResetRequestNewLink()">שליחת קישור חדש</button>
+      <button type="button" class="rp-link" id="rp-to-login" style="display:none" onclick="hdmResetToLogin()">מעבר להתחברות</button>
+    </div>
+  </div>
+
+  <!-- חובה להעלות תמונת פרופיל (משתמש בלי תמונה) -->
+  <div class="signup photo-gate" id="photo-gate-screen" aria-hidden="true">
+    <div class="signup-inner">
+      <h2 class="signup-title">תמונת פרופיל</h2>
+      <p class="pg-msg">חובה להעלות תמונת פרופיל כדי להמשיך</p>
+      <p class="signup-lead" style="text-align:center">התמונה תוצג למשתמשים שמתאימים לך</p>
+      <label class="pg-circle" id="pg-circle" for="pg-input"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></label>
+      <input type="file" id="pg-input" accept="image/*" style="display:none">
+      <button type="button" class="su-submit" id="pg-submit" onclick="hdmPhotoGateSubmit()">העלאת תמונה והמשך</button>
+      <div class="su-status" id="pg-status" role="status"></div>
+      <button type="button" class="signup-back" style="position:static;margin:22px auto 0;display:flex" onclick="hdmPhotoGateExit()">יציאה מהחשבון</button>
+    </div>
+  </div>
+
+  <!-- מאחורי המספרים -->
+  <div class="signup about" id="about-screen" aria-hidden="true">
+    <div class="signup-inner">
+      <button type="button" class="signup-back" onclick="hdmCloseAbout()"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
+      <div class="about-frame"><img src="images/limor-ron.jpg" alt="הנומרולוגית לימור רון" loading="lazy" decoding="async"></div>
+      <h2 class="about-title">חיים דרך מספרים – כשהמספרים פוגשים את הלב <span class="about-heart">❤️</span></h2>
+      <div class="about-text">
+        <p>התוכן הנומרולוגי באפליקציית ״חיים דרך מספרים״ נוצר על ידי לימור רון, נומרולוגית מקצועית בעלת 11 שנות ניסיון בתחום.</p>
+        <p>האפליקציה משלבת ידע נומרולוגי עם טכנולוגיה מתקדמת, כדי להציע דרך נוספת להיכרות, להבנת התאמות וליצירת קשרים משמעותיים.</p>
+        <p>ההתאמות הנומרולוגיות נועדו להעניק תובנות, להעמיק את ההיכרות ולסייע בגילוי חיבורים זוגיים משמעותיים.</p>
+        <p>ההתאמות מבוססות על עקרונות הנומרולוגיה ומשמשות כלי להכוונה אישית, ולא לקביעה ודאית של התאמה זוגית.</p>
+      </div>
     </div>
   </div>
 
@@ -1199,6 +1306,30 @@
       if(name === 'assets') return assets;
       return null;
     };
+  })();
+</script>
+<script>
+  // ===== קישור איפוס סיסמה מהמייל =====
+  // Supabase מחזיר לכאן עם #access_token=...&type=recovery (או עם #error_code=otp_expired כשהקישור פג).
+  // קוראים את הפרמטרים עכשיו — לפני ששחזור ההתחברות רץ — ומנקים אותם מהכתובת כדי שהטוקנים לא יישארו בה.
+  (function(){
+    try{
+      var hp = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+      var qp = new URLSearchParams((location.search || '').replace(/^\?/, ''));
+      function g(k){ return hp.get(k) || qp.get(k) || ''; }
+      var marker = qp.get('hdm_reset') === '1';
+      var type = g('type');
+      var errCode = g('error_code') || (g('error_description') ? g('error') : '');
+      var code = qp.get('code') || '';
+      var isRecovery = type === 'recovery' || (marker && (g('access_token') || code || errCode)) || (!!errCode && !!g('error_description'));
+      if(!isRecovery) return;
+      window.__hdmRecoveryMode = true;
+      window.__hdmRecovery = {
+        accessToken: g('access_token'), refreshToken: g('refresh_token'), code: code,
+        error: errCode, errorDescription: g('error_description')
+      };
+      try{ history.replaceState(null, '', location.pathname); }catch(e){}
+    }catch(e){}
   })();
 </script>
 
@@ -3698,6 +3829,8 @@
         var c = document.getElementById('su2-photo');
         c.style.backgroundImage = 'url("' + r.result + '")'; c.classList.add('has');
         if(signupDraft) signupDraft.photoFile = file;
+        var pb = document.getElementById('su2-f-photo'); if(pb) pb.classList.remove('bad');
+        var st = document.getElementById('su2-status'); if(st && st.textContent === HDM_PHOTO_MSG) st.textContent = '';
       };
       r.readAsDataURL(file);
     });
@@ -3709,6 +3842,15 @@
     suSetErr('su2-f-looking', looking ? '' : 'נא לבחור');
     var status = document.getElementById('su2-status');
     var extra = hdmReadExtraForm('su2', true);
+    // תמונת פרופיל — חובה
+    var hasPhoto = !!(signupDraft && signupDraft.photoFile);
+    var photoBox = document.getElementById('su2-f-photo');
+    if(photoBox) photoBox.classList.toggle('bad', !hasPhoto);
+    if(!hasPhoto){
+      status.className = 'su-status'; status.style.color = '#F0A396'; status.textContent = HDM_PHOTO_MSG;
+      if(photoBox) photoBox.scrollIntoView({ block:'center', behavior:'smooth' });
+      return;
+    }
     if(!looking || extra.error){
       status.className = 'su-status'; status.style.color = '#F0A396'; status.textContent = extra.error || '';
       var bad = document.querySelector('#signup-step2 .su-field.bad'); if(bad) bad.scrollIntoView({ block:'center', behavior:'smooth' });
@@ -3987,6 +4129,11 @@
       if(acct && acct.salt && acct.hash){
         ok = (await authHash(pass, authFromB64(acct.salt), acct.iterations || 150000)) === acct.hash;
       }
+      if(!ok && window.hdmLoginViaSupabaseAuth){
+        // סיסמה שהוגדרה דרך "שכחתי סיסמה" (Supabase Auth) — נבדקת שם, והחשבון מתעדכן בה
+        var viaAuth = await window.hdmLoginViaSupabaseAuth(email, pass, acct);
+        if(viaAuth){ acct = viaAuth; ok = true; }
+      }
       if(!ok){ status.textContent = 'האימייל או הסיסמה שגויים.'; return; }
       var finishLogin = function(){
         try{ if(window.authSaveSession) authSaveSession(acct.profileId); }catch(e){}   // שמירת ההתחברות לרענון / פתיחה מחדש
@@ -4162,6 +4309,7 @@
     }
 
     // ---- שחזור בזמן טעינת האפליקציה ----
+    if(window.__hdmRecoveryMode) return;   // נפתח קישור איפוס סיסמה: לא נכנסים לחשבון לפני שנקבעת סיסמה חדשה
     var hasSaved = !!store.getItem('hdm-auth-session') || !!readLocal();
     if(!hasSaved) return;
     // מסמנים כבר עכשיו שיש משתמש מחובר, כדי שזכירת משתמש הבדיקה (rememberActiveUser) לא תחליף משתמש בזמן השחזור
@@ -4666,6 +4814,329 @@
     try{ logoutToAuthChoice(); }catch(e){}
     hdmToast('החשבון נמחק');
   }
+</script>
+<script>
+  // =====================================================================
+  // תוספות: שכחתי סיסמה, תמונת פרופיל חובה, "מאחורי המספרים", קישורים לרשתות
+  // תוספת עצמאית — משתמשת בפונקציות הקיימות (go, dbCap, assetsCap, authEnterProfile...) בלי לשנות את ההתאמות, ה-🎯 או הצ'אט
+  // =====================================================================
+  function hdmOpenLayer(id){ var f = document.getElementById(id); if(!f) return; f.classList.add('open'); f.setAttribute('aria-hidden', 'false'); f.scrollTop = 0; }
+  function hdmCloseLayer(id){ var f = document.getElementById(id); if(!f) return; f.classList.remove('open'); f.setAttribute('aria-hidden', 'true'); }
+  function hdmSetStatus(id, text, ok){
+    var s = document.getElementById(id); if(!s) return;
+    s.className = 'su-status' + (ok ? ' ok' : ''); s.style.color = ok ? '' : '#F0A396'; s.textContent = text || '';
+  }
+  function hdmHideIntroAndChoice(){
+    var intro = document.getElementById('intro-screen');
+    if(intro && intro.style.display !== 'none'){ intro.classList.add('intro-hide'); setTimeout(function(){ intro.style.display = 'none'; }, 480); }
+    var choice = document.getElementById('auth-choice-screen');
+    if(choice && choice.style.display !== 'none'){ choice.classList.add('auth-hide'); setTimeout(function(){ choice.style.display = 'none'; }, 420); }
+  }
+  // מחכים שהחיבור למסד יהיה מוכן (בפתיחה קרה זה לוקח כמה שניות)
+  function hdmWaitForDb(ms){
+    return new Promise(function(resolve){
+      var start = Date.now();
+      (function tick(){
+        if(typeof dbCap !== 'undefined' && dbCap) return resolve(true);
+        if(Date.now() - start > (ms || 15000)) return resolve(false);
+        setTimeout(tick, 250);
+      })();
+    });
+  }
+  function hdmEmailOk(e){ return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e || '').trim()); }
+  function hdmAuthErrText(err, fallback){
+    var code = String((err && (err.code || err.error_code)) || ''), msg = String((err && err.message) || '').toLowerCase();
+    var status = err && err.status;
+    if(status === 429 || /rate.?limit/.test(code + ' ' + msg)) return 'נשלחו כבר כמה בקשות. נסו שוב בעוד כמה דקות.';
+    if(code === 'same_password' || /different from the old|same password/.test(msg)) return 'הסיסמה החדשה חייבת להיות שונה מהסיסמה הקודמת.';
+    if(code === 'weak_password' || /weak|at least/.test(msg)) return 'הסיסמה חלשה מדי. בחרו סיסמה ארוכה יותר, עם אותיות ומספרים.';
+    if(/otp_expired|expired|invalid.*(token|grant|jwt)|session.*missing|refresh token/.test(code + ' ' + msg)) return 'הקישור אינו תקף יותר או שפג תוקפו. אפשר לבקש קישור חדש.';
+    if(/fetch|network|failed to/.test(msg)) return 'אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.';
+    return fallback || 'משהו השתבש. נסו שוב.';
+  }
+
+  // ---------- 1. שכחתי סיסמה ----------
+  // הקישור חוזר לכתובת הנוכחית של האפליקציה (עם סימון hdm_reset), ונפתח בה מסך הגדרת סיסמה חדשה.
+  function hdmResetRedirectUrl(){ return location.origin + location.pathname + '?hdm_reset=1'; }
+  var hdmForgotCooldownUntil = 0;
+  function hdmOpenForgot(prefill){
+    var li = document.getElementById('li-email');
+    var email = prefill || (li && li.value.trim()) || '';
+    document.getElementById('fp-email').value = email;
+    document.getElementById('fp-form').style.display = '';
+    document.getElementById('fp-back-login').style.display = 'none';
+    suSetErr('fp-f-email', ''); hdmSetStatus('fp-status', '');
+    hdmOpenLayer('forgot-screen');
+  }
+  function hdmCloseForgot(){ hdmCloseLayer('forgot-screen'); }
+  var hdmForgotBusy = false;
+  async function hdmSubmitForgot(){
+    if(hdmForgotBusy) return;
+    var email = document.getElementById('fp-email').value.trim().toLowerCase();
+    if(!hdmEmailOk(email)){ suSetErr('fp-f-email', 'נא להזין אימייל תקין'); return; }
+    suSetErr('fp-f-email', '');
+    if(Date.now() < hdmForgotCooldownUntil){
+      hdmSetStatus('fp-status', 'כבר שלחנו קישור. אפשר לבקש קישור נוסף בעוד ' + Math.ceil((hdmForgotCooldownUntil - Date.now()) / 1000) + ' שניות.');
+      return;
+    }
+    var a = window.__sbAuth;
+    if(!a){ hdmSetStatus('fp-status', 'אין חיבור לשרת כרגע. נסו שוב בעוד רגע.'); return; }
+    var btn = document.getElementById('fp-submit');
+    hdmForgotBusy = true; btn.disabled = true; btn.textContent = 'שולח...';
+    hdmSetStatus('fp-status', '');
+    try{
+      var r = await a.auth.resetPasswordForEmail(email, { redirectTo: hdmResetRedirectUrl() });
+      if(r && r.error){ hdmSetStatus('fp-status', hdmAuthErrText(r.error, 'השליחה נכשלה. נסו שוב בעוד רגע.')); return; }
+      hdmForgotCooldownUntil = Date.now() + 60000;
+      // תשובה זהה לכל כתובת — לא מגלים אם האימייל רשום באפליקציה
+      hdmSetStatus('fp-status', 'אם הכתובת רשומה באפליקציה, נשלח אליה עכשיו קישור לאיפוס הסיסמה. פתחו את המייל ולחצו על הקישור (בדקו גם בתיקיית הספאם). הקישור תקף לזמן מוגבל.', true);
+      document.getElementById('fp-form').style.display = 'none';
+      document.getElementById('fp-back-login').style.display = '';
+    }catch(e){
+      hdmSetStatus('fp-status', hdmAuthErrText(e, 'השליחה נכשלה. נסו שוב בעוד רגע.'));
+    }finally{
+      hdmForgotBusy = false; btn.disabled = false; btn.textContent = 'שליחת קישור לאיפוס';
+    }
+  }
+
+  // עדכון הסיסמה גם ברשומת החשבון של האפליקציה (רק הגיבוב — הסיסמה עצמה לא נשמרת), בלי לשנות שום שדה אחר
+  async function hdmUpdateAccountPassword(email, pass, acct){
+    var ref = await authAccountRef(email);
+    if(!ref || !acct || !acct.profileId) return false;
+    var salt = crypto.getRandomValues(new Uint8Array(16)), iterations = 150000;
+    await ref.set(Object.assign({}, acct, {
+      email: authNormEmail(email), salt: authB64(salt), iterations: iterations,
+      hash: await authHash(pass, salt, iterations), passwordResetAt: Date.now()
+    }));
+    return true;
+  }
+  // התחברות בסיסמה שנקבעה דרך "שכחתי סיסמה": נבדקת מול Supabase Auth, ורק לחשבון קיים של האפליקציה עם אותו אימייל
+  window.hdmLoginViaSupabaseAuth = async function(email, pass, acct){
+    var a = window.__sbAuth;
+    if(!a || !acct || !acct.profileId) return null;
+    email = authNormEmail(email);
+    if(acct.email && authNormEmail(acct.email) !== email) return null;
+    try{
+      var r = await a.auth.signInWithPassword({ email: email, password: pass });
+      var u = r && r.data && r.data.user;
+      if(r.error || !u || authNormEmail(u.email) !== email || (u.user_metadata && u.user_metadata.deleted)){
+        if(!r.error){ try{ await a.auth.signOut({ scope: 'local' }); }catch(e){} }
+        return null;
+      }
+      try{ await hdmUpdateAccountPassword(email, pass, acct); }catch(e){}
+      return acct;
+    }catch(e){ return null; }
+  };
+
+  // ---- מסך הגדרת סיסמה חדשה (מהקישור במייל) ----
+  var hdmResetEmail = null;
+  function hdmToggleResetPass(btn){
+    var show = document.getElementById('rp-pass').type === 'password';
+    ['rp-pass', 'rp-pass2'].forEach(function(id){ document.getElementById(id).type = show ? 'text' : 'password'; });
+    btn.textContent = show ? 'הסתרה' : 'הצגה';
+  }
+  function hdmResetShow(state, text){
+    // state: 'checking' | 'form' | 'expired' | 'done'
+    document.getElementById('rp-form').style.display = state === 'form' ? '' : 'none';
+    document.getElementById('rp-new-link').style.display = state === 'expired' ? '' : 'none';
+    document.getElementById('rp-to-login').style.display = (state === 'expired' || state === 'done') ? '' : 'none';
+    var lead = document.getElementById('rp-lead');
+    lead.textContent = state === 'checking' ? 'בודקים את הקישור...' :
+                       state === 'form' ? ('בחרו סיסמה חדשה לחשבון' + (hdmResetEmail ? ' ' + hdmResetEmail : '') + '.') :
+                       state === 'expired' ? 'לא ניתן להשתמש בקישור הזה.' : 'הסיסמה עודכנה.';
+    lead.dir = 'auto';
+    hdmSetStatus('rp-status', text || '', state === 'done');
+    hdmOpenLayer('reset-screen');
+  }
+  // יציאה ממסך האיפוס בלי להשלים: לא משאירים את ה-session של הקישור פעיל בדפדפן
+  function hdmResetDropSession(){
+    var a = window.__sbAuth;
+    if(a && !window.__authSignedIn){ try{ a.auth.signOut({ scope: 'local' }).catch(function(){}); }catch(e){} }
+  }
+  function hdmResetRequestNewLink(){
+    hdmCloseLayer('reset-screen');
+    window.__hdmRecoveryMode = false;
+    hdmResetDropSession();
+    try{ openLogin(); }catch(e){}
+    hdmOpenForgot(hdmResetEmail || '');
+  }
+  function hdmResetToLogin(){
+    hdmCloseLayer('reset-screen');
+    window.__hdmRecoveryMode = false;
+    hdmResetDropSession();
+    try{ openLogin(); if(hdmResetEmail) document.getElementById('li-email').value = hdmResetEmail; }catch(e){}
+  }
+  async function hdmStartRecovery(){
+    var rec = window.__hdmRecovery || {};
+    hdmResetShow('checking');
+    var a = window.__sbAuth;
+    if(rec.error){
+      var expired = /expired/i.test(rec.error + ' ' + rec.errorDescription);
+      hdmResetShow('expired', expired ? 'תוקף הקישור פג. אפשר לבקש קישור חדש ולהשתמש בו מיד.' : 'הקישור אינו תקף (ייתכן שכבר נעשה בו שימוש). אפשר לבקש קישור חדש.');
+      return;
+    }
+    if(!a){ hdmResetShow('expired', 'אין חיבור לשרת כרגע. רעננו את הדף ונסו שוב.'); return; }
+    try{
+      var r;
+      if(rec.accessToken && rec.refreshToken){
+        r = await a.auth.setSession({ access_token: rec.accessToken, refresh_token: rec.refreshToken });
+      }else if(rec.code){
+        r = await a.auth.exchangeCodeForSession(rec.code);
+      }else{
+        hdmResetShow('expired', 'הקישור אינו שלם. אפשר לבקש קישור חדש.');
+        return;
+      }
+      var s = r && r.data && r.data.session;
+      if(r.error || !s || !s.user){
+        var msg = hdmAuthErrText(r && r.error, 'הקישור אינו תקף יותר או שפג תוקפו. אפשר לבקש קישור חדש.');
+        if(rec.code && !rec.accessToken) msg = 'יש לפתוח את הקישור באותו מכשיר ובאותו דפדפן שבו ביקשתם אותו, או לבקש קישור חדש.';
+        hdmResetShow('expired', msg);
+        return;
+      }
+      hdmResetEmail = authNormEmail(s.user.email);
+      document.getElementById('rp-pass').value = '';
+      document.getElementById('rp-pass2').value = '';
+      suSetErr('rp-f-pass', ''); suSetErr('rp-f-pass2', '');
+      hdmResetShow('form');
+    }catch(e){
+      hdmResetShow('expired', hdmAuthErrText(e, 'הקישור אינו תקף יותר או שפג תוקפו. אפשר לבקש קישור חדש.'));
+    }
+  }
+  var hdmResetBusy = false;
+  async function hdmSubmitReset(){
+    if(hdmResetBusy) return;
+    var p1 = document.getElementById('rp-pass').value, p2 = document.getElementById('rp-pass2').value;
+    suSetErr('rp-f-pass', p1.length >= 8 ? '' : 'הסיסמה צריכה לכלול לפחות 8 תווים');
+    suSetErr('rp-f-pass2', p1.length >= 8 && p1 !== p2 ? 'הסיסמאות אינן זהות' : '');
+    if(p1.length < 8 || p1 !== p2) return;
+    var a = window.__sbAuth;
+    var btn = document.getElementById('rp-submit');
+    hdmResetBusy = true; btn.disabled = true; btn.textContent = 'שומר...';
+    hdmSetStatus('rp-status', '');
+    try{
+      var r = await a.auth.updateUser({ password: p1 });
+      if(r && r.error){
+        var t = hdmAuthErrText(r.error, 'שמירת הסיסמה נכשלה. נסו שוב.');
+        if(/קישור/.test(t)){ hdmResetShow('expired', t); } else { hdmSetStatus('rp-status', t); }
+        return;
+      }
+      // הסיסמה עודכנה ב-Supabase Auth. מעדכנים גם את רשומת החשבון באפליקציה, כדי שההתחברות תעבוד מכל מכשיר
+      var acct = null, entered = false;
+      if(await hdmWaitForDb(15000)){
+        try{ acct = await authGetAccount(hdmResetEmail); }catch(e){}
+        if(acct){ try{ await hdmUpdateAccountPassword(hdmResetEmail, p1, acct); }catch(e){} }
+      }
+      document.getElementById('rp-pass').value = ''; document.getElementById('rp-pass2').value = '';
+      window.__hdmRecoveryMode = false;
+      if(acct && acct.profileId){
+        // נכנסים לחשבון ישירות (כולל בדיקת גיל ותמונה כרגיל)
+        hdmCloseLayer('reset-screen');
+        var finish = function(){ try{ if(window.authSaveSession) authSaveSession(acct.profileId); }catch(e){} };
+        window.__hdmAgeGateOnPass = finish;
+        try{ entered = await authEnterProfile(acct.profileId); }catch(e){}
+        window.__hdmAgeGateOnPass = null;
+        if(entered){ finish(); hdmHideIntroAndChoice(); try{ hdmToast('הסיסמה עודכנה בהצלחה'); }catch(e){} return; }
+        if(window.__hdmAgeGateOpen) return;
+      }
+      hdmResetShow('done', 'הסיסמה החדשה נשמרה. אפשר להתחבר איתה עכשיו.');
+    }catch(e){
+      hdmSetStatus('rp-status', hdmAuthErrText(e, 'שמירת הסיסמה נכשלה. נסו שוב.'));
+    }finally{
+      hdmResetBusy = false; btn.disabled = false; btn.textContent = 'שמירת הסיסמה';
+    }
+  }
+  if(window.__hdmRecoveryMode){ hdmStartRecovery(); }
+
+  // ---------- 2. תמונת פרופיל חובה ----------
+  var HDM_PHOTO_MSG = 'חובה להעלות תמונת פרופיל כדי להמשיך';
+  function hdmHasPhoto(p){
+    if(!p) return false;
+    var u = typeof p.photoUrl === 'string' ? p.photoUrl.trim() : '';
+    var id = typeof p.photoAssetId === 'string' ? p.photoAssetId.trim() : '';
+    return !!(u || id);
+  }
+  // המסכים שאי אפשר להיכנס אליהם בלי תמונה: התאמות, יש התאמה, השיחות שלי, צ'אט
+  var HDM_PHOTO_GATED = { 'screen-match': 1, 'screen-connect': 1, 'screen-chats': 1, 'screen-chat': 1 };
+  var hdmPhotoGateTarget = null, hdmPhotoGateFile = null;
+  window.__hdmPhotoGateOpen = false;
+  var hdmGoOriginal = go;
+  go = function(id){
+    if(HDM_PHOTO_GATED[id] && myId && myProfile && !window.__loggedOut && !hdmHasPhoto(myProfile)){
+      hdmShowPhotoGate(id);
+      return;
+    }
+    return hdmGoOriginal.apply(this, arguments);
+  };
+  function hdmShowPhotoGate(target){
+    hdmPhotoGateTarget = target || 'screen-match';
+    if(window.__hdmPhotoGateOpen) return;
+    hdmPhotoGateFile = null;
+    var c = document.getElementById('pg-circle'); c.style.backgroundImage = ''; c.classList.remove('has');
+    document.getElementById('pg-input').value = '';
+    hdmSetStatus('pg-status', '');
+    window.__hdmPhotoGateOpen = true;
+    hdmOpenLayer('photo-gate-screen');
+  }
+  function hdmClosePhotoGate(){
+    window.__hdmPhotoGateOpen = false;
+    hdmCloseLayer('photo-gate-screen');
+  }
+  (function initPhotoGate(){
+    var input = document.getElementById('pg-input');
+    if(input) input.addEventListener('change', function(e){
+      var f = e.target.files && e.target.files[0];
+      if(!f) return;
+      hdmPhotoGateFile = f;
+      var r = new FileReader();
+      r.onload = function(){ var c = document.getElementById('pg-circle'); c.style.backgroundImage = 'url("' + r.result + '")'; c.classList.add('has'); };
+      r.readAsDataURL(f);
+      hdmSetStatus('pg-status', '');
+    });
+  })();
+  var hdmPhotoGateBusy = false;
+  async function hdmPhotoGateSubmit(){
+    if(hdmPhotoGateBusy) return;
+    if(!hdmPhotoGateFile){ hdmSetStatus('pg-status', 'נא לבחור תמונה (לחיצה על העיגול)'); return; }
+    if(typeof dbCap === 'undefined' || !dbCap || !myId){ hdmSetStatus('pg-status', 'אין חיבור לשמירה כרגע. נסו שוב בעוד רגע.'); return; }
+    var btn = document.getElementById('pg-submit');
+    hdmPhotoGateBusy = true; btn.disabled = true; btn.textContent = 'מעלה...';
+    try{
+      var up;
+      try{ up = await assetsCap.upload(hdmPhotoGateFile); }catch(e){ hdmSetStatus('pg-status', 'לא הצלחנו לקרוא את התמונה. נסו תמונה אחרת.'); return; }
+      if(!up || !up.url){ hdmSetStatus('pg-status', 'לא הצלחנו לקרוא את התמונה. נסו תמונה אחרת.'); return; }
+      var changes = { photoUrl: up.url, photoAssetId: up.id || '' };
+      try{
+        await dbCap.doc('profiles/' + myId).update(changes);   // מיזוג: שאר הפרופיל נשאר כמו שהוא
+      }catch(e){
+        hdmSetStatus('pg-status', 'השמירה נכשלה. בדקו את החיבור ונסו שוב.');
+        return;
+      }
+      myProfile = Object.assign({}, myProfile || {}, changes);
+      window.userProfile = myProfile;
+      try{ if(typeof savedProfilesById === 'object') savedProfilesById[myId] = myProfile; }catch(e){}
+      try{ if(typeof chatsListProfiles === 'object') chatsListProfiles[myId] = myProfile; }catch(e){}
+      var target = hdmPhotoGateTarget || 'screen-match';
+      hdmClosePhotoGate();
+      hdmGoOriginal(target);
+      try{ hdmToast('התמונה נשמרה ✓'); }catch(e){}
+    }finally{
+      hdmPhotoGateBusy = false; btn.disabled = false; btn.textContent = 'העלאת תמונה והמשך';
+    }
+  }
+  function hdmPhotoGateExit(){
+    hdmClosePhotoGate();
+    try{ logoutToAuthChoice(); }catch(e){}
+  }
+  // התנתקות מכל מקום סוגרת גם את מסך התמונה
+  var hdmLogoutOriginal = logoutToAuthChoice;
+  logoutToAuthChoice = function(){
+    hdmClosePhotoGate();
+    return hdmLogoutOriginal.apply(this, arguments);
+  };
+
+  // ---------- 3. מאחורי המספרים ----------
+  function hdmOpenAbout(){ hdmOpenLayer('about-screen'); }
+  function hdmCloseAbout(){ hdmCloseLayer('about-screen'); }
 </script>
 
 </body>
