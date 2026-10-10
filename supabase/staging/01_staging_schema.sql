@@ -1,5 +1,5 @@
 -- =====================================================================
--- סביבת בדיקות (Staging) — שלב 1 מתוך 2: מבנה המסד
+-- סביבת בדיקות (Staging) — שלב 1: מבנה המסד
 -- ⚠️ רק בפרויקט Supabase חדש ונפרד לבדיקות. אסור בפרויקט האמיתי.
 --
 -- יוצר את טבלת docs באותו מבנה ובאותן הרשאות כמו בפרויקט האמיתי היום (כולל הפתיחות
@@ -9,12 +9,9 @@
 -- הגנה: אם כבר קיימת טבלת docs עם נתונים, הקובץ נעצר בלי לשנות כלום.
 -- (את העמודות וההרשאות נעדכן לפי תוצאות 01_audit_readonly.sql מהפרויקט האמיתי.)
 --
--- סדר מלא בפרויקט ה-Staging:
---   1. הקובץ הזה
---   2. supabase/age_gate.sql
---   3. supabase/staging/02_staging_seed.sql
---   4. קובצי PR #9: subscriptions.sql ← subscriptions_enforce.sql
---   5. הרשמה דרך האפליקציה (גרסת ה-Staging) עם 4 חשבונות בדיקה, ואז hdm_admin_set_plan לכל אחד
+-- סדר מלא בפרויקט ה-Staging (ההסבר המלא: supabase/staging/README.md):
+--   01 מבנה ← 02 הגבלת גיל ← 03 נתונים מומצאים ← הרשמת 4 חשבונות בדיקה באפליקציה
+--   ← 04 מנויים (PR #9) ← 05 מסלולים לחשבונות ← 06 בדיקות ← 07 מצב
 -- =====================================================================
 
 do $$
@@ -25,6 +22,8 @@ begin
     end if;
   end if;
 end $$;
+
+begin;
 
 create table if not exists public.docs (
   collection text        not null,
@@ -53,6 +52,8 @@ create table if not exists public.hdm_staging_marker (
 );
 alter table public.hdm_staging_marker enable row level security;
 revoke all on public.hdm_staging_marker from public, anon, authenticated;
-insert into public.hdm_staging_marker default values;
+insert into public.hdm_staging_marker select where not exists (select 1 from public.hdm_staging_marker);
 
-select 'מבנה ה-Staging מוכן' as "סטטוס";
+commit;
+
+select '✅ מבנה ה-Staging מוכן' as "סטטוס";
