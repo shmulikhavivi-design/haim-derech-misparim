@@ -5976,7 +5976,18 @@
         return;
       }
       var pending = hdmPendingTake(email);
-      var pid = await window.hdmStagingClaim(pending && pending.id);
+      var pid;
+      try{ pid = await window.hdmStagingClaim(pending && pending.id); }
+      catch(ce){
+        if(pending){ try{ localStorage.setItem(hdmPendingKey(email), JSON.stringify(pending)); }catch(x){} }
+        if(/HDM_LEGACY_VERIFY_EMAIL/.test(hdmStgMsg(ce))){
+          // חשבון קיים מהגרסה הקודמת: מתחבר לפרופיל רק אחרי אימות המייל
+          try{ await a.auth.signOut({ scope: 'local' }); }catch(x){}
+          status.textContent = 'החשבון שלך קיים מהגרסה הקודמת. כדי לחבר אותו, לחצו פעם אחת על "שכחתי סיסמה" והגדירו סיסמה מהקישור שיישלח למייל.';
+          return;
+        }
+        throw ce;
+      }
       var snap = await dbCap.doc('profiles/' + pid).get();
       if(!snap.exists && pending && pending.profile){
         try{ await dbCap.doc('profiles/' + pid).set(pending.profile); }
