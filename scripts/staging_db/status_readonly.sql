@@ -13,6 +13,7 @@ select case when to_regclass('public.hdm_staging_marker') is not null then '✅ 
 select version as "גרסה", installed_at::date as "תאריך" from public.hdm_staging_marker order by installed_at;
 select (exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1_fixes'))  as "03 מותקן",
        (exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1_fixes2')) as "04 מותקן",
+       (exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1_fixes3')) as "05 מותקן",
        (select count(*) from pg_policies where schemaname = 'public') as "כללי RLS";
 
 \echo '== 3. טבלאות ו-RLS (מספר שורות בלבד — בלי תוכן)'
@@ -40,4 +41,5 @@ select case
   when to_regclass('public.hdm_staging_marker') is null then '❌ לא פרויקט ניסוי — לא להריץ שום דבר נוסף'
   when not exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1_fixes') then 'ℹ️ צריך להריץ את 03 (בעורך ה-SQL), ואז 04 ו-02'
   when not exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1_fixes2') then 'ℹ️ מוכן ל-04 ואז 02'
-  else '✅ 01, 03 ו-04 מותקנים — מוכן ל-02' end as "המצב";
+  when not exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1_fixes3') then 'ℹ️ מוכן ל-05 ואז 02'
+  else '✅ 01, 03, 04 ו-05 מותקנים — מוכן ל-02' end as "המצב";

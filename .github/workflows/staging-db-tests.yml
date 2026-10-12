@@ -3,9 +3,10 @@
 # הרצה ידנית בלבד. אין הרצה בפתיחת PR, ב-push לענפים רגילים או לפי שעון.
 # שתי דרכים להפעיל:
 #   1. push לענף הייעודי staging-tests/run. המצב נקבע לפי שורת הנושא של ה-commit: [staging:check] / [staging:install03] /
-#      [staging:install04] / [staging:tests02]. בלי סימון = check (קריאה בלבד).
+#      [staging:install04] / [staging:install05] / [staging:tests02] / [staging:e2e]. בלי סימון = check (קריאה בלבד).
 #   2. כפתור "Run workflow" (יופיע רק אם הקובץ יגיע ל-main בעתיד, באישור).
 #
+# במצב e2e נדרש גם המשתנה (לא סוד) STAGING_PUBLISHABLE_KEY בסביבה staging — המפתח הציבורי של Staging.
 # הסוד היחיד: STAGING_DB_URL — Environment Secret בסביבת GitHub בשם "staging" (לא Repository Secret).
 # כתובת חיבור למסד של פרויקט Staging בלבד. לא נשמרת בקוד ולא מודפסת; הסיסמה מוסתרת (add-mask) גם אם תופיע בשגיאה.
 # ההגנות עצמן (מזהה פרויקט, hdm_staging_marker, קריאה בלבד כברירת מחדל) נמצאות ב-scripts/staging_db/run.sh.
@@ -22,7 +23,7 @@ on:
         required: true
         default: 'check'
         type: choice
-        options: [ check, install03, install04, tests02 ]
+        options: [ check, install03, install04, install05, tests02, e2e ]
 
 permissions:
   contents: read
@@ -55,15 +56,27 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in check|install03|install04|tests02) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in check|install03|install04|install05|tests02|e2e) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: psql
         run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
 
+      - uses: actions/setup-python@v6
+        if: steps.mode.outputs.mode == 'e2e'
+        with:
+          python-version: '3.12'
+
+      - name: Browser (e2e only)
+        if: steps.mode.outputs.mode == 'e2e'
+        run: |
+          python3 -m pip install --quiet playwright==1.55.0
+          python3 -m playwright install --with-deps chromium
+
       - name: Run on Staging
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          STAGING_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
           RUN_MODE: ${{ steps.mode.outputs.mode }}
         run: bash scripts/staging_db/run.sh "$RUN_MODE"

@@ -6,7 +6,9 @@
 #   check    — (ברירת מחדל) בדיקת מצב לקריאה בלבד. לא משנה כלום.
 #   install03 — מריץ את 03_staging_fixes.sql (כללי הרשאה בלבד; נעצר אם כבר הותקן)
 #   install04 — מריץ את 04_staging_profile_id_fix.sql (נעצר אם כבר הותקן)
+#   install05 — מריץ את 05_staging_profile_hardening.sql (נעצר אם כבר הותקן)
 #   tests02  — מריץ את 02_staging_tests.sql (74 בדיקות; הכול מתבטל בסוף — לא נשמר כלום)
+#   e2e      — בדיקת דפדפן של staging.html מול Staging (משתמשי בדיקה זמניים שנמחקים בסוף). דורש STAGING_PUBLISHABLE_KEY
 #
 # הגנות, לפני כל חיבור ובכל מצב:
 #   1. כתובת החיבור חייבת לכלול את מזהה פרויקט Staging, ואסור שתכלול את מזהה הפרויקט הפעיל.
@@ -33,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|tests02) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -69,10 +71,24 @@ echo "$STATUS"; { echo '```'; echo "$STATUS"; echo '```'; } >> "$SUMMARY"
 ann notice "staging-status" "$STATUS"
 [ "$MODE" = "check" ] && { say "✅ הסתיים (קריאה בלבד — לא שונה כלום)."; ann notice "staging-result" "✅ check: מחובר ל-Staging, קריאה בלבד, לא שונה כלום"; exit 0; }
 
+# ---- בדיקת דפדפן מלאה ----
+if [ "$MODE" = "e2e" ]; then
+  [ -n "${STAGING_PUBLISHABLE_KEY:-}" ] || stop "חסר STAGING_PUBLISHABLE_KEY (משתנה בסביבה staging)."
+  case "$STAGING_PUBLISHABLE_KEY" in sb_publishable_*) ;; *) stop "STAGING_PUBLISHABLE_KEY אינו מפתח ציבורי (sb_publishable_). שום דבר לא הורץ.";; esac
+  say ""; say "### בדיקת דפדפן (staging.html מול Staging)"
+  OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_staging.py" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; { echo '```'; echo "$OUT"; echo '```'; } >> "$SUMMARY"
+  ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY)|ניקוי' | tail -n 60)"
+  [ $RC -eq 0 ] || stop "בדיקת הדפדפן נכשלה (ראו פלט)."
+  say "✅ בדיקת הדפדפן עברה, ונתוני הבדיקה נמחקו."; ann notice "staging-result" "✅ e2e: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"
+  exit 0
+fi
+
 # ---- מצבים שכותבים (רק אחרי שכל ההגנות עברו) ----
 case "$MODE" in
   install03) FILE="$SQLDIR/03_staging_fixes.sql" ;;
   install04) FILE="$SQLDIR/04_staging_profile_id_fix.sql" ;;
+  install05) FILE="$SQLDIR/05_staging_profile_hardening.sql" ;;
   tests02)   FILE="$SQLDIR/02_staging_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."

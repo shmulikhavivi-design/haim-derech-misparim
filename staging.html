@@ -5091,7 +5091,7 @@
       '<h3>מחיקת חשבון</h3>' +
       '<p>המחיקה סופית ואי אפשר לשחזר אותה. יימחקו:</p>' +
       '<ul><li>הפרופיל, התמונה וכל הפרטים שלך</li>' +
-      '<li>הקישור בין האימייל לפרופיל (משתמש ההתחברות עצמו נמחק בנפרד על ידי צוות האפליקציה)</li>' +
+      '<li>פרטי ההתחברות (אימייל וסיסמה)</li>' +
       '<li>ה־🎯, ההתאמות, השיחות וההודעות שלך — שיחה נמחקת גם אצל הצד השני</li>' +
       '<li>חסימות שעשית ושנעשו כלפיך</li></ul>' +
       '<p>דיווחים שנשלחו נשמרים לצורכי בטיחות.</p>' +
@@ -6005,7 +6005,8 @@
     if(!me){ st.textContent = 'אפשר למחוק רק חשבון מחובר. התחברו מחדש ונסו שוב.'; return; }
     var btn = document.getElementById('hdm-del-go'); btn.disabled = true; btn.textContent = 'מוחק…';
     st.style.color = 'var(--muted)'; st.textContent = '';
-    try{ await window.__hdmRpc('hdm_delete_my_data'); }
+    var delRes = null;
+    try{ delRes = await window.__hdmRpc('hdm_delete_my_data'); }
     catch(e){
       btn.disabled = false; btn.textContent = 'מחיקת החשבון לצמיתות';
       st.style.color = ''; st.textContent = 'המחיקה נכשלה. נסו שוב.';
@@ -6013,7 +6014,7 @@
     }
     closeSheet();
     try{ logoutToAuthChoice(); }catch(e){}
-    hdmToast('החשבון נמחק');
+    hdmToast(delRes && delRes.authUserDeleted === false ? 'הנתונים נמחקו. פרטי ההתחברות יימחקו על ידי צוות האפליקציה.' : 'החשבון נמחק');
   };
 
   // ---- דירוג התאמה: מהשרת (hdm_match_ratings), לפי המסלול. בלי דירוג — לא מציגים כלום ----
