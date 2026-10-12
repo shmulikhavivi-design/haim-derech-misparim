@@ -1,0 +1,63 @@
+# חיים דרך מספרים — בדיקות SQL על פרויקט Staging בלבד
+#
+# הרצה ידנית בלבד. אין הרצה בפתיחת PR, ב-push לענפים רגילים או לפי שעון.
+# שתי דרכים להפעיל:
+#   1. push לענף הייעודי staging-tests/run. המצב נקבע לפי שורת הנושא של ה-commit: [staging:check] / [staging:install03] /
+#      [staging:install04] / [staging:tests02]. בלי סימון = check (קריאה בלבד).
+#   2. כפתור "Run workflow" (יופיע רק אם הקובץ יגיע ל-main בעתיד, באישור).
+#
+# הסוד היחיד: STAGING_DB_URL — כתובת חיבור למסד של פרויקט Staging בלבד. לא נשמר בקוד ולא מודפס.
+# ההגנות עצמן (מזהה פרויקט, hdm_staging_marker, קריאה בלבד כברירת מחדל) נמצאות ב-scripts/staging_db/run.sh.
+
+name: Staging DB tests (manual)
+
+on:
+  push:
+    branches: [ 'staging-tests/run' ]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check = קריאה בלבד; install03 / install04 / tests02 = רק אחרי אישור'
+        required: true
+        default: 'check'
+        type: choice
+        options: [ check, install03, install04, tests02 ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-db
+  cancel-in-progress: false
+
+jobs:
+  staging-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Choose mode
+        id: mode
+        env:
+          INPUT_MODE: ${{ inputs.mode }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          mode="${INPUT_MODE:-}"
+          if [ -z "$mode" ]; then
+            mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
+          fi
+          mode="${mode:-check}"
+          case "$mode" in check|install03|install04|tests02) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: psql
+        run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
+
+      - name: Run on Staging
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: bash scripts/staging_db/run.sh "${{ steps.mode.outputs.mode }}"
