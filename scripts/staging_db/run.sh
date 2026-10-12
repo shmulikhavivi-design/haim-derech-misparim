@@ -37,7 +37,14 @@ case "$MODE" in check|install03|install04|tests02) ;; *) stop "מצב לא מו�
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
-[ -n "$URL" ] || stop "חסר STAGING_DB_URL (סוד ב-GitHub)."
+unset STAGING_DB_URL                      # לא נשאר במשתני הסביבה של פקודות שרצות מכאן
+[ -n "$URL" ] || stop "חסר STAGING_DB_URL (Environment Secret בסביבה staging)."
+if [ -n "${GITHUB_ACTIONS:-}" ]; then     # הסתרה ביומן: הכתובת כולה והסיסמה לבד, גם אם יופיעו בהודעת שגיאה
+  echo "::add-mask::$URL"
+  PW=$(printf '%s' "$URL" | sed -n 's#^[a-z]*://[^:/@]*:\([^@]*\)@.*#\1#p')
+  [ -n "$PW" ] && echo "::add-mask::$PW"
+  unset PW
+fi
 case "$URL" in *"$PRODUCTION_REF"*) stop "כתובת החיבור שייכת לפרויקט הפעיל. שום דבר לא הורץ.";; esac
 case "$URL" in *"$STAGING_REF"*) ;; *) stop "כתובת החיבור לא שייכת לפרויקט Staging ($STAGING_REF). שום דבר לא הורץ.";; esac
 

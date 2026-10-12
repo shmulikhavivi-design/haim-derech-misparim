@@ -6,7 +6,8 @@
 #      [staging:install04] / [staging:tests02]. בלי סימון = check (קריאה בלבד).
 #   2. כפתור "Run workflow" (יופיע רק אם הקובץ יגיע ל-main בעתיד, באישור).
 #
-# הסוד היחיד: STAGING_DB_URL — כתובת חיבור למסד של פרויקט Staging בלבד. לא נשמר בקוד ולא מודפס.
+# הסוד היחיד: STAGING_DB_URL — Environment Secret בסביבת GitHub בשם "staging" (לא Repository Secret).
+# כתובת חיבור למסד של פרויקט Staging בלבד. לא נשמרת בקוד ולא מודפסת; הסיסמה מוסתרת (add-mask) גם אם תופיע בשגיאה.
 # ההגנות עצמן (מזהה פרויקט, hdm_staging_marker, קריאה בלבד כברירת מחדל) נמצאות ב-scripts/staging_db/run.sh.
 
 name: Staging DB tests (manual)
@@ -32,8 +33,12 @@ concurrency:
 
 jobs:
   staging-db:
+    # רק מהריפו הזה ורק מהענף הייעודי / כפתור ידני
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/staging-tests/run')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # הסוד נלקח מסביבת GitHub "staging" בלבד
+    environment: staging
     steps:
       - uses: actions/checkout@v5
         with:
@@ -60,4 +65,5 @@ jobs:
       - name: Run on Staging
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
-        run: bash scripts/staging_db/run.sh "${{ steps.mode.outputs.mode }}"
+          RUN_MODE: ${{ steps.mode.outputs.mode }}
+        run: bash scripts/staging_db/run.sh "$RUN_MODE"
