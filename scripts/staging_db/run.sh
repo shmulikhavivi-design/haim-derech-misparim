@@ -25,7 +25,13 @@ SQLDIR="$ROOT/supabase/staging_secure"
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 say(){ echo "$*"; echo "$*" >> "$SUMMARY"; }
-stop(){ say "⛔ עצירה: $*"; exit 1; }
+# ב-GitHub Actions: התוצאה נשמרת גם כ-annotation, כדי שאפשר יהיה לקרוא אותה דרך ה-API (בלי להוריד יומנים)
+ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
+  [ -n "${GITHUB_ACTIONS:-}" ] || return 0
+  local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}')
+  printf '::%s title=%s::%s\n' "$1" "$2" "$msg"
+}
+stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
 case "$MODE" in check|install03|install04|tests02) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
@@ -53,7 +59,8 @@ say "✅ מחובר לפרויקט Staging ($STAGING_REF), מזוהה לפי hdm
 say ""; say "### בדיקת מצב (קריאה בלבד)"
 STATUS=$("${RO[@]}" "${PSQL[@]}" -f "$HERE/status_readonly.sql" 2>&1) || { echo "$STATUS"; stop "בדיקת המצב נכשלה."; }
 echo "$STATUS"; { echo '```'; echo "$STATUS"; echo '```'; } >> "$SUMMARY"
-[ "$MODE" = "check" ] && { say "✅ הסתיים (קריאה בלבד — לא שונה כלום)."; exit 0; }
+ann notice "staging-status" "$STATUS"
+[ "$MODE" = "check" ] && { say "✅ הסתיים (קריאה בלבד — לא שונה כלום)."; ann notice "staging-result" "✅ check: מחובר ל-Staging, קריאה בלבד, לא שונה כלום"; exit 0; }
 
 # ---- מצבים שכותבים (רק אחרי שכל ההגנות עברו) ----
 case "$MODE" in
@@ -65,6 +72,7 @@ esac
 say ""; say "### הרצת $(basename "$FILE")"
 OUT=$("${PSQL[@]}" -f "$FILE" 2>&1) && RC=0 || RC=$?
 echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY"
+ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
 if [ "$MODE" = "tests02" ]; then
@@ -72,7 +80,7 @@ if [ "$MODE" = "tests02" ]; then
   LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c \
     "select (select count(*) from auth.users where email like '%@example.invalid') + (select count(*) from public.hdm_accounts a where not exists (select 1 from auth.users u where u.id = a.auth_user_id))")
   [ "$LEFT" = "0" ] || stop "נשארו נתוני בדיקה במסד ($LEFT)."
-  say "✅ עברו 74 מתוך 74, ולא נשארו נתוני בדיקה במסד."
+  say "✅ עברו 74 מתוך 74, ולא נשארו נתוני בדיקה במסד."; ann notice "staging-result" "✅ tests02: עברו 74 מתוך 74, ולא נשארו נתוני בדיקה"
 else
-  say "✅ $(basename "$FILE") הותקן."
+  say "✅ $(basename "$FILE") הותקן."; ann notice "staging-result" "✅ $MODE: $(basename "$FILE") הותקן"
 fi
