@@ -31,19 +31,24 @@ jobs:
           note test-user "$EMAIL"
 
           # 1) הרשמה — אם Confirm email דלוק, נשלח מייל אישור דרך ה-SMTP
-          R=$(curl -sS -m 30 -o /tmp/su.json -w '%{http_code}' "${H[@]}" -X POST "$B/signup" \
+          R=$(curl -sS -m 60 -o /tmp/su.json -w '%{http_code} %{time_total}' "${H[@]}" -X POST "$B/signup" \
                 -d "$(jq -nc --arg e "$EMAIL" --arg p "$PW" '{email:$e,password:$p}')")
+          T1=${R#* }; R=${R%% *}
           SENT=$(jq -r '(.confirmation_sent_at // .user.confirmation_sent_at // "none")' /tmp/su.json 2>/dev/null)
           MSG=$(jq -r '(.msg // .error_description // .message // "") | tostring' /tmp/su.json 2>/dev/null)
-          note signup "HTTP $R | confirmation_sent_at=$SENT ${MSG:+| $MSG}"
+          note signup "HTTP $R | ${T1}s | confirmation_sent_at=$SENT ${MSG:+| $MSG}"
 
           # 2) קישור כניסה (magic link) לכתובת אחרת — עוד ניסיון שליחה דרך ה-SMTP
           EMAIL2="life.through.numbers333+smtp-otp-${GITHUB_RUN_ID}@gmail.com"
-          R2=$(curl -sS -m 30 -o /tmp/otp.json -w '%{http_code}' "${H[@]}" -X POST "$B/otp" \
+          R2=$(curl -sS -m 60 -o /tmp/otp.json -w '%{http_code} %{time_total}' "${H[@]}" -X POST "$B/otp" \
                 -d "$(jq -nc --arg e "$EMAIL2" '{email:$e,create_user:true}')")
+          T2=${R2#* }; R2=${R2%% *}
           MSG2=$(jq -r '(.msg // .error_description // .message // "") | tostring' /tmp/otp.json 2>/dev/null)
-          note magic-link "HTTP $R2 ${MSG2:+| $MSG2}"
+          note magic-link "HTTP $R2 | ${T2}s ${MSG2:+| $MSG2}"
 
+          # אבחון לפי זמן תגובה: כשל מהיר (<3ש') = Gmail דחה את ההתחברות (בדרך כלל סיסמת אפליקציה/שם משתמש);
+          # כשל איטי (>8ש') = לא נוצר חיבור תקין לשרת (Host/Port/הצפנה)
+          note timing-hint "$(awk -v t="$T1" 'BEGIN{ if (t<3) print "מהיר — סביר שהבעיה בפרטי ההתחברות"; else if (t>8) print "איטי — סביר שהבעיה בשרת/פורט"; else print "לא חד-משמעי" }')"
           # הערה: /recover מחזיר 200 גם למשתמש שלא קיים, ולכן אינו הוכחה. ההוכחה היא signup/otp.
           if [ "$R" = 200 ] && [ "$SENT" != none ] && [ "$R2" = 200 ]; then
             note RESULT "✅ SMTP עובד: שני מיילים (אישור הרשמה + קישור כניסה) נמסרו לשרת Gmail"
