@@ -55,26 +55,36 @@ export PGCONNECT_TIMEOUT=20 PGAPPNAME=hdm-staging-ci
 
 # ---- הגנה 2: זהות המסד, בטרנזקציה לקריאה בלבד ----
 RO=(env PGOPTIONS='-c default_transaction_read_only=on')
-# אבחון בטוח של כתובת החיבור — מציג רק את המבנה, לעולם לא את הסיסמה
+# אבחון בטוח של כתובת החיבור — מסווג בלבד. לעולם לא מדפיס חלק מהכתובת, מהסיסמה או מהשגיאה הגולמית
 diag_url(){
-  local rest userinfo hostpart user host port db pw
-  rest="${URL#*://}"; userinfo="${rest%@*}"; hostpart="${rest##*@}"
-  user="${userinfo%%:*}"; pw="${userinfo#*:}"; [ "$pw" = "$userinfo" ] && pw=""
-  host="${hostpart%%[:/?]*}"; port=$(printf '%s' "$hostpart" | sed -n 's#^[^:/?]*:\([0-9]*\).*#\1#p')
-  db=$(printf '%s' "$hostpart" | sed -n 's#^[^/]*/\([^?]*\).*#\1#p')
-  say "אבחון כתובת (בלי סיסמה): scheme=${URL%%://*} user=$user host=$host port=${port:-ברירת מחדל} db=${db:-ריק}"
-  say "אורך הסיסמה: ${#pw} תווים"
-  case "$pw" in *'['*|*']'*|*YOUR-PASSWORD*|*YOUR_PASSWORD*) say "⚠️ הסיסמה נראית כמו מציין-מקום ([YOUR-PASSWORD]) ולא סיסמה אמיתית";; esac
-  case "$userinfo" in *@*|*'#'*|*'/'*|*'?'*) say "⚠️ בסיסמה יש תו מיוחד (@ # / ?) שצריך קידוד בכתובת";; esac
-  case "$URL" in *' '*|*$'\n'*) say "⚠️ בכתובת יש רווח או ירידת שורה";; esac
-  say "DNS IPv4: $(getent ahostsv4 "$host" 2>/dev/null | awk 'NR==1{print $1}' || true)"
-  say "DNS IPv6: $(getent ahostsv6 "$host" 2>/dev/null | awk 'NR==1{print $1}' | cut -c1-12 || true)…"
+  local rest userinfo hostpart pw host
+  rest="${URL#*://}"; userinfo="${rest%%@*}"; hostpart="${rest#*@}"
+  pw="${userinfo#*:}"; [ "$pw" = "$userinfo" ] && pw=""
+  host="${hostpart%%[:/?]*}"
+  case "$URL" in postgres://*|postgresql://*) say "✔ פורמט: postgresql://";; *) say "⚠️ הכתובת לא מתחילה ב-postgresql://";; esac
+  case "$URL" in *'[YOUR-PASSWORD]'*|*'YOUR-PASSWORD'*|*'YOUR_PASSWORD'*) say "⚠️ נשאר בכתובת מציין-המקום [YOUR-PASSWORD] — צריך להחליף אותו בסיסמה עצמה";; esac
+  case "$URL" in *' '*|*$'\n'*|*$'\t'*) say "⚠️ יש בכתובת רווח או ירידת שורה";; esac
+  case "$host" in db.$STAGING_REF.supabase.co) say "✔ שרת: חיבור ישיר (Direct) של Staging — ייתכן שדורש IPv6";; *.pooler.supabase.com) say "✔ שרת: Pooler של Supabase";; *) say "⚠️ שם השרת לא בפורמט צפוי";; esac
+  [ "${#pw}" -ge 8 ] && say "✔ יש סיסמה" || say "⚠️ סיסמה חסרה או קצרה מדי"
+}
+classify_err(){
+  case "$1" in
+    *"unexpected spaces"*) echo "רווח בכתובת החיבור";;
+    *"password authentication failed"*) echo "סיסמה שגויה";;
+    *"translate host name"*|*"Name or service not known"*) echo "שם שרת לא נמצא (DNS)";;
+    *"Network is unreachable"*|*"Cannot assign requested address"*) echo "אין גישת רשת לשרת (כנראה IPv6 בלבד — צריך כתובת Pooler)";;
+    *"timeout expired"*) echo "תם הזמן להתחברות";;
+    *"Tenant or user not found"*) echo "שם משתמש ל-Pooler שגוי";;
+    *"SSL"*) echo "בעיית SSL";;
+    *) echo "שגיאה אחרת (לא מוצגת כדי לא לחשוף פרטים)";;
+  esac
 }
 HAS=$("${RO[@]}" "${PSQL[@]}" -At -c "select to_regclass('public.hdm_staging_marker') is not null" 2>&1) || {
   DIAG=$(diag_url)
-  ERRTXT=$(printf '%s' "$HAS" | sed -e "s#$(printf '%s' "$URL" | sed 's/[][\.*^$#]/\\&/g')#<URL>#g" -e 's#://[^:@/]*:[^@]*@#://<user>:<hidden>@#g' | head -n 5)
-  say "שגיאת psql (מסוננת): $ERRTXT"
-  ann error "staging-conn" "$(printf '%s\nשגיאה: %s' "$DIAG" "$ERRTXT")"
+  ERRTXT=$(classify_err "$HAS")
+  say "סוג השגיאה: $ERRTXT"
+  ann error "staging-conn" "$(printf '%s
+סוג השגיאה: %s' "$DIAG" "$ERRTXT")"
   stop "החיבור נכשל (בדקו את הסוד STAGING_DB_URL)."
 }
 [ "$HAS" = "t" ] || stop "המסד אינו פרויקט הניסוי (אין hdm_staging_marker). שום דבר לא הורץ."
