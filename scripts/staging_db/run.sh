@@ -55,8 +55,28 @@ export PGCONNECT_TIMEOUT=20 PGAPPNAME=hdm-staging-ci
 
 # ---- הגנה 2: זהות המסד, בטרנזקציה לקריאה בלבד ----
 RO=(env PGOPTIONS='-c default_transaction_read_only=on')
-HAS=$("${RO[@]}" "${PSQL[@]}" -At -c "select to_regclass('public.hdm_staging_marker') is not null" 2>&1) \
-  || stop "החיבור נכשל (בדקו את הסוד STAGING_DB_URL)."
+# אבחון בטוח של כתובת החיבור — מציג רק את המבנה, לעולם לא את הסיסמה
+diag_url(){
+  local rest userinfo hostpart user host port db pw
+  rest="${URL#*://}"; userinfo="${rest%@*}"; hostpart="${rest##*@}"
+  user="${userinfo%%:*}"; pw="${userinfo#*:}"; [ "$pw" = "$userinfo" ] && pw=""
+  host="${hostpart%%[:/?]*}"; port=$(printf '%s' "$hostpart" | sed -n 's#^[^:/?]*:\([0-9]*\).*#\1#p')
+  db=$(printf '%s' "$hostpart" | sed -n 's#^[^/]*/\([^?]*\).*#\1#p')
+  say "אבחון כתובת (בלי סיסמה): scheme=${URL%%://*} user=$user host=$host port=${port:-ברירת מחדל} db=${db:-ריק}"
+  say "אורך הסיסמה: ${#pw} תווים"
+  case "$pw" in *'['*|*']'*|*YOUR-PASSWORD*|*YOUR_PASSWORD*) say "⚠️ הסיסמה נראית כמו מציין-מקום ([YOUR-PASSWORD]) ולא סיסמה אמיתית";; esac
+  case "$userinfo" in *@*|*'#'*|*'/'*|*'?'*) say "⚠️ בסיסמה יש תו מיוחד (@ # / ?) שצריך קידוד בכתובת";; esac
+  case "$URL" in *' '*|*$'\n'*) say "⚠️ בכתובת יש רווח או ירידת שורה";; esac
+  say "DNS IPv4: $(getent ahostsv4 "$host" 2>/dev/null | awk 'NR==1{print $1}' || true)"
+  say "DNS IPv6: $(getent ahostsv6 "$host" 2>/dev/null | awk 'NR==1{print $1}' | cut -c1-12 || true)…"
+}
+HAS=$("${RO[@]}" "${PSQL[@]}" -At -c "select to_regclass('public.hdm_staging_marker') is not null" 2>&1) || {
+  DIAG=$(diag_url)
+  ERRTXT=$(printf '%s' "$HAS" | sed -e "s#$(printf '%s' "$URL" | sed 's/[][\.*^$#]/\\&/g')#<URL>#g" -e 's#://[^:@/]*:[^@]*@#://<user>:<hidden>@#g' | head -n 5)
+  say "שגיאת psql (מסוננת): $ERRTXT"
+  ann error "staging-conn" "$(printf '%s\nשגיאה: %s' "$DIAG" "$ERRTXT")"
+  stop "החיבור נכשל (בדקו את הסוד STAGING_DB_URL)."
+}
 [ "$HAS" = "t" ] || stop "המסד אינו פרויקט הניסוי (אין hdm_staging_marker). שום דבר לא הורץ."
 IDENT=$("${RO[@]}" "${PSQL[@]}" -At -c \
   "select exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1')" 2>&1) \
