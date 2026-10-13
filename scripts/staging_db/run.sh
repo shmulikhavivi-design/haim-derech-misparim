@@ -191,6 +191,11 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
   RES="איפוס סיסמה (משתמש קיים): HTTP $R1 ${M1:+| $M1} ;; קישור כניסה (משתמש קיים): HTTP $R2 ${M2:+| $M2} ;; משתמשי בדיקה שנשארו: $LEFT"
   say "$RES"; ann notice "smtp-diag" "$RES"
   if [ -n "$SBT" ]; then
+    LC=$(curl -sS -m 30 -o /tmp/logs.json -w '%{http_code}' -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs.all" \
+      --data-urlencode "sql=select timestamp, event_message from auth_logs order by timestamp desc limit 300" \
+      --data-urlencode "iso_timestamp_start=$(date -u -d '-30 minutes' +%Y-%m-%dT%H:%M:%SZ)" \
+      --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo 000)
+    ann notice "smtp-log-http" "יומן Auth: HTTP $LC | שורות: $(jq '.result|length' /tmp/logs.json 2>/dev/null) | $(jq -r '.error.message // .message // empty' /tmp/logs.json 2>/dev/null | cut -c1-200)"
     LOGS=$( { curl -sS -m 30 -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs.all" \
       --data-urlencode "sql=select timestamp, event_message from auth_logs order by timestamp desc limit 300" \
       --data-urlencode "iso_timestamp_start=$(date -u -d '-30 minutes' +%Y-%m-%dT%H:%M:%SZ)" \
