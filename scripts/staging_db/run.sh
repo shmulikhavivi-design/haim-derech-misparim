@@ -50,8 +50,35 @@ fi
 case "$URL" in *"$PRODUCTION_REF"*) stop "כתובת החיבור שייכת לפרויקט הפעיל. שום דבר לא הורץ.";; esac
 case "$URL" in *"$STAGING_REF"*) ;; *) stop "כתובת החיבור לא שייכת לפרויקט Staging ($STAGING_REF). שום דבר לא הורץ.";; esac
 
-PSQL=(psql "$URL" -X -v ON_ERROR_STOP=1 --quiet)
 export PGCONNECT_TIMEOUT=20 PGAPPNAME=hdm-staging-ci
+
+# ---- ניקוי טעויות הדבקה בכתובת + מעבר אוטומטי ל-Pooler אם אין IPv6 ----
+# הכתובת המתוקנת קיימת רק בזיכרון של ההרצה הזו. הסוד ב-GitHub לא משתנה.
+if NORM=$(HDM_RAW_URL="$URL" python3 -I "$HERE/normalize_url.py"); then
+  NPW=$(printf '%s\n' "$NORM" | sed -n 1p)
+  [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "$NPW" ] && { echo "::add-mask::$NPW"; echo "::add-mask::$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$NPW")"; }
+  unset NPW
+  META=$(printf '%s\n' "$NORM" | sed -n 2p)
+  case "$META" in *repaired=1*) say "ℹ️ בכתובת היו טעויות הדבקה — תוקנו אוטומטית לצורך ההרצה בלבד.";; esac
+  case "$META" in *leaked=1*) say "⚠️ הסיסמה בסוד היא אותה סיסמה שנחשפה קודם — יש לאפס אותה ב-Supabase.";; *) say "✔ הסיסמה אינה הסיסמה שנחשפה קודם.";; esac
+  CONNECTED=""; LASTERR=""
+  while IFS=$'\t' read -r LABEL CAND; do
+    [ -n "$CAND" ] || continue
+    case "$CAND" in *"$PRODUCTION_REF"*) continue;; esac
+    OUTC=$(PGCONNECT_TIMEOUT=8 env PGOPTIONS='-c default_transaction_read_only=on' psql "$CAND" -X --quiet -At \
+      -c "select to_regclass('public.hdm_staging_marker') is not null" 2>&1) && { URL="$CAND"; CONNECTED="$LABEL"; break; }
+    case "$OUTC" in *"password authentication failed"*) LASTERR="$OUTC"; [ "$LABEL" = given ] && break;;
+                    *"Tenant or user not found"*|*"translate host name"*) ;; *) [ "$LABEL" = given ] && LASTERR="$OUTC";; esac
+  done < <(printf '%s\n' "$NORM" | sed -n '3,$p')
+  unset NORM CAND OUTC
+  if [ -n "$CONNECTED" ]; then
+    say "✔ נתיב החיבור שעבד: $CONNECTED"
+  else
+    say "⚠️ אף נתיב חיבור לא עבד (Direct וכל כתובות ה-Pooler). סוג השגיאה האחרונה: $(case "$LASTERR" in *"password authentication failed"*) echo סיסמה שגויה;; *"unreachable"*|*"Cannot assign"*) echo "אין רשת (IPv6)";; *timeout*) echo "תם הזמן";; *) echo אחרת;; esac)"
+  fi
+  unset LASTERR
+fi
+PSQL=(psql "$URL" -X -v ON_ERROR_STOP=1 --quiet)
 
 # ---- הגנה 2: זהות המסד, בטרנזקציה לקריאה בלבד ----
 RO=(env PGOPTIONS='-c default_transaction_read_only=on')
