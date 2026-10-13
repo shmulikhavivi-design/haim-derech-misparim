@@ -23,9 +23,11 @@ with
            (select count(distinct lower(btrim(d.data->>'email'))) from public.docs d
              where d.collection like 'data/users/%' and coalesce(d.data->>'email', '') like '%@%'
                and exists (select 1 from prof p where p.id = d.data->>'profileId'))::text, true
-    union all select 7, 'פרופיל אחד עם כמה אימיילים שונים (ייבחר האחרון)',
+    union all select 7, 'פרופיל אחד עם כמה אימיילים שונים (לא יקושר אוטומטית — החלטה ידנית אחרי המעבר)',
            (select count(*) from (select d.data->>'profileId' from public.docs d where d.collection like 'data/users/%' and coalesce(d.data->>'email','') like '%@%'
-                                  group by 1 having count(distinct lower(btrim(d.data->>'email'))) > 1) z)::text, true
+                                  group by 1 having count(distinct lower(btrim(d.data->>'email'))) > 1) z)::text,
+           (select count(*) from (select d.data->>'profileId' from public.docs d where d.collection like 'data/users/%' and coalesce(d.data->>'email','') like '%@%'
+                                  group by 1 having count(distinct lower(btrim(d.data->>'email'))) > 1) z) = 0
     union all select 8, 'משתמשי Auth קיימים', (select count(*) from auth.users)::text, true
     union all select 9, '🎯 (interests) / likes בפרופילים',
            (select count(*) from public.docs where collection = 'interests')::text || ' / ' ||

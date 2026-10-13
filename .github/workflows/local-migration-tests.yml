@@ -1,0 +1,42 @@
+# חיים דרך מספרים — בדיקת המעבר ל-Production ובדיקות השרת, על מסד מקומי זמני בלבד
+#
+# לא מתחבר ל-Supabase, לא ל-Staging ולא ל-Production, ואין בו סודות.
+# Postgres זמני נוצר על שרת GitHub עם נתונים מומצאים ונמחק בסוף.
+# רץ אוטומטית על PR שמשנה קובצי SQL או את סקריפטי הגרסה, וגם ידנית.
+
+name: Local migration tests (no secrets)
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - 'scripts/release/**'
+      - '.github/workflows/local-migration-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-db:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Postgres (local only)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql postgresql-client
+          sudo systemctl stop postgresql || true
+
+      - name: Migration file is up to date with its generator
+        run: |
+          python3 scripts/release/build_production_sql.py
+          git diff --exit-code -- supabase/production/01_production_migration.sql \
+            || { echo "::error::01_production_migration.sql לא תואם ל-build_production_sql.py"; exit 1; }
+
+      - name: Preflight, migration, legacy accounts, rollback, Staging SQL tests
+        run: sudo bash scripts/release/test_migration_local.sh
