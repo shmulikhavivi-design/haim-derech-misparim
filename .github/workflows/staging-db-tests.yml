@@ -36,7 +36,7 @@ jobs:
   staging-db:
     # רק מהריפו הזה ורק מהענף הייעודי / כפתור ידני
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/staging-tests/run')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # הסוד נלקח מסביבת GitHub "staging" בלבד
     environment: staging
@@ -84,7 +84,7 @@ jobs:
 
       - name: Screenshots (e2e only)
         if: always() && steps.mode.outputs.mode == 'e2e'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: e2e-screenshots
           path: /tmp/hdm-shots
