@@ -41,6 +41,16 @@ case "$MODE" in check|install03|install04|install05|tests02|e2e) ;; *) stop "מ�
 URL="${STAGING_DB_URL:-}"
 unset STAGING_DB_URL                      # לא נשאר במשתני הסביבה של פקודות שרצות מכאן
 [ -n "$URL" ] || stop "חסר STAGING_DB_URL (Environment Secret בסביבה staging)."
+# אפשר לשמור בסוד רק את הסיסמה: אז הכתובת נבנית כאן, תמיד לפרויקט Staging בלבד (דרך ה-Pooler שלו)
+STAGING_POOLER_HOST='aws-0-eu-west-1.pooler.supabase.com'
+case "$URL" in
+  *://*) ;;
+  *) PWONLY=$(printf '%s' "$URL" | tr -d ' \t\r\n')
+     [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "$PWONLY" ] && echo "::add-mask::$PWONLY"
+     URL="postgresql://postgres.$STAGING_REF:$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$PWONLY")@$STAGING_POOLER_HOST:5432/postgres?sslmode=require"
+     unset PWONLY
+     say "ℹ️ בסוד נשמרה סיסמה בלבד — הכתובת נבנתה לפרויקט Staging." ;;
+esac
 if [ -n "${GITHUB_ACTIONS:-}" ]; then     # הסתרה ביומן: הכתובת כולה והסיסמה לבד, גם אם יופיעו בהודעת שגיאה
   echo "::add-mask::$URL"
   PW=$(printf '%s' "$URL" | sed -n 's#^[a-z]*://[^:/@]*:\([^@]*\)@.*#\1#p')
@@ -138,7 +148,11 @@ ann notice "staging-status" "$STATUS"
 
 # ---- בדיקת דפדפן מלאה ----
 if [ "$MODE" = "e2e" ]; then
-  [ -n "${STAGING_PUBLISHABLE_KEY:-}" ] || stop "חסר STAGING_PUBLISHABLE_KEY (משתנה בסביבה staging)."
+  if [ -z "${STAGING_PUBLISHABLE_KEY:-}" ]; then   # גיבוי: המפתח הציבורי שכתוב ב-staging.html (ציבורי מעצם הגדרתו)
+    STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)
+    export STAGING_PUBLISHABLE_KEY
+  fi
+  [ -n "${STAGING_PUBLISHABLE_KEY:-}" ] || stop "חסר המפתח הציבורי של Staging (לא במשתנה ולא ב-staging.html)."
   case "$STAGING_PUBLISHABLE_KEY" in sb_publishable_*) ;; *) stop "STAGING_PUBLISHABLE_KEY אינו מפתח ציבורי (sb_publishable_). שום דבר לא הורץ.";; esac
   say ""; say "### בדיקת דפדפן (staging.html מול Staging)"
   OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_staging.py" 2>&1) && RC=0 || RC=$?
