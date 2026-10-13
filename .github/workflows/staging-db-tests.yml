@@ -80,3 +80,12 @@ jobs:
           STAGING_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
           RUN_MODE: ${{ steps.mode.outputs.mode }}
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
+
+      - name: Screenshots (e2e only)
+        if: always() && steps.mode.outputs.mode == 'e2e'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: /tmp/hdm-shots
+          if-no-files-found: ignore
+          retention-days: 7
