@@ -112,7 +112,13 @@ def track(req):
 def login(pg, k, pw=None):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
     pg.fill('#li-email', f'{MAIL}{k}@example.invalid'); pg.fill('#li-pass', pw or PW)
-    pg.click('#li-submit'); pg.wait_for_timeout(3500)
+    pg.click('#li-submit')
+    # מחכים לסוף ההתחברות (מעבר מסך או הודעת שגיאה) ולא לזמן קבוע — מול השרת האמיתי טעינת ההתאמה הראשונה לוקחת יותר
+    try:
+        pg.wait_for_function("() => (myId && (document.querySelector('.screen.active')||{}).id === 'screen-match') || document.getElementById('li-status').textContent.trim()", timeout=15000)
+    except Exception:
+        pass
+    pg.wait_for_timeout(300)
     return pg.evaluate("() => ({ myId: myId, status: document.getElementById('li-status').textContent, screen: (document.querySelector('.screen.active')||{}).id })")
 
 def logout(pg):
