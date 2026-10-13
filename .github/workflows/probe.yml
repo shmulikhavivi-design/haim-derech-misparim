@@ -1,0 +1,15 @@
+# בדיקה חד-פעמית, קריאה בלבד: הגדרות Auth הציבוריות של הפרויקט הפעיל (אותו מידע שכל דפדפן באתר מקבל).
+# בלי סודות. המפתח הציבורי (sb_publishable) נלקח מ-index.html שבענף הגרסה.
+name: Probe public auth settings (read-only)
+on: { push: { branches: [ 'probe/auth-settings-readonly' ] } }
+permissions: { contents: read }
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - run: |
+          K=$(curl -sS https://raw.githubusercontent.com/shmulikhavivi-design/haim-derech-misparim/release/production-cutover/index.html | grep -oE 'sb_publishable_[A-Za-z0-9_-]+' | head -1)
+          S=$(curl -sS -m 20 -H "apikey: $K" https://qtspzigjlbtckqfyaubp.supabase.co/auth/v1/settings)
+          OUT=$(echo "$S" | jq -c '{mailer_autoconfirm, disable_signup, email_enabled: .external.email, phone_autoconfirm}')
+          echo "::notice title=auth-settings::$OUT"
