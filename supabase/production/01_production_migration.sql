@@ -1471,7 +1471,7 @@ select '✅ המעבר הושלם (production_secure_v1)' as "סטטוס",
        (select count(*) from public.docs where collection = 'profiles') as "פרופילים",
        (select count(*) from public.hdm_profile_private where birthdate is null) as "בלי תאריך לידה",
        (select count(*) from public.hdm_legacy_accounts) as "חשבונות קיימים לקישור",
-       (select count(distinct profile_id) from public.hdm_legacy_review) as "פרופילים לבדיקה ידנית (כמה אימיילים)",
+       (select count(distinct profile_id) from public.hdm_legacy_review) as "לבדיקה ידנית",
        (select count(*) from public.hdm_chat_openings where plan = 'legacy') as "שיחות קיימות (לא במכסה)",
        (select count(*) from public.hdm_subscriptions) as "מנויים",
        (select count(*) from pg_policies where schemaname = 'public') as "כללי RLS";
