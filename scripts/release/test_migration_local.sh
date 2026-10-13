@@ -92,6 +92,17 @@ q prod "select public.hdm_admin_link_legacy('alice@example.invalid','alice1')" >
 check "קישור ידני: האימייל הנכון מקושר ונוצר לו משתמש" "alice1|1" "$(q prod "select (select profile_id from public.hdm_legacy_accounts where email='alice@example.invalid') || '|' || (select count(*) from auth.users where email='alice@example.invalid')")"
 check "אחרי הקישור הידני: 'שכחתי סיסמה' מחבר את alice1" "alice1" "$(claim alice@example.invalid recovery | tail -1)"
 
+# ---------- 4א. פתרון זמני בלי מייל (02_temp_link_existing_account.sql) ----------
+TMPL="$ROOT/supabase/production/02_temp_link_existing_account.sql"
+OUT=$("${P[@]}" -d prod -f "$TMPL" 2>&1) || true; check "פתרון זמני: בלי החלפת הערכים — נעצר" "1" "$(echo "$OUT" | grep -c 'יש להחליף')"
+sed -e "s/EMAIL_HERE/Dave@Example.invalid/" -e "s/'TEMP_PASSWORD_HERE'/'Temp-Pass-12345'/" "$TMPL" > "$WORK/tmp_link.sql"
+OUT=$("${P[@]}" -d prod -f "$WORK/tmp_link.sql" 2>&1) && ok "פתרון זמני: רץ בהצלחה" || bad "פתרון זמני: רץ בהצלחה" "$(echo "$OUT" | tail -2)"
+check "פתרון זמני: כניסה בסיסמה מחברת את dave4 בלי מייל" "dave4" "$(claim dave@example.invalid password | tail -1)"
+check "פתרון זמני: הסיסמה הזמנית נשמרה (מוצפנת)" "t" "$(q prod "select encrypted_password = $(q prod "select case when to_regnamespace('extensions') is not null and exists (select 1 from pg_proc where proname='crypt' and pronamespace='extensions'::regnamespace) then 'extensions.' else 'public.' end")crypt('Temp-Pass-12345', encrypted_password) from auth.users where email='dave@example.invalid'")"
+OUT=$("${P[@]}" -d prod -f "$WORK/tmp_link.sql" 2>&1) || true; check "פתרון זמני: הרצה חוזרת נעצרת" "1" "$(echo "$OUT" | grep -c 'כבר מחובר')"
+sed -e "s/EMAIL_HERE/aaa-attacker@example.invalid/" -e "s/'TEMP_PASSWORD_HERE'/'Temp-Pass-12345'/" "$TMPL" > "$WORK/tmp_bad.sql"
+OUT=$("${P[@]}" -d prod -f "$WORK/tmp_bad.sql" 2>&1) || true; check "פתרון זמני: אימייל שאינו חשבון קיים נדחה" "1" "$(echo "$OUT" | grep -c 'לא נמצא')"
+
 # ---------- 5. ביטול ----------
 if "${P[@]}" -d prod -f "$ROOT/supabase/production/99_production_rollback.sql" >"$WORK/rb.out" 2>&1; then ok "הביטול עבר"; else bad "הביטול עבר" "$(tail -3 "$WORK/rb.out")"; fi
 check "אחרי הביטול docs זהה בדיוק למצב שלפני" "$BEFORE" "$(q prod "$SNAP")"
