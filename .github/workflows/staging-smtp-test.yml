@@ -11,7 +11,6 @@ jobs:
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    environment: staging   # רק בשביל הסוד האופציונלי SUPABASE_ACCESS_TOKEN (קריאת הגדרות ויומנים של Staging)
     env:
       REF: ousepgdvzammgkxkweze          # Staging בלבד
       PROD: qtspzigjlbtckqfyaubp         # הפרויקט הפעיל — אסור
@@ -54,28 +53,3 @@ jobs:
           if [ "$R" = 200 ] && [ "$SENT" != none ] && [ "$R2" = 200 ]; then
             note RESULT "✅ SMTP עובד: שני מיילים (אישור הרשמה + קישור כניסה) נמסרו לשרת Gmail"
           else echo "::error title=RESULT::❌ שליחת מייל דרך ה-SMTP נכשלה (signup=$R, otp=$R2)"; exit 1; fi
-
-      - name: SMTP settings + Auth logs (Staging only, read-only)
-        if: always()
-        env:
-          SB_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          set -u
-          note(){ echo "$2"; echo "::notice title=$1::$2"; echo "- **$1:** $2" >> "$GITHUB_STEP_SUMMARY"; }
-          if [ -z "${SB_TOKEN:-}" ]; then note logs "אין SUPABASE_ACCESS_TOKEN בסביבה staging — דילוג על קריאת היומנים"; exit 0; fi
-          echo "::add-mask::$SB_TOKEN"
-          case "$REF" in "$PROD") echo "::error::Production ref — stop"; exit 1;; esac
-          API="https://api.supabase.com/v1/projects/$REF"
-          # קריאה בלבד: GET. הסיסמה של ה-SMTP לא מוחזרת מה-API ולא מודפסת.
-          C=$(curl -sS -m 20 -H "Authorization: Bearer $SB_TOKEN" "$API/config/auth")
-          note smtp-config "$(echo "$C" | jq -c '{external_email_enabled, mailer_autoconfirm, smtp_host, smtp_port, smtp_user, smtp_admin_email, smtp_sender_name, smtp_max_frequency, rate_limit_email_sent, smtp_pass_set: ((.smtp_pass // "") != "")}' 2>/dev/null || echo "$C" | head -c 200)"
-          Q="select timestamp, event_message from auth_logs where regexp_contains(event_message, '(?i)smtp|mail|535|534|auth') order by timestamp desc limit 8"
-          L=$(curl -sS -m 30 -G -H "Authorization: Bearer $SB_TOKEN" "$API/analytics/endpoints/logs.all" \
-                --data-urlencode "sql=$Q" \
-                --data-urlencode "iso_timestamp_start=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)" \
-                --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)")
-          # כתובות מייל מוסתרות (הריפו ציבורי)
-          OUT=$(echo "$L" | jq -r '.result[]? | .event_message' 2>/dev/null | grep -iE 'smtp|mail|535|534|error' | head -6 \
-                | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g' | cut -c1-400)
-          [ -n "$OUT" ] || OUT="(לא נמצאו שורות; תשובת ה-API: $(echo "$L" | head -c 200 | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g'))"
-          note auth-log-errors "$OUT"
