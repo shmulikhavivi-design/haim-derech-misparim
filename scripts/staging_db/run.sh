@@ -41,6 +41,16 @@ case "$MODE" in check|install03|install04|install05|tests02|e2e) ;; *) stop "מ�
 URL="${STAGING_DB_URL:-}"
 unset STAGING_DB_URL                      # לא נשאר במשתני הסביבה של פקודות שרצות מכאן
 [ -n "$URL" ] || stop "חסר STAGING_DB_URL (Environment Secret בסביבה staging)."
+# אפשר לשמור בסוד רק את הסיסמה: אז הכתובת נבנית כאן, תמיד לפרויקט Staging בלבד (דרך ה-Pooler שלו)
+STAGING_POOLER_HOST='aws-0-eu-west-1.pooler.supabase.com'
+case "$URL" in
+  *://*) ;;
+  *) PWONLY=$(printf '%s' "$URL" | tr -d ' \t\r\n')
+     [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "$PWONLY" ] && echo "::add-mask::$PWONLY"
+     URL="postgresql://postgres.$STAGING_REF:$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$PWONLY")@$STAGING_POOLER_HOST:5432/postgres?sslmode=require"
+     unset PWONLY
+     say "ℹ️ בסוד נשמרה סיסמה בלבד — הכתובת נבנתה לפרויקט Staging." ;;
+esac
 if [ -n "${GITHUB_ACTIONS:-}" ]; then     # הסתרה ביומן: הכתובת כולה והסיסמה לבד, גם אם יופיעו בהודעת שגיאה
   echo "::add-mask::$URL"
   PW=$(printf '%s' "$URL" | sed -n 's#^[a-z]*://[^:/@]*:\([^@]*\)@.*#\1#p')
@@ -50,13 +60,78 @@ fi
 case "$URL" in *"$PRODUCTION_REF"*) stop "כתובת החיבור שייכת לפרויקט הפעיל. שום דבר לא הורץ.";; esac
 case "$URL" in *"$STAGING_REF"*) ;; *) stop "כתובת החיבור לא שייכת לפרויקט Staging ($STAGING_REF). שום דבר לא הורץ.";; esac
 
-PSQL=(psql "$URL" -X -v ON_ERROR_STOP=1 --quiet)
 export PGCONNECT_TIMEOUT=20 PGAPPNAME=hdm-staging-ci
+
+# ---- ניקוי טעויות הדבקה בכתובת + מעבר אוטומטי ל-Pooler אם אין IPv6 ----
+# הכתובת המתוקנת קיימת רק בזיכרון של ההרצה הזו. הסוד ב-GitHub לא משתנה.
+if NORM=$(HDM_RAW_URL="$URL" python3 -I "$HERE/normalize_url.py"); then
+  NPW=$(printf '%s\n' "$NORM" | sed -n 1p)
+  [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "$NPW" ] && { echo "::add-mask::$NPW"; echo "::add-mask::$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$NPW")"; }
+  unset NPW
+  META=$(printf '%s\n' "$NORM" | sed -n 2p)
+  case "$META" in *repaired=1*) say "ℹ️ בכתובת היו טעויות הדבקה — תוקנו אוטומטית לצורך ההרצה בלבד.";; esac
+  case "$META" in *leaked=1*) say "⚠️ הסיסמה בסוד היא אותה סיסמה שנחשפה קודם — יש לאפס אותה ב-Supabase.";; *) say "✔ הסיסמה אינה הסיסמה שנחשפה קודם.";; esac
+  CONNECTED=""; LASTERR=""
+  while IFS=$'\t' read -r LABEL CAND; do
+    [ -n "$CAND" ] || continue
+    case "$CAND" in *"$PRODUCTION_REF"*) continue;; esac
+    OUTC=$(PGCONNECT_TIMEOUT=8 env PGOPTIONS='-c default_transaction_read_only=on' psql "$CAND" -X --quiet -At \
+      -c "select to_regclass('public.hdm_staging_marker') is not null" 2>&1) && { URL="$CAND"; CONNECTED="$LABEL"; break; }
+    case "$OUTC" in *"password authentication failed"*) LASTERR="$OUTC"; [ "$LABEL" = given ] && break;;
+                    *"Tenant or user not found"*|*"translate host name"*) ;; *) [ "$LABEL" = given ] && LASTERR="$OUTC";; esac
+  done < <(printf '%s\n' "$NORM" | sed -n '3,$p')
+  unset NORM CAND OUTC
+  if [ -n "$CONNECTED" ]; then
+    say "✔ נתיב החיבור שעבד: $CONNECTED"
+    ann notice "staging-conn" "נתיב: $CONNECTED | $(case "$META" in *leaked=1*) echo 'סיסמה: זהה לזו שנחשפה';; *) echo 'סיסמה: לא זו שנחשפה';; esac) | $(case "$META" in *repaired=1*) echo 'תוקנה טעות הדבקה';; *) echo 'כתובת תקינה';; esac)"
+  else
+    say "⚠️ אף נתיב חיבור לא עבד (Direct וכל כתובות ה-Pooler). סוג השגיאה האחרונה: $(case "$LASTERR" in *"password authentication failed"*) echo סיסמה שגויה;; *"unreachable"*|*"Cannot assign"*) echo "אין רשת (IPv6)";; *timeout*) echo "תם הזמן";; *) echo אחרת;; esac)"
+  fi
+  unset LASTERR
+fi
+PSQL=(psql "$URL" -X -v ON_ERROR_STOP=1 --quiet)
 
 # ---- הגנה 2: זהות המסד, בטרנזקציה לקריאה בלבד ----
 RO=(env PGOPTIONS='-c default_transaction_read_only=on')
-HAS=$("${RO[@]}" "${PSQL[@]}" -At -c "select to_regclass('public.hdm_staging_marker') is not null" 2>&1) \
-  || stop "החיבור נכשל (בדקו את הסוד STAGING_DB_URL)."
+# אבחון בטוח של כתובת החיבור — מסווג בלבד. לעולם לא מדפיס חלק מהכתובת, מהסיסמה או מהשגיאה הגולמית
+diag_url(){
+  local rest userinfo hostpart pw host
+  rest="${URL#*://}"; userinfo="${rest%%@*}"; hostpart="${rest#*@}"
+  pw="${userinfo#*:}"; [ "$pw" = "$userinfo" ] && pw=""
+  host="${hostpart%%[:/?]*}"
+  case "$URL" in postgres://*|postgresql://*) say "✔ פורמט: postgresql://";; *) say "⚠️ הכתובת לא מתחילה ב-postgresql://";; esac
+  case "$URL" in *'[YOUR-PASSWORD]'*|*'YOUR-PASSWORD'*|*'YOUR_PASSWORD'*) say "⚠️ נשאר בכתובת מציין-המקום [YOUR-PASSWORD] — צריך להחליף אותו בסיסמה עצמה";; esac
+  case "$URL" in *' '*|*$'\n'*|*$'\t'*) say "⚠️ יש בכתובת רווח או ירידת שורה";; esac
+  case "$host" in db.$STAGING_REF.supabase.co) say "✔ שרת: חיבור ישיר (Direct) של Staging — ייתכן שדורש IPv6";; *.pooler.supabase.com) say "✔ שרת: Pooler של Supabase";; *) say "⚠️ שם השרת לא בפורמט צפוי";; esac
+  [ "${#pw}" -ge 8 ] && say "✔ יש סיסמה" || say "⚠️ סיסמה חסרה או קצרה מדי"
+  # מבנה בלבד — מספרים וקטגוריות, אף תו מהתוכן
+  local u="${userinfo%%:*}" ats colons sp_user sp_pw sp_host lead trail
+  ats=$(printf '%s' "$URL" | tr -cd '@' | wc -c); colons=$(printf '%s' "$rest" | tr -cd ':' | wc -c)
+  sp_user=$(printf '%s' "$u" | tr -cd ' \t\n' | wc -c); sp_pw=$(printf '%s' "$pw" | tr -cd ' \t\n' | wc -c); sp_host=$(printf '%s' "$hostpart" | tr -cd ' \t\n' | wc -c)
+  case "$URL" in [[:space:]]*) lead=כן;; *) lead=לא;; esac; case "$URL" in *[[:space:]]) trail=כן;; *) trail=לא;; esac
+  case "$u" in postgres) say "משתמש: postgres (מתאים לחיבור ישיר)";; postgres.$STAGING_REF) say "משתמש: postgres.<staging> (מתאים ל-Pooler)";; *) say "⚠️ שם המשתמש לא בפורמט צפוי (אורך ${#u})";; esac
+  say "מבנה: אורך כולל ${#URL}, '@'=$ats, ':' אחרי :// =$colons, רווחים במשתמש=$sp_user בסיסמה=$sp_pw בשרת=$sp_host, רווח בהתחלה=$lead בסוף=$trail, אורך סיסמה=${#pw}"
+}
+classify_err(){
+  case "$1" in
+    *"unexpected spaces"*) echo "רווח בכתובת החיבור";;
+    *"password authentication failed"*) echo "סיסמה שגויה";;
+    *"translate host name"*|*"Name or service not known"*) echo "שם שרת לא נמצא (DNS)";;
+    *"Network is unreachable"*|*"Cannot assign requested address"*) echo "אין גישת רשת לשרת (כנראה IPv6 בלבד — צריך כתובת Pooler)";;
+    *"timeout expired"*) echo "תם הזמן להתחברות";;
+    *"Tenant or user not found"*) echo "שם משתמש ל-Pooler שגוי";;
+    *"SSL"*) echo "בעיית SSL";;
+    *) echo "שגיאה אחרת (לא מוצגת כדי לא לחשוף פרטים)";;
+  esac
+}
+HAS=$("${RO[@]}" "${PSQL[@]}" -At -c "select to_regclass('public.hdm_staging_marker') is not null" 2>&1) || {
+  DIAG=$(diag_url)
+  ERRTXT=$(classify_err "$HAS")
+  say "סוג השגיאה: $ERRTXT"
+  ann error "staging-conn" "$(printf '%s
+סוג השגיאה: %s' "$DIAG" "$ERRTXT")"
+  stop "החיבור נכשל (בדקו את הסוד STAGING_DB_URL)."
+}
 [ "$HAS" = "t" ] || stop "המסד אינו פרויקט הניסוי (אין hdm_staging_marker). שום דבר לא הורץ."
 IDENT=$("${RO[@]}" "${PSQL[@]}" -At -c \
   "select exists (select 1 from public.hdm_staging_marker where version = 'staging_secure_v1')" 2>&1) \
@@ -73,7 +148,11 @@ ann notice "staging-status" "$STATUS"
 
 # ---- בדיקת דפדפן מלאה ----
 if [ "$MODE" = "e2e" ]; then
-  [ -n "${STAGING_PUBLISHABLE_KEY:-}" ] || stop "חסר STAGING_PUBLISHABLE_KEY (משתנה בסביבה staging)."
+  if [ -z "${STAGING_PUBLISHABLE_KEY:-}" ]; then   # גיבוי: המפתח הציבורי שכתוב ב-staging.html (ציבורי מעצם הגדרתו)
+    STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)
+    export STAGING_PUBLISHABLE_KEY
+  fi
+  [ -n "${STAGING_PUBLISHABLE_KEY:-}" ] || stop "חסר המפתח הציבורי של Staging (לא במשתנה ולא ב-staging.html)."
   case "$STAGING_PUBLISHABLE_KEY" in sb_publishable_*) ;; *) stop "STAGING_PUBLISHABLE_KEY אינו מפתח ציבורי (sb_publishable_). שום דבר לא הורץ.";; esac
   say ""; say "### בדיקת דפדפן (staging.html מול Staging)"
   OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_staging.py" 2>&1) && RC=0 || RC=$?

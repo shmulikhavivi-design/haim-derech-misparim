@@ -1192,7 +1192,7 @@
     var SUPABASE_URL = 'https://ousepgdvzammgkxkweze.supabase.co';
     // המפתח הציבורי (publishable) של פרויקט הניסוי. אם ריק — הדף מבקש להדביק אותו פעם אחת, והוא נשמר רק במכשיר.
     // מפתח סודי (sb_secret_ / service_role) לא מתקבל בשום מקרה.
-    var STAGING_PUBLISHABLE_KEY = '';
+    var STAGING_PUBLISHABLE_KEY = 'sb_publishable_UXJrkbmi6h3j3Yvaey5Nvw_HIDJOy40';
     var SUPABASE_KEY = STAGING_PUBLISHABLE_KEY;
     try{ if(!SUPABASE_KEY) SUPABASE_KEY = localStorage.getItem('hdm_staging_publishable_key') || ''; }catch(e){}
     if(!/^sb_publishable_[A-Za-z0-9_-]{10,}$/.test(SUPABASE_KEY)) SUPABASE_KEY = '';

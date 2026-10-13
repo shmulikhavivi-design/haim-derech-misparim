@@ -21,7 +21,10 @@ out = src
 out = sub("    // ===== גרסת בדיקות: מחוברת רק לפרויקט Haim Derech Misparim Staging =====\n",
           "    // ===== הגרסה הפעילה: מחוברת לפרויקט Haim Derech Misparim =====\n", out)
 out = sub("var SUPABASE_URL = 'https://ousepgdvzammgkxkweze.supabase.co';", f"var SUPABASE_URL = '{PROD_URL}';", out)
-out = sub("var STAGING_PUBLISHABLE_KEY = '';", f"var STAGING_PUBLISHABLE_KEY = '{PROD_PUBLISHABLE_KEY}';", out)
+# המפתח הציבורי של Staging (אם כתוב ב-staging.html) מוחלף במפתח הציבורי של הפרויקט הפעיל
+assert len(re.findall(r"var STAGING_PUBLISHABLE_KEY = '(?:sb_publishable_[A-Za-z0-9_-]+)?';", out)) == 1, 'לא נמצאה שורת המפתח הציבורי'
+STAGING_KEY = (re.search(r"var STAGING_PUBLISHABLE_KEY = '(sb_publishable_[A-Za-z0-9_-]+)';", out) or [None, None])[1]
+out = re.sub(r"var STAGING_PUBLISHABLE_KEY = '(?:sb_publishable_[A-Za-z0-9_-]+)?';", f"var STAGING_PUBLISHABLE_KEY = '{PROD_PUBLISHABLE_KEY}';", out)
 out = sub("try{ if(!SUPABASE_KEY) SUPABASE_KEY = localStorage.getItem('hdm_staging_publishable_key') || ''; }catch(e){}\n", "", out)
 # בלי פס "סביבת בדיקות" ובלי מסך הדבקת מפתח
 out, n = re.subn(r"    \(function stagingBanner\(\)\{.*?\n    \}\)\(\);\n", "", out, count=1, flags=re.S)
@@ -30,6 +33,7 @@ out = sub("storageKey: 'hdm-stg-auth-session'", "storageKey: 'hdm-auth-session-v
 out = sub("var hasSaved = !!store.getItem('hdm-stg-auth-session');", "var hasSaved = !!store.getItem('hdm-auth-session-v2');", out)
 
 assert 'ousepgdvzammgkxkweze' not in out, 'נשארה כתובת Staging'
+assert not STAGING_KEY or STAGING_KEY not in out, 'נשאר המפתח של Staging'
 assert 'סביבת בדיקות (Staging)' not in out, 'נשאר פס הבדיקות'
 assert not re.search(r"sb_secret_[A-Za-z0-9_-]{8,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.", out), 'נמצא מפתח סודי / JWT בקובץ'
 (ROOT / 'index.html').write_text(out, encoding='utf-8')
