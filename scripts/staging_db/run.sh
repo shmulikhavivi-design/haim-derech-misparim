@@ -166,6 +166,25 @@ if [ "$MODE" = "smtp" ]; then
   LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c "select count(*) from auth.users where email like 'life.through.numbers333+smtp-%'")
   RES="איפוס סיסמה (משתמש קיים): HTTP $R1 ${M1:+| $M1} ;; קישור כניסה (משתמש קיים): HTTP $R2 ${M2:+| $M2} ;; משתמשי בדיקה שנשארו: $LEFT"
   say "$RES"; ann notice "smtp-diag" "$RES"
+  # אופציונלי: קריאה בלבד של הגדרות ה-SMTP ושגיאות ה-Auth של Staging (אם הוגדר SUPABASE_ACCESS_TOKEN בסביבה staging)
+  SBT="${SUPABASE_ACCESS_TOKEN:-}"; unset SUPABASE_ACCESS_TOKEN
+  if [ -n "$SBT" ]; then
+    [ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$SBT"
+    API="https://api.supabase.com/v1/projects/$STAGING_REF"
+    case "$API" in *"$PRODUCTION_REF"*) stop "Production ref";; esac
+    CFG=$(curl -sS -m 20 -H "Authorization: Bearer $SBT" "$API/config/auth" | jq -c '{mailer_autoconfirm, smtp_host, smtp_port, smtp_user, smtp_admin_email, smtp_sender_name, rate_limit_email_sent, smtp_pass_set: ((.smtp_pass // "") != "")}' 2>&1 | sed -E 's/[A-Za-z0-9._%+-]+@gmail\.com/<gmail>/g' | head -c 600)
+    ann notice "smtp-config" "$CFG"
+    LOGS=$(curl -sS -m 30 -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs.all" \
+      --data-urlencode "sql=select timestamp, event_message from auth_logs order by timestamp desc limit 200" \
+      --data-urlencode "iso_timestamp_start=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)" \
+      --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      | jq -r '.result[]? | .event_message' 2>/dev/null | grep -iE 'smtp|mail|535|534|tls|dial' | head -6 \
+      | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g' | cut -c1-400)
+    ann notice "smtp-auth-log" "${LOGS:-(לא נמצאו שורות שגיאת מייל ביומן)}"
+  else
+    ann notice "smtp-auth-log" "אין SUPABASE_ACCESS_TOKEN בסביבה staging — היומן לא נקרא"
+  fi
+  unset SBT
   case "$R1$R2" in 200*200*) ann notice "staging-result" "✅ smtp: מיילים למשתמש קיים נשלחים — ה-SMTP עובד; הכשל הוא רק במייל אישור ההרשמה (התבנית)";;
                    *) ann error "staging-result" "❌ smtp: גם מיילים למשתמש קיים נכשלים — הבעיה בחיבור ל-Gmail (לא בתבנית)";; esac
   exit 0

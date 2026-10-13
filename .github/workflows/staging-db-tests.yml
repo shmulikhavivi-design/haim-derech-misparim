@@ -78,6 +78,7 @@ jobs:
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
           STAGING_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           RUN_MODE: ${{ steps.mode.outputs.mode }}
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
 
