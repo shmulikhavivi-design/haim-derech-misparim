@@ -37,14 +37,14 @@ jobs:
           MSG=$(jq -r '(.msg // .error_description // .message // "") | tostring' /tmp/su.json 2>/dev/null)
           note signup "HTTP $R | confirmation_sent_at=$SENT ${MSG:+| $MSG}"
 
-          # Supabase מגביל מייל אחד לאותה כתובת בכל 60 שניות
-          sleep 65
+          # 2) קישור כניסה (magic link) לכתובת אחרת — עוד ניסיון שליחה דרך ה-SMTP
+          EMAIL2="life.through.numbers333+smtp-otp-${GITHUB_RUN_ID}@gmail.com"
+          R2=$(curl -sS -m 30 -o /tmp/otp.json -w '%{http_code}' "${H[@]}" -X POST "$B/otp" \
+                -d "$(jq -nc --arg e "$EMAIL2" '{email:$e,create_user:true}')")
+          MSG2=$(jq -r '(.msg // .error_description // .message // "") | tostring' /tmp/otp.json 2>/dev/null)
+          note magic-link "HTTP $R2 ${MSG2:+| $MSG2}"
 
-          # 2) שכחתי סיסמה — תמיד שולח מייל למשתמש קיים
-          R2=$(curl -sS -m 30 -o /tmp/rc.json -w '%{http_code}' "${H[@]}" -X POST "$B/recover" \
-                -d "$(jq -nc --arg e "$EMAIL" '{email:$e}')")
-          MSG2=$(jq -r '(.msg // .error_description // .message // "") | tostring' /tmp/rc.json 2>/dev/null)
-          note recover "HTTP $R2 ${MSG2:+| $MSG2}"
-
-          if [ "$R2" = 200 ]; then note RESULT "✅ SMTP עובד: Supabase Staging מסר את מייל איפוס הסיסמה לשרת Gmail"
-          else echo "::error title=RESULT::❌ שליחת מייל נכשלה (HTTP $R2) $MSG2"; exit 1; fi
+          # הערה: /recover מחזיר 200 גם למשתמש שלא קיים, ולכן אינו הוכחה. ההוכחה היא signup/otp.
+          if [ "$R" = 200 ] && [ "$SENT" != none ] && [ "$R2" = 200 ]; then
+            note RESULT "✅ SMTP עובד: שני מיילים (אישור הרשמה + קישור כניסה) נמסרו לשרת Gmail"
+          else echo "::error title=RESULT::❌ שליחת מייל דרך ה-SMTP נכשלה (signup=$R, otp=$R2)"; exit 1; fi
