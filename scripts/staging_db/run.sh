@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -145,6 +145,31 @@ STATUS=$("${RO[@]}" "${PSQL[@]}" -f "$HERE/status_readonly.sql" 2>&1) || { echo 
 echo "$STATUS"; { echo '```'; echo "$STATUS"; echo '```'; } >> "$SUMMARY"
 ann notice "staging-status" "$STATUS"
 [ "$MODE" = "check" ] && { say "✅ הסתיים (קריאה בלבד — לא שונה כלום)."; ann notice "staging-result" "✅ check: מחובר ל-Staging, קריאה בלבד, לא שונה כלום"; exit 0; }
+
+# ---- אבחון שליחת מיילים: משתמש בדיקה מאושר זמני, איפוס סיסמה + קישור כניסה, ומחיקה ----
+if [ "$MODE" = "smtp" ]; then
+  KEYP=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)
+  [ -n "$KEYP" ] || stop "חסר המפתח הציבורי של Staging."
+  AUTH="https://$STAGING_REF.supabase.co/auth/v1"
+  EM="life.through.numbers333+smtp-diag-${GITHUB_RUN_ID:-local}@gmail.com"
+  say ""; say "### אבחון SMTP (משתמש זמני: $EM)"
+  "${PSQL[@]}" -At -c "with u as (insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change)
+      values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', '$EM', '', now(), '{\"provider\":\"email\",\"providers\":[\"email\"]}', '{}', now(), now(), '', '', '', '') returning id)
+    insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+      select gen_random_uuid(), u.id::text, u.id, jsonb_build_object('sub', u.id::text, 'email', '$EM', 'email_verified', true), 'email', now(), now(), now() from u" >/dev/null \
+    || stop "יצירת משתמש הבדיקה נכשלה."
+  call(){ curl -sS -m 60 -o /tmp/r.json -w '%{http_code} %{time_total}' -H "apikey: $KEYP" -H 'Content-Type: application/json' -X POST "$AUTH/$1" -d "$2"; }
+  R1=$(call recover "{\"email\":\"$EM\"}"); M1=$(jq -r '(.msg // .error_description // .message // "")' /tmp/r.json 2>/dev/null)
+  sleep 65
+  R2=$(call otp "{\"email\":\"$EM\",\"create_user\":false}"); M2=$(jq -r '(.msg // .error_description // .message // "")' /tmp/r.json 2>/dev/null)
+  "${PSQL[@]}" -At -c "delete from auth.users where email = '$EM'" >/dev/null || say "⚠️ מחיקת משתמש הבדיקה נכשלה"
+  LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c "select count(*) from auth.users where email like 'life.through.numbers333+smtp-%'")
+  RES="איפוס סיסמה (משתמש קיים): HTTP $R1 ${M1:+| $M1} ;; קישור כניסה (משתמש קיים): HTTP $R2 ${M2:+| $M2} ;; משתמשי בדיקה שנשארו: $LEFT"
+  say "$RES"; ann notice "smtp-diag" "$RES"
+  case "$R1$R2" in 200*200*) ann notice "staging-result" "✅ smtp: מיילים למשתמש קיים נשלחים — ה-SMTP עובד; הכשל הוא רק במייל אישור ההרשמה (התבנית)";;
+                   *) ann error "staging-result" "❌ smtp: גם מיילים למשתמש קיים נכשלים — הבעיה בחיבור ל-Gmail (לא בתבנית)";; esac
+  exit 0
+fi
 
 # ---- בדיקת דפדפן מלאה ----
 if [ "$MODE" = "e2e" ]; then
