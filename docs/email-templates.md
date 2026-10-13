@@ -2,7 +2,7 @@
 
 מקום: Supabase ← Haim Derech Misparim ← Authentication ← Emails ← Templates.
 בכל תבנית מחליפים את **Subject** ואת **Message body**, ולוחצים Save. הקישור `{{ .ConfirmationURL }}` חייב להישאר בדיוק כך.
-השולח (Sender) נקבע ב-SMTP Settings: `life.through.numbers333@gmail.com`, בשם `חיים דרך מספרים`.
+השולח (Sender) נקבע ב-SMTP Settings: `noreply@<הדומיין>`, בשם `חיים דרך מספרים` (ראו `docs/smtp-setup.md`). כתובת ה-Gmail מופיעה רק כטקסט ליצירת קשר בתוך המייל, לא כשולח.
 
 ## Reset Password (שכחתי סיסמה — גם הכניסה הראשונה של חשבונות קיימים אחרי המעבר)
 **Subject:** `איפוס סיסמה — חיים דרך מספרים`

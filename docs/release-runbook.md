@@ -21,9 +21,12 @@
 2. **Supabase ← Production ← Authentication:**
    - **URL Configuration:**
      - Site URL: `https://shmulikhavivi-design.github.io/haim-derech-misparim/`
-     - Redirect URLs: אותה כתובת, וגם `https://shmulikhavivi-design.github.io/haim-derech-misparim/index.html?hdm_reset=1`
-   - **Sign In / Providers ← Email:** להפעיל **Confirm email**.
-   - **שליחת מיילים (SMTP):** חובה להגדיר שרת מיילים משלכם (Emails ← SMTP Settings). שירות המיילים המובנה של Supabase מוגבל מאוד, ובלעדיו מיילי אישור ואיפוס לא יגיעו למשתמשים.
+     - Redirect URLs: `https://shmulikhavivi-design.github.io/haim-derech-misparim/**`
+       (שורה אחת שמכסה גם את הכתובת עם `index.html` וגם בלעדיה, כולל `?hdm_reset=1`).
+   - **שליחת מיילים (SMTP) — קודם:** לפי `docs/smtp-setup.md` (דומיין + Resend). שירות המיילים המובנה של Supabase שולח רק לחברי הצוות, ובלעדיו מיילי אישור ואיפוס לא יגיעו למשתמשים.
+   - **Sign In / Providers ← Email:** להפעיל **Confirm email** — **רק אחרי** שמייל הבדיקה מ-SMTP הגיע.
+     (נכון ל-13.10: בבדיקה הציבורית של Production, Confirm email כבוי.)
+   - **תבניות המייל בעברית:** `docs/email-templates.md`.
 
 ## חלון המעבר
 3. **ב-Production ← SQL Editor:** מריצים את `supabase/production/01_production_migration.sql`. אמורה להופיע השורה `✅ המעבר הושלם`.
