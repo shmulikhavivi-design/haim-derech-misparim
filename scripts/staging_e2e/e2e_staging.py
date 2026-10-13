@@ -197,8 +197,13 @@ try:
         pair = '__'.join(sorted([B, P]))
         check('🎯 הדדי: השרת פתח שיחה והצ׳אט נפתח', sql(f"select count(*) from docs where collection='chats' and id='{pair}'") == '1'
               and pg.evaluate("() => document.getElementById('screen-chat').classList.contains('active')"))
-        pg.fill('#chat-input', 'שלום מבדיקת e2e'); pg.click('#send-chat-btn'); pg.wait_for_timeout(2000)
-        check('הודעה נשמרת בשרת', 'שלום מבדיקת e2e' in sql(f"select data->'messages'->-1->>'text' from docs where collection='chats' and id='{pair}'"))
+        pg.fill('#chat-input', 'שלום מבדיקת e2e'); pg.click('#send-chat-btn')
+        last = ''
+        for _ in range(20):  # עד 10 שניות — שמירה בשרת יכולה להתעכב ברשת של GitHub
+            pg.wait_for_timeout(500)
+            last = sql(f"select coalesce(data->'messages'->-1->>'text','') from docs where collection='chats' and id='{pair}'")
+            if 'שלום מבדיקת e2e' in last: break
+        check('הודעה נשמרת בשרת', 'שלום מבדיקת e2e' in last, last)
         an = pg.evaluate("async () => { await hdmOpenAnalysis(); await new Promise(r=>setTimeout(r,1200)); return document.getElementById('hdm-analysis-body').innerText; }")
         check('פלוס: ניתוח מורחב אחרי הדדיות', '+' in an and 'דרך חיים' in an, an[:100])
         logout(pg)
