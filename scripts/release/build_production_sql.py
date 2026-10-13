@@ -48,6 +48,7 @@ HEADER = r"""-- ================================================================
 --      * likes ישנים בפרופיל → רשומות 🎯 (interests)
 --      * שיחות והתאמות קיימות → נרשמות כ"קיימות" ולא נספרות במכסה
 --      * חשבונות קיימים (data/users) → hdm_legacy_accounts (אימייל ↔ פרופיל, בלי הסיסמאות הישנות),
+--        פרופיל עם כמה אימיילים שונים לא מקושר אוטומטית — נשמר ב-hdm_legacy_review להחלטה ידנית,
 --        ולמי שאין לו משתמש ב-Supabase Auth נוצר משתמש עם סיסמה אקראית — הכניסה הראשונה דרך "שכחתי סיסמה".
 --      * מנויים קיימים (אם הותקנו מ-PR #9) → מועתקים לטבלת המנויים החדשה
 --   5. פרטי ההתחברות הישנים (data/users, authSessions) לא נמחקים — רק נחסמים לגישה מהאפליקציה.
@@ -188,35 +189,84 @@ create table public.hdm_legacy_accounts (
   linked_at   timestamptz
 );
 alter table public.hdm_legacy_accounts enable row level security;
-insert into public.hdm_legacy_accounts (email, profile_id)
-select distinct on (lower(btrim(d.data->>'email'))) lower(btrim(d.data->>'email')), d.data->>'profileId'
+
+-- פרופיל שמופיע עם כמה אימיילים שונים לא מקושר אוטומטית לאף אחד מהם:
+-- בטבלה הישנה כל אחד יכול היה לכתוב שורת data/users עם profileId של מישהו אחר, ולכן "איזה אימייל ינצח"
+-- היה מאפשר השתלטות על פרופיל. הם נשמרים ל-hdm_legacy_review להחלטה ידנית (hdm_admin_link_legacy).
+create table public.hdm_legacy_review (
+  email       text not null,
+  profile_id  text not null,
+  created_at  numeric,
+  noted_at    timestamptz not null default now(),
+  primary key (email, profile_id)
+);
+alter table public.hdm_legacy_review enable row level security;
+
+create temporary table hdm_tmp_legacy on commit drop as
+select lower(btrim(d.data->>'email')) as email, d.data->>'profileId' as profile_id,
+       max(coalesce((d.data->>'createdAt')::numeric, 0)) as created_at
   from public.docs d
  where d.collection like 'data/users/%' and coalesce(d.data->>'email', '') like '%@%' and coalesce(d.data->>'profileId', '') <> ''
    and exists (select 1 from public.docs p where p.collection = 'profiles' and p.id = d.data->>'profileId')
- order by lower(btrim(d.data->>'email')), coalesce((d.data->>'createdAt')::numeric, 0) desc
+ group by 1, 2;
+
+insert into public.hdm_legacy_review (email, profile_id, created_at)
+select t.email, t.profile_id, t.created_at from hdm_tmp_legacy t
+ where t.profile_id in (select profile_id from hdm_tmp_legacy group by 1 having count(distinct email) > 1);
+
+-- אימייל עם כמה פרופילים: הפרופיל האחרון שנוצר (זו אותה בעלת/בעל מייל, ולכן אין כאן סיכון השתלטות)
+insert into public.hdm_legacy_accounts (email, profile_id)
+select distinct on (t.email) t.email, t.profile_id
+  from hdm_tmp_legacy t
+ where not exists (select 1 from public.hdm_legacy_review r where r.profile_id = t.profile_id)
+ order by t.email, t.created_at desc, t.profile_id
 on conflict do nothing;
 
 -- משתמש התחברות למי שעוד אין לו (סיסמה אקראית שאיש לא יודע — הכניסה הראשונה דרך "שכחתי סיסמה")
-do $$
+create function public.hdm_ensure_legacy_auth_user(p_email text)
+returns uuid language plpgsql volatile security definer set search_path = '' as $$
 declare
-  r record; uid uuid; cr text;
+  uid uuid; cr text; e text := lower(btrim(p_email));
 begin
+  select id into uid from auth.users where lower(email) = e limit 1;
+  if uid is not null then return uid; end if;
   cr := case when exists (select 1 from pg_proc where proname = 'crypt' and pronamespace = to_regnamespace('extensions')) then 'extensions.' else 'public.' end;
-  for r in select l.email from public.hdm_legacy_accounts l
-            where not exists (select 1 from auth.users u where lower(u.email) = l.email) loop
-    uid := gen_random_uuid();
-    execute format($f$
-      insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-                              raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-                              confirmation_token, recovery_token, email_change_token_new, email_change)
-      values ('00000000-0000-0000-0000-000000000000', %L, 'authenticated', 'authenticated', %L,
-              %scrypt(gen_random_uuid()::text, %sgen_salt('bf')), now(),
-              '{"provider":"email","providers":["email"],"hdm_migrated":true}', '{}', now(), now(), '', '', '', '')$f$,
-      uid, r.email, cr, cr);
-    insert into auth.identities (id, provider_id, user_id, identity_data, provider, created_at, updated_at)
-    values (gen_random_uuid(), uid::text, uid, jsonb_build_object('sub', uid::text, 'email', r.email, 'email_verified', true), 'email', now(), now());
-  end loop;
+  uid := gen_random_uuid();
+  execute format($f$
+    insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+                            raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+                            confirmation_token, recovery_token, email_change_token_new, email_change)
+    values ('00000000-0000-0000-0000-000000000000', %L, 'authenticated', 'authenticated', %L,
+            %scrypt(gen_random_uuid()::text, %sgen_salt('bf')), now(),
+            '{"provider":"email","providers":["email"],"hdm_migrated":true}', '{}', now(), now(), '', '', '', '')$f$,
+    uid, e, cr, cr);
+  insert into auth.identities (id, provider_id, user_id, identity_data, provider, created_at, updated_at)
+  values (gen_random_uuid(), uid::text, uid, jsonb_build_object('sub', uid::text, 'email', e, 'email_verified', true), 'email', now(), now());
+  return uid;
 end $$;
+revoke all on function public.hdm_ensure_legacy_auth_user(text) from public, anon, authenticated;
+
+select public.hdm_ensure_legacy_auth_user(l.email) from public.hdm_legacy_accounts l;
+
+-- החלטה ידנית לפרופיל שהופיע עם כמה אימיילים (רק מה-SQL Editor, לא מהאפליקציה):
+--   select public.hdm_admin_link_legacy('<האימייל הנכון>', '<מזהה הפרופיל>');
+create function public.hdm_admin_link_legacy(p_email text, p_profile text)
+returns text language plpgsql volatile security definer set search_path = '' as $$
+declare e text := lower(btrim(p_email));
+begin
+  if not exists (select 1 from public.hdm_legacy_review where email = e and profile_id = p_profile) then
+    raise exception 'האימייל והפרופיל האלה לא נמצאים ברשימת הבדיקה הידנית (hdm_legacy_review).';
+  end if;
+  if exists (select 1 from public.hdm_accounts where profile_id = p_profile)
+     or exists (select 1 from public.hdm_legacy_accounts where profile_id = p_profile or email = e) then
+    raise exception 'הפרופיל או האימייל כבר מקושרים. לא שונה כלום.';
+  end if;
+  insert into public.hdm_legacy_accounts (email, profile_id) values (e, p_profile);
+  perform public.hdm_ensure_legacy_auth_user(e);
+  delete from public.hdm_legacy_review where profile_id = p_profile;
+  return '✅ ' || e || ' מקושר לפרופיל ' || p_profile || '. הכניסה הראשונה: "שכחתי סיסמה".';
+end $$;
+revoke all on function public.hdm_admin_link_legacy(text, text) from public, anon, authenticated;
 """
 
 AFTER = r"""
@@ -265,6 +315,7 @@ begin
     if p_proposed !~ '^[A-Za-z0-9-][A-Za-z0-9_-]{1,62}[A-Za-z0-9-]$' or position('__' in p_proposed) > 0
        or exists (select 1 from public.hdm_accounts where profile_id = p_proposed)
        or exists (select 1 from public.hdm_legacy_accounts where profile_id = p_proposed)
+       or exists (select 1 from public.hdm_legacy_review where profile_id = p_proposed)
        or exists (select 1 from public.docs where collection = 'profiles' and id = p_proposed)
        or exists (select 1 from public.hdm_profile_private where profile_id = p_proposed) then
       raise exception 'HDM_PROFILE_ID_TAKEN' using errcode = 'P0001', hint = 'מזהה הפרופיל אינו זמין.';
@@ -279,7 +330,7 @@ end $$;
 revoke all on function public.hdm_claim_profile(text) from public, anon;
 grant execute on function public.hdm_claim_profile(text) to authenticated;
 revoke all on function public.hdm_try_date(text) from public, anon, authenticated;
-revoke all on public.hdm_legacy_accounts, public.hdm_release_marker from public, anon, authenticated;
+revoke all on public.hdm_legacy_accounts, public.hdm_legacy_review, public.hdm_release_marker from public, anon, authenticated;
 
 -- מנויים קיימים (אם PR #9 הותקן): מועתקים לטבלה החדשה, לפי אותם מסלולים
 do $$
@@ -332,6 +383,7 @@ select '✅ המעבר הושלם (production_secure_v1)' as "סטטוס",
        (select count(*) from public.docs where collection = 'profiles') as "פרופילים",
        (select count(*) from public.hdm_profile_private where birthdate is null) as "בלי תאריך לידה",
        (select count(*) from public.hdm_legacy_accounts) as "חשבונות קיימים לקישור",
+       (select count(distinct profile_id) from public.hdm_legacy_review) as "לבדיקה ידנית",
        (select count(*) from public.hdm_chat_openings where plan = 'legacy') as "שיחות קיימות (לא במכסה)",
        (select count(*) from public.hdm_subscriptions) as "מנויים",
        (select count(*) from pg_policies where schemaname = 'public') as "כללי RLS";
