@@ -1,0 +1,50 @@
+# בדיקת שליחת מיילים (Gmail SMTP) — פרויקט Staging בלבד.
+# רץ רק ב-push לענף staging-tests/smtp. בלי סודות: רק המפתח הציבורי של Staging (אותו מפתח שנמצא ב-staging.html).
+# יוצר משתמש בדיקה אחד ב-Staging בכתובת כינוי של תיבת האפליקציה (+smtp-staging-...), ומבקש עבורו מייל אישור הרשמה ומייל איפוס סיסמה.
+# תשובה 200 מ-Supabase = המייל נמסר בהצלחה לשרת של Gmail. שגיאה 500 = ה-SMTP נכשל.
+name: Staging SMTP test
+on: { push: { branches: [ 'staging-tests/smtp' ] } }
+permissions: { contents: read }
+concurrency: { group: staging-smtp, cancel-in-progress: false }
+jobs:
+  smtp:
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      REF: ousepgdvzammgkxkweze          # Staging בלבד
+      PROD: qtspzigjlbtckqfyaubp         # הפרויקט הפעיל — אסור
+      KEY: sb_publishable_UXJrkbmi6h3j3Yvaey5Nvw_HIDJOy40
+    steps:
+      - run: |
+          set -u
+          case "$REF" in "$PROD") echo "::error::Production ref — stop"; exit 1;; esac
+          B="https://$REF.supabase.co/auth/v1"
+          H=(-H "apikey: $KEY" -H "Content-Type: application/json")
+          note(){ echo "$2"; echo "::notice title=$1::$2"; echo "- **$1:** $2" >> "$GITHUB_STEP_SUMMARY"; }
+
+          S=$(curl -sS -m 20 "${H[@]}" "$B/settings")
+          note settings "$(echo "$S" | jq -c '{mailer_autoconfirm, disable_signup, email: .external.email}')"
+
+          EMAIL="life.through.numbers333+smtp-staging-${GITHUB_RUN_ID}@gmail.com"
+          PW="T$(openssl rand -hex 12)!a"
+          note test-user "$EMAIL"
+
+          # 1) הרשמה — אם Confirm email דלוק, נשלח מייל אישור דרך ה-SMTP
+          R=$(curl -sS -m 30 -o /tmp/su.json -w '%{http_code}' "${H[@]}" -X POST "$B/signup" \
+                -d "$(jq -nc --arg e "$EMAIL" --arg p "$PW" '{email:$e,password:$p}')")
+          SENT=$(jq -r '(.confirmation_sent_at // .user.confirmation_sent_at // "none")' /tmp/su.json 2>/dev/null)
+          MSG=$(jq -r '(.msg // .error_description // .message // "") | tostring' /tmp/su.json 2>/dev/null)
+          note signup "HTTP $R | confirmation_sent_at=$SENT ${MSG:+| $MSG}"
+
+          # Supabase מגביל מייל אחד לאותה כתובת בכל 60 שניות
+          sleep 65
+
+          # 2) שכחתי סיסמה — תמיד שולח מייל למשתמש קיים
+          R2=$(curl -sS -m 30 -o /tmp/rc.json -w '%{http_code}' "${H[@]}" -X POST "$B/recover" \
+                -d "$(jq -nc --arg e "$EMAIL" '{email:$e}')")
+          MSG2=$(jq -r '(.msg // .error_description // .message // "") | tostring' /tmp/rc.json 2>/dev/null)
+          note recover "HTTP $R2 ${MSG2:+| $MSG2}"
+
+          if [ "$R2" = 200 ]; then note RESULT "✅ SMTP עובד: Supabase Staging מסר את מייל איפוס הסיסמה לשרת Gmail"
+          else echo "::error title=RESULT::❌ שליחת מייל נכשלה (HTTP $R2) $MSG2"; exit 1; fi
