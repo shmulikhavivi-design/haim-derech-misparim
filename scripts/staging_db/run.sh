@@ -73,6 +73,7 @@ if NORM=$(HDM_RAW_URL="$URL" python3 -I "$HERE/normalize_url.py"); then
   unset NORM CAND OUTC
   if [ -n "$CONNECTED" ]; then
     say "✔ נתיב החיבור שעבד: $CONNECTED"
+    ann notice "staging-conn" "נתיב: $CONNECTED | $(case "$META" in *leaked=1*) echo 'סיסמה: זהה לזו שנחשפה';; *) echo 'סיסמה: לא זו שנחשפה';; esac) | $(case "$META" in *repaired=1*) echo 'תוקנה טעות הדבקה';; *) echo 'כתובת תקינה';; esac)"
   else
     say "⚠️ אף נתיב חיבור לא עבד (Direct וכל כתובות ה-Pooler). סוג השגיאה האחרונה: $(case "$LASTERR" in *"password authentication failed"*) echo סיסמה שגויה;; *"unreachable"*|*"Cannot assign"*) echo "אין רשת (IPv6)";; *timeout*) echo "תם הזמן";; *) echo אחרת;; esac)"
   fi
