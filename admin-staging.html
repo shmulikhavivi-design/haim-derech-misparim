@@ -236,6 +236,7 @@
       var row = document.createElement('div'); row.className = 'row';
       row.innerHTML = '<span></span><div class="track"><div class="fill"></div></div><span class="n"></span>';
       row.children[0].textContent = g[1];
+      if(/^[0-9]/.test(g[1])){ row.children[0].dir = 'ltr'; row.children[0].style.textAlign = 'right'; }
       row.querySelector('.fill').style.width = (100 * v / mx) + '%';
       row.children[2].textContent = n(v);
       box.appendChild(row);
@@ -266,7 +267,7 @@
       $('r-note').textContent = 'אין עדיין חיוב אמיתי: מנויים מוגדרים ידנית ואינם נספרים כהכנסה. ההכנסות וה-MRR יוצגו אחרי חיבור מערכת תשלום.';
       $('r-note').classList.remove('hidden');
     }
-    setText('r-mrr', ils(s.mrrAgorot));
+    setText('r-mrr', pay.connected ? ils(s.mrrAgorot) : 'אין נתונים');
 
     // פעילות
     setText('a-targets', n(a.targets)); setText('a-targets30', n(a.targets30d) + ' ב-30 יום');
