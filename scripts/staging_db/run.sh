@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -450,6 +450,27 @@ if [ "$MODE" = "hookwire" ]; then
     ann notice "staging-result" "✅ hookwire: Auth קורא ל-Hook, המייל נבנה ונשלח ל-Google (שכחתי סיסמה + הרשמה)"
   elif [ -z "$LOG" ]; then ann error "staging-result" "❌ hookwire: ה-Hook לא נקרא — עדיין לא הופעל ב-Authentication ← Hooks"
   else ann error "staging-result" "❌ hookwire: $RES"; fi
+  exit 0
+fi
+
+# ---- הגדרות Auth של Staging דרך Management API: כתובות האתר + הפעלת Send Email Hook ----
+# Staging בלבד (הכתובת נבנית ממזהה Staging ונבדקת מול מזהה Production). לא נוגע בסיסמאות, ב-SMTP או בנתונים.
+if [ "$MODE" = "authcfg" ]; then
+  SBT="${SUPABASE_ACCESS_TOKEN:-}"; unset SUPABASE_ACCESS_TOKEN
+  [ -n "$SBT" ] || stop "חסר SUPABASE_ACCESS_TOKEN בסביבה staging."
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$SBT"
+  API="https://api.supabase.com/v1/projects/$STAGING_REF/config/auth"
+  case "$API" in *"$PRODUCTION_REF"*) stop "Production ref";; esac
+  SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
+  BODY=$(jq -nc --arg s "$SITE" --arg a "${SITE}**" \
+    '{site_url:$s, uri_allow_list:$a, hook_send_email_enabled:true, hook_send_email_uri:"pg-functions://postgres/public/hdm_send_email_hook"}')
+  PC=$(curl -sS -m 30 -o /tmp/patch.json -w '%{http_code}' -X PATCH -H "Authorization: Bearer $SBT" -H 'Content-Type: application/json' "$API" -d "$BODY" || echo 000)
+  ERR=$(jq -r '.message // .error // empty' /tmp/patch.json 2>/dev/null | cut -c1-300)
+  AFTER=$(curl -sS -m 20 -H "Authorization: Bearer $SBT" "$API" | jq -c '{site_url, uri_allow_list, hook_send_email_enabled, hook_send_email_uri}' 2>/dev/null || echo '?')
+  unset SBT
+  ann notice "authcfg" "PATCH HTTP $PC ${ERR:+| $ERR} ;; אחרי: $AFTER"
+  if [ "$PC" = 200 ]; then ann notice "staging-result" "✅ authcfg: Site URL, Redirect URLs ו-Send Email Hook הוגדרו ב-Staging"
+  else ann error "staging-result" "❌ authcfg: HTTP $PC — לטוקן אין הרשאת כתיבה להגדרות Auth של Staging"; fi
   exit 0
 fi
 
