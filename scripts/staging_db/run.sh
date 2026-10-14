@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -406,6 +406,50 @@ if [ "$MODE" = "mailnet" ]; then
   ann notice "mailnet" "בקשה $RID → ${RES:-(אין תשובה אחרי 60 שניות)}"
   case "$RES" in 4[0-9][0-9]*|3[0-9][0-9]*|200*) ann notice "staging-result" "✅ mailnet: המסד של Staging מגיע ל-script.google.com (HTTP ${RES%% *})";;
                  *) ann error "staging-result" "❌ mailnet: אין חיבור מהמסד ל-Google: ${RES:-timeout}";; esac
+  exit 0
+fi
+
+# ---- משלוח מיילים: Auth → Hook → pg_net → Google, מקצה לקצה, בלי לשלוח מייל אמיתי ----
+# אם הממסר עוד לא הוגדר: כתובת בדיקה של Google (שלא קיימת) ומפתח אקראי — רק לזמן ההרצה, ונמחקים בסוף.
+# אם הממסר כבר הוגדר — לא נוגעים בו (לבדיקה אמיתית משתמשים במצב smtp).
+if [ "$MODE" = "hookwire" ]; then
+  KEYP=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)
+  [ -n "$KEYP" ] || stop "חסר המפתח הציבורי של Staging."
+  AUTH="https://$STAGING_REF.supabase.co/auth/v1"
+  SBT="${SUPABASE_ACCESS_TOKEN:-}"; unset SUPABASE_ACCESS_TOKEN
+  if [ -n "$SBT" ]; then
+    [ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$SBT"
+    CFG=$(curl -sS -m 20 -H "Authorization: Bearer $SBT" "https://api.supabase.com/v1/projects/$STAGING_REF/config/auth" | jq -c '{hook_send_email_enabled, hook_send_email_uri, site_url, uri_allow_list, mailer_autoconfirm}' 2>/dev/null || echo '?')
+    ann notice "auth-hook-config" "$CFG"
+  fi
+  unset SBT
+  "${RO[@]}" "${PSQL[@]}" -At -c "select 1 from public.hdm_staging_marker where version = 'staging_mail_hook_v1'" | grep -q 1 || stop "צריך install12 קודם."
+  HAVE=$("${RO[@]}" "${PSQL[@]}" -At -c "select count(*) from vault.decrypted_secrets where name like 'hdm_mail_relay_%'")
+  PROBE=0
+  if [ "$HAVE" = 0 ]; then
+    PROBE=1
+    "${PSQL[@]}" -At -c "select vault.create_secret('https://script.google.com/macros/s/AKfycb_hdm_reachability_probe_000/exec', 'hdm_mail_relay_url', 'probe'); select vault.create_secret(encode(extensions.gen_random_bytes(24),'hex'), 'hdm_mail_relay_key', 'probe');" >/dev/null || stop "יצירת ממסר בדיקה נכשלה."
+  fi
+  TAG="${GITHUB_RUN_ID:-local}"; EM="life.through.numbers333+hookwire-$TAG@gmail.com"; EM2="life.through.numbers333+hookwire-su-$TAG@gmail.com"
+  cleanup(){ "${PSQL[@]}" -At -c "delete from public.docs where data->>'email' in ('$EM','$EM2'); delete from auth.users where email in ('$EM','$EM2')" >/dev/null 2>&1 || true
+             [ "$PROBE" = 1 ] && "${PSQL[@]}" -At -c "delete from vault.secrets where name in ('hdm_mail_relay_url','hdm_mail_relay_key') and description = 'probe'" >/dev/null 2>&1 || true; }
+  trap cleanup EXIT
+  "${PSQL[@]}" -At -c "with u as (insert into auth.users (instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at,confirmation_token,recovery_token,email_change_token_new,email_change)
+      values ('00000000-0000-0000-0000-000000000000',gen_random_uuid(),'authenticated','authenticated','$EM','',now(),'{\"provider\":\"email\",\"providers\":[\"email\"]}','{}',now(),now(),'','','','') returning id)
+    insert into auth.identities (id,provider_id,user_id,identity_data,provider,last_sign_in_at,created_at,updated_at)
+      select gen_random_uuid(),u.id::text,u.id,jsonb_build_object('sub',u.id::text,'email','$EM','email_verified',true),'email',now(),now(),now() from u" >/dev/null || stop "יצירת משתמש בדיקה נכשלה."
+  L0=$("${RO[@]}" "${PSQL[@]}" -At -c "select coalesce(max(id),0) from public.hdm_mail_log")
+  call(){ curl -sS -m 60 -o /tmp/r.json -w '%{http_code}' -H "apikey: $KEYP" -H 'Content-Type: application/json' -X POST "$AUTH/$1" -d "$2"; }
+  C1=$(call recover "{\"email\":\"$EM\",\"redirect_to\":\"https://shmulikhavivi-design.github.io/haim-derech-misparim/?hdm_reset=1\"}"); M1=$(jq -r '(.msg // .error_description // .message // "")' /tmp/r.json 2>/dev/null)
+  C2=$(call signup "{\"email\":\"$EM2\",\"password\":\"Hw-$(openssl rand -hex 10)\"}"); M2=$(jq -r '(.msg // .error_description // .message // "")' /tmp/r.json 2>/dev/null)
+  sleep 15
+  LOG=$("${RO[@]}" "${PSQL[@]}" -At -F ' ' -c "select l.action, l.messages, l.status, coalesce((select string_agg(coalesce(r.status_code::text, 'pending') || coalesce(':'||r.error_msg,''), ',') from net._http_response r where r.id = any(l.request_ids)), '-') from public.hdm_mail_log l where l.id > $L0 order by l.id")
+  RES="ממסר: $([ $PROBE = 1 ] && echo 'כתובת בדיקה זמנית' || echo 'הממסר האמיתי (לא שונה)') ;; שכחתי סיסמה: HTTP $C1 ${M1:+| $M1} ;; הרשמה: HTTP $C2 ${M2:+| $M2} ;; יומן ה-Hook: $(echo "${LOG:-(ריק — ה-Hook לא נקרא)}" | tr '\n' ';')"
+  ann notice "hookwire" "$RES"
+  if [ "$C1" = 200 ] && [ "$C2" = 200 ] && echo "$LOG" | grep -q '^recovery 1 queued' && echo "$LOG" | grep -q '^signup 1 queued'; then
+    ann notice "staging-result" "✅ hookwire: Auth קורא ל-Hook, המייל נבנה ונשלח ל-Google (שכחתי סיסמה + הרשמה)"
+  elif [ -z "$LOG" ]; then ann error "staging-result" "❌ hookwire: ה-Hook לא נקרא — עדיין לא הופעל ב-Authentication ← Hooks"
+  else ann error "staging-result" "❌ hookwire: $RES"; fi
   exit 0
 fi
 
