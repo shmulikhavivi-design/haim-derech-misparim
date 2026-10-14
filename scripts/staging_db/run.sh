@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -235,6 +235,95 @@ print(f"user_len={len(u)} exact_match={m[0].split(chr(64))[0] if m else None} ma
     200200*)   ann error "staging-result" "⚠️ smtp: מיילים למשתמש קיים נשלחים, אבל מייל אישור ההרשמה נכשל (התבנית / ההגדרה)";;
     *)         ann error "staging-result" "❌ smtp: מיילים למשתמש קיים נכשלים — הבעיה בחיבור ל-Gmail";;
   esac
+  exit 0
+fi
+
+# ---- זרימות Auth בלי תלות במשלוח מייל: אימות כתובת, איפוס סיסמה, הגדרות כתובות ותבניות ----
+# האסימונים נכתבים ישירות למסד (כמו שהמייל היה מכיל), כדי לבדוק את מה שקורה כשהמשתמש לוחץ על הקישור.
+if [ "$MODE" = "authflow" ]; then
+  KEYP=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)
+  [ -n "$KEYP" ] || stop "חסר המפתח הציבורי של Staging."
+  AUTH="https://$STAGING_REF.supabase.co/auth/v1"
+  TAG="${GITHUB_RUN_ID:-local}"
+  EV="life.through.numbers333+flow-verify-$TAG@gmail.com"; ER="life.through.numbers333+flow-reset-$TAG@gmail.com"
+  P1="Flow-$(openssl rand -hex 10)"; P2="New-$(openssl rand -hex 10)"
+  TV=$(openssl rand -hex 28); TR=$(openssl rand -hex 28)
+  RESULTS=""; OKN=0; ALLN=0
+  chk(){ ALLN=$((ALLN+1)); if [ "$2" = ok ]; then OKN=$((OKN+1)); RESULTS="$RESULTS
+PASS $1"; else RESULTS="$RESULTS
+FAIL $1 -> $3"; fi; }
+  req(){ curl -sS -m 30 -o /tmp/a.json -w '%{http_code}' -H "apikey: $KEYP" -H 'Content-Type: application/json' "$@"; }
+  msg(){ jq -r '(.error_code // "") + " " + (.msg // .error_description // .message // "")' /tmp/a.json 2>/dev/null | cut -c1-120; }
+  cleanup(){ "${PSQL[@]}" -At -c "delete from public.docs where data->>'email' in ('$EV','$ER'); delete from auth.users where email in ('$EV','$ER')" >/dev/null 2>&1 || true; }
+  trap cleanup EXIT
+  # משתמש "נרשם" שעדיין לא אימת מייל, עם אסימון אימות (כמו אחרי הרשמה)
+  "${PSQL[@]}" -At -c "
+    with u as (insert into auth.users (instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,confirmation_token,confirmation_sent_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at,recovery_token,email_change_token_new,email_change)
+      values ('00000000-0000-0000-0000-000000000000',gen_random_uuid(),'authenticated','authenticated','$EV',crypt('$P1',gen_salt('bf')),null,'$TV',now(),'{\"provider\":\"email\",\"providers\":[\"email\"]}','{}',now(),now(),'','','') returning id),
+    i as (insert into auth.identities (id,provider_id,user_id,identity_data,provider,created_at,updated_at)
+      select gen_random_uuid(),u.id::text,u.id,jsonb_build_object('sub',u.id::text,'email','$EV','email_verified',false),'email',now(),now() from u)
+    insert into auth.one_time_tokens (id,user_id,token_type,token_hash,relates_to) select gen_random_uuid(),u.id,'confirmation_token','$TV','$EV' from u;
+    with u as (insert into auth.users (instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,recovery_token,recovery_sent_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at,confirmation_token,email_change_token_new,email_change)
+      values ('00000000-0000-0000-0000-000000000000',gen_random_uuid(),'authenticated','authenticated','$ER',crypt('$P1',gen_salt('bf')),now(),'$TR',now(),'{\"provider\":\"email\",\"providers\":[\"email\"]}','{}',now(),now(),'','','') returning id),
+    i as (insert into auth.identities (id,provider_id,user_id,identity_data,provider,created_at,updated_at)
+      select gen_random_uuid(),u.id::text,u.id,jsonb_build_object('sub',u.id::text,'email','$ER','email_verified',true),'email',now(),now() from u)
+    insert into auth.one_time_tokens (id,user_id,token_type,token_hash,relates_to) select gen_random_uuid(),u.id,'recovery_token','$TR','$ER' from u;" >/dev/null \
+    || stop "יצירת משתמשי הבדיקה נכשלה."
+
+  # 1. לפני אימות: אסור להתחבר
+  C=$(req -X POST "$AUTH/token?grant_type=password" -d "{\"email\":\"$EV\",\"password\":\"$P1\"}")
+  [ "$C" = 400 ] && grep -q 'email_not_confirmed' /tmp/a.json && chk "לפני אימות המייל: ההתחברות נחסמת (email_not_confirmed)" ok || chk "לפני אימות המייל: ההתחברות נחסמת" bad "HTTP $C $(msg)"
+  # 2. לחיצה על קישור האימות
+  C=$(req -X POST "$AUTH/verify" -d "{\"type\":\"email\",\"token_hash\":\"$TV\"}")
+  [ "$C" = 200 ] && [ -n "$(jq -r '.access_token // empty' /tmp/a.json)" ] && chk "קישור אימות המייל: מאמת ומחבר" ok || chk "קישור אימות המייל: מאמת ומחבר" bad "HTTP $C $(msg)"
+  CF=$("${RO[@]}" "${PSQL[@]}" -At -c "select email_confirmed_at is not null from auth.users where email='$EV'")
+  [ "$CF" = t ] && chk "אחרי האימות: המייל מסומן כמאומת במסד" ok || chk "אחרי האימות: המייל מסומן כמאומת במסד" bad "$CF"
+  # 3. אחרי אימות: התחברות בסיסמה עובדת
+  C=$(req -X POST "$AUTH/token?grant_type=password" -d "{\"email\":\"$EV\",\"password\":\"$P1\"}")
+  [ "$C" = 200 ] && chk "אחרי האימות: התחברות בסיסמה עובדת" ok || chk "אחרי האימות: התחברות בסיסמה עובדת" bad "HTTP $C $(msg)"
+  # 4. שימוש חוזר בקישור אימות נדחה
+  C=$(req -X POST "$AUTH/verify" -d "{\"type\":\"email\",\"token_hash\":\"$TV\"}")
+  [ "$C" != 200 ] && chk "קישור אימות שכבר נוצל: נדחה" ok || chk "קישור אימות שכבר נוצל: נדחה" bad "HTTP $C"
+  # 5. איפוס סיסמה: קישור האיפוס פותח session
+  C=$(req -X POST "$AUTH/verify" -d "{\"type\":\"recovery\",\"token_hash\":\"$TR\"}")
+  AT=$(jq -r '.access_token // empty' /tmp/a.json)
+  [ "$C" = 200 ] && [ -n "$AT" ] && chk "קישור איפוס סיסמה: פותח session" ok || chk "קישור איפוס סיסמה: פותח session" bad "HTTP $C $(msg)"
+  # 6. קביעת סיסמה חדשה
+  C=$(req -X PUT "$AUTH/user" -H "Authorization: Bearer $AT" -d "{\"password\":\"$P2\"}")
+  [ "$C" = 200 ] && chk "איפוס: קביעת סיסמה חדשה" ok || chk "איפוס: קביעת סיסמה חדשה" bad "HTTP $C $(msg)"
+  C=$(req -X POST "$AUTH/token?grant_type=password" -d "{\"email\":\"$ER\",\"password\":\"$P2\"}")
+  [ "$C" = 200 ] && chk "איפוס: התחברות בסיסמה החדשה" ok || chk "איפוס: התחברות בסיסמה החדשה" bad "HTTP $C $(msg)"
+  C=$(req -X POST "$AUTH/token?grant_type=password" -d "{\"email\":\"$ER\",\"password\":\"$P1\"}")
+  [ "$C" = 400 ] && chk "איפוס: הסיסמה הישנה כבר לא עובדת" ok || chk "איפוס: הסיסמה הישנה כבר לא עובדת" bad "HTTP $C"
+  C=$(req -X POST "$AUTH/verify" -d "{\"type\":\"recovery\",\"token_hash\":\"$TR\"}")
+  [ "$C" != 200 ] && chk "קישור איפוס שכבר נוצל: נדחה" ok || chk "קישור איפוס שכבר נוצל: נדחה" bad "HTTP $C"
+  C=$(req -X POST "$AUTH/verify" -d "{\"type\":\"recovery\",\"token_hash\":\"$(openssl rand -hex 28)\"}")
+  [ "$C" != 200 ] && chk "קישור איפוס מזויף: נדחה" ok || chk "קישור איפוס מזויף: נדחה" bad "HTTP $C"
+
+  # 7. הגדרות Auth של Staging: כתובות הפניה ותבניות מייל (קריאה בלבד)
+  SBT="${SUPABASE_ACCESS_TOKEN:-}"; unset SUPABASE_ACCESS_TOKEN
+  if [ -n "$SBT" ]; then
+    [ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$SBT"
+    curl -sS -m 20 -o /tmp/cfg.json -H "Authorization: Bearer $SBT" "https://api.supabase.com/v1/projects/$STAGING_REF/config/auth" || true
+    CFGI=$(jq -c '{site_url, uri_allow_list, mailer_autoconfirm, external_email_enabled, password_min_length, mailer_otp_exp, rate_limit_email_sent,
+      subj:{confirm:.mailer_subjects_confirmation, recovery:.mailer_subjects_recovery, magic:.mailer_subjects_magic_link},
+      tpl_has_link:{confirm:((.mailer_templates_confirmation_content//"")|test("ConfirmationURL|TokenHash")), recovery:((.mailer_templates_recovery_content//"")|test("ConfirmationURL|TokenHash")), magic:((.mailer_templates_magic_link_content//"")|test("ConfirmationURL|TokenHash"))},
+      tpl_hebrew:{confirm:((.mailer_templates_confirmation_content//"")|test("[א-ת]")), recovery:((.mailer_templates_recovery_content//"")|test("[א-ת]"))},
+      recovery_link_has_reset_flag:((.mailer_templates_recovery_content//"")|test("hdm_reset"))}' /tmp/cfg.json 2>&1 | sed -E 's/[A-Za-z0-9._%+-]+@gmail\.com/<gmail>/g' | head -c 1500)
+    ann notice "auth-config" "$CFGI"
+    jq -e '.site_url | test("shmulikhavivi-design.github.io/haim-derech-misparim")' /tmp/cfg.json >/dev/null 2>&1 && chk "Site URL מפנה לאתר ב-GitHub Pages" ok || chk "Site URL מפנה לאתר ב-GitHub Pages" bad "$(jq -r .site_url /tmp/cfg.json)"
+    jq -e '(.uri_allow_list // "") | test("shmulikhavivi-design.github.io/haim-derech-misparim")' /tmp/cfg.json >/dev/null 2>&1 && chk "Redirect URLs כוללות את האתר" ok || chk "Redirect URLs כוללות את האתר" bad "$(jq -r .uri_allow_list /tmp/cfg.json)"
+    jq -e '.mailer_autoconfirm == false' /tmp/cfg.json >/dev/null && chk "Confirm email מופעל (נדרש אימות מייל)" ok || chk "Confirm email מופעל" bad "autoconfirm=true"
+    unset SBT
+  fi
+  cleanup; trap - EXIT
+  LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c "select count(*) from auth.users where email like 'life.through.numbers333+flow-%'")
+  OUTF="$RESULTS
+ניקוי: נשארו $LEFT משתמשי בדיקה
+SUMMARY $OKN/$ALLN passed"
+  echo "$OUTF"; { echo '```'; echo "$OUTF"; echo '```'; } >> "$SUMMARY"
+  ann notice "authflow" "$OUTF"
+  [ "$OKN" = "$ALLN" ] && ann notice "staging-result" "✅ authflow: $OKN/$ALLN" || ann error "staging-result" "❌ authflow: $OKN/$ALLN"
   exit 0
 fi
 
