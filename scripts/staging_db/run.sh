@@ -166,20 +166,8 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
       # בדיקת התחברות ישירה ל-Gmail (בלי לשלוח מייל). הסיסמה לא מודפסת; מדווח רק קוד התשובה של Gmail
       SPW=$(jq -r '.smtp_pass // ""' /tmp/cfg.json); SUSR=$(jq -r '.smtp_user // ""' /tmp/cfg.json)
       [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "$SPW" ] && echo "::add-mask::$SPW"
-      PWSHAPE=$(python3 -c 'import sys;p=sys.argv[1];c=p.replace(" ","");print(f"len={len(p)} nospace_len={len(c)} spaces={p.count(chr(32))} masked={set(p)<=set("*•")} letters_only={c.isalpha()} lower={c.islower()}")' "$SPW")
-      SMTPTEST=$(HDM_U="$SUSR" HDM_P="$SPW" timeout 40 python3 -I -c '
-import os,smtplib,ssl
-u,p=os.environ["HDM_U"],os.environ["HDM_P"]
-out=[]
-for label,pw in (("as-is",p),("no-spaces",p.replace(" ",""))):
-    try:
-        s=smtplib.SMTP_SSL("smtp.gmail.com",465,context=ssl.create_default_context(),timeout=20); s.login(u,pw); s.quit(); out.append(label+": 235 login OK")
-    except smtplib.SMTPAuthenticationError as e: out.append(label+": "+str(e.smtp_code)+" "+e.smtp_error.decode(errors="ignore").split("
-")[0][:90])
-    except Exception as e: out.append(label+": "+type(e).__name__)
-    if pw==p.replace(" ",""): break
-print(" | ".join(out))' 2>&1 | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g')
-      ann notice "smtp-gmail-login" "צורת הסיסמה השמורה: $PWSHAPE ;; התחברות ל-Gmail: $SMTPTEST"
+      SMTPTEST=$(HDM_U="$SUSR" HDM_P="$SPW" timeout 60 python3 -I "$HERE/smtp_login_check.py" 2>&1 | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g' || true)
+      ann notice "smtp-gmail-login" "${SMTPTEST:-(אין תוצאה)}"
       unset SPW SUSR
       CLEAN='חיים דרך מספרים'
       if [ "$MODE" = "smtpfix" ] && [ "$SN" != "$CLEAN" ]; then
