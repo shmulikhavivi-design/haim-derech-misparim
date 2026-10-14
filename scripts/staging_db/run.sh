@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|e2eadmin|audit) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|e2eadmin|audit) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -395,6 +395,8 @@ case "$MODE" in
   install05) FILE="$SQLDIR/05_staging_profile_hardening.sql" ;;
   install06) FILE="$SQLDIR/06_staging_admin_dashboard.sql" ;;
   tests07)   FILE="$SQLDIR/07_staging_admin_tests.sql" ;;
+  install08) FILE="$SQLDIR/08_staging_admin_age_gender.sql" ;;
+  tests09)   FILE="$SQLDIR/09_staging_age_gender_tests.sql" ;;
   tests02)   FILE="$SQLDIR/02_staging_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."
@@ -404,6 +406,12 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests09" ]; then
+  echo "$OUT" | grep -qE 'סיכום.*✅' || stop "לא כל בדיקות פילוח הגיל והמין עברו (ראו פלט)."
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
+  say "✅ גיל ומין: $SUMM (הכול בוטל — לא נשמר כלום)."; ann notice "staging-result" "✅ tests09: $SUMM"
+  exit 0
+fi
 if [ "$MODE" = "tests07" ]; then
   echo "$OUT" | grep -qE 'סיכום.*✅' || stop "לא כל בדיקות לוח הניהול עברו (ראו פלט)."
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
