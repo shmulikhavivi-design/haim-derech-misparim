@@ -71,4 +71,18 @@ for label, cond in (("pg-fail", "event_message ILIKE '%fail%' OR event_message I
     for m, v in msgs.most_common(6): out.append(f"  msg {v:4d}  {m}")
     for (u, app, c), v in who.most_common(10): out.append(f"  who {v:4d}  user={u} app={app} source={c}")
     if keys: out.append("  attr keys: " + ", ".join(sorted(keys))[:300])
+# כל השורות ב-24 שעות: לפי משתמש, אפליקציה ומקור (מסווג)
+for src in ("postgres_logs", "supavisor_logs"):
+    d = q(f"SELECT timestamp, event_message, log_attributes FROM logs WHERE source = '{src}' ORDER BY timestamp DESC LIMIT 1000", 24)
+    rows = d.get("result") or []; who = collections.Counter(); keys = set()
+    for r in rows:
+        a = attrs(r); keys |= set(a.keys())
+        u = next((str(a[k]) for k in a if re.search(r'user', k)), "?")
+        app = next((str(a[k]) for k in a if 'application' in k), "-")
+        raw = " ".join(str(a[k]) for k in a if re.search(r'connection_from|remote|client|peer|ip', k))
+        m = IPRE.search(raw); ipc = cls(m.group(1)) if m else "no-ip"
+        who[(u[:40], app[:24], ipc)] += 1
+    out.append(f"ALL {src}: {len(rows)} rows {('ERR ' + d['error']) if d.get('error') else ''}")
+    for (u, app, c), v in who.most_common(15): out.append(f"  {v:4d}  user={u} app={app} source={c}")
+    out.append("  keys: " + ", ".join(sorted(k for k in keys if not k.startswith('parsed.query')))[:400])
 print("\n".join(out))
