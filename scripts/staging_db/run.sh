@@ -168,6 +168,10 @@ u=sys.stdin.read().rstrip("\n"); k=["life.through.numbers333@gmail.com","shmulik
 m=[x for x in k if u==x]; ml=[x for x in k if u.strip().lower()==x]
 print(f"user_len={len(u)} exact_match={m[0].split(chr(64))[0] if m else None} match_ignoring_case_space={ml[0].split(chr(64))[0] if ml else None} has_space={chr(32) in u} has_upper={u!=u.lower()} domain={u.rsplit(chr(64),1)[-1] if chr(64) in u else None}")')
       ann notice "smtp-user-check" "$UCHK"
+      PCHK=$(jq -r '.smtp_pass // ""' /tmp/cfg.json | python3 -I -c 'import sys,re
+p=sys.stdin.read().rstrip("\n"); s=p.replace(" ","")
+print(f"pass_len={len(p)} len_without_spaces={len(s)} has_space={chr(32) in p} has_tab_or_newline={bool(re.search(r"[\t\r\n]",p))} only_lowercase_letters={bool(re.fullmatch(r"[a-z]+",s))} looks_masked={bool(re.fullmatch(r"[*•]+",s))} gmail_app_password_shape={bool(re.fullmatch(r"[a-z]{16}",s))}")')
+      ann notice "smtp-pass-shape" "$PCHK"
       CLEAN='חיים דרך מספרים'
       if [ "$MODE" = "smtpfix" ] && [ "$SN" != "$CLEAN" ]; then
         PC=$(curl -sS -m 20 -o /tmp/patch.json -w '%{http_code}' -X PATCH -H "Authorization: Bearer $SBT" -H 'Content-Type: application/json' "$API/config/auth" -d "$(jq -nc --arg n "$CLEAN" '{smtp_sender_name:$n}')" || echo 000)
