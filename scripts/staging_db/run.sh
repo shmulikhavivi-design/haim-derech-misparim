@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -391,6 +391,24 @@ if [ "$MODE" = "e2e" ]; then
   exit 0
 fi
 
+# ---- משלוח מיילים: האם המסד של Staging מגיע ל-Google (pg_net), בלי סודות ובלי לשלוח מייל ----
+# שולח בקשה לכתובת Apps Script שלא קיימת. 404 מ-Google = יש דרך החוצה, והממסר האמיתי יעבוד.
+if [ "$MODE" = "mailnet" ]; then
+  "${RO[@]}" "${PSQL[@]}" -At -c "select 1 from public.hdm_staging_marker where version = 'staging_mail_hook_v1'" | grep -q 1 \
+    || stop "צריך להתקין קודם את 12_staging_mail_hook.sql (install12)."
+  RID=$("${PSQL[@]}" -At -c "select net.http_post(url := 'https://script.google.com/macros/s/AKfycb_hdm_reachability_probe_000/exec', body := '{\"probe\":true}'::jsonb, timeout_milliseconds := 15000)")
+  RES=""
+  for i in $(seq 1 12); do
+    sleep 5
+    RES=$("${RO[@]}" "${PSQL[@]}" -At -F ' | ' -c "select status_code, coalesce(error_msg,''), timed_out from net._http_response where id = $RID" 2>/dev/null || true)
+    [ -n "$RES" ] && break
+  done
+  ann notice "mailnet" "בקשה $RID → ${RES:-(אין תשובה אחרי 60 שניות)}"
+  case "$RES" in 4[0-9][0-9]*|3[0-9][0-9]*|200*) ann notice "staging-result" "✅ mailnet: המסד של Staging מגיע ל-script.google.com (HTTP ${RES%% *})";;
+                 *) ann error "staging-result" "❌ mailnet: אין חיבור מהמסד ל-Google: ${RES:-timeout}";; esac
+  exit 0
+fi
+
 # ---- מצבים שכותבים (רק אחרי שכל ההגנות עברו) ----
 case "$MODE" in
   install03) FILE="$SQLDIR/03_staging_fixes.sql" ;;
@@ -403,6 +421,8 @@ case "$MODE" in
   install10) FILE="$SQLDIR/10_staging_admin_live.sql" ;;
   tests11)   FILE="$SQLDIR/11_staging_admin_live_tests.sql" ;;
   tests02)   FILE="$SQLDIR/02_staging_tests.sql" ;;
+  install12) FILE="$SQLDIR/12_staging_mail_hook.sql" ;;
+  tests13)   FILE="$SQLDIR/13_staging_mail_hook_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."
 say ""; say "### הרצת $(basename "$FILE")"
@@ -411,6 +431,12 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests13" ]; then
+  echo "$OUT" | grep -qE 'סיכום.*✅' || stop "לא כל בדיקות משלוח המיילים עברו (ראו פלט)."
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
+  ann notice "staging-result" "✅ tests13: $SUMM (הכול בוטל — לא נשמר כלום ולא נשלח מייל)"
+  exit 0
+fi
 if [ "$MODE" = "tests09" ] || [ "$MODE" = "tests11" ]; then
   echo "$OUT" | grep -qE 'סיכום.*✅' || stop "לא כל בדיקות פילוח הגיל והמין עברו (ראו פלט)."
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
