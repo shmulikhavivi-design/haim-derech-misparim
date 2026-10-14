@@ -186,9 +186,15 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
   R1=$(call recover "{\"email\":\"$EM\"}"); M1=$(jq -r '(.msg // .error_description // .message // "")' /tmp/r.json 2>/dev/null)
   sleep 65
   R2=$(call otp "{\"email\":\"$EM\",\"create_user\":false}"); M2=$(jq -r '(.msg // .error_description // .message // "")' /tmp/r.json 2>/dev/null)
-  "${PSQL[@]}" -At -c "delete from auth.users where email = '$EM'" >/dev/null || say "⚠️ מחיקת משתמש הבדיקה נכשלה"
+  sleep 65
+  # הרשמה חדשה (מייל אישור הרשמה) — משתמש זמני נוסף שנמחק מיד
+  EM3="life.through.numbers333+smtp-signup-${GITHUB_RUN_ID:-local}@gmail.com"
+  PW3="Tst-$(openssl rand -hex 12)"
+  R3=$(call signup "{\"email\":\"$EM3\",\"password\":\"$PW3\"}"); M3=$(jq -r '(.msg // .error_description // .message // (if .confirmation_sent_at then "confirmation_sent_at=" + .confirmation_sent_at else "" end))' /tmp/r.json 2>/dev/null)
+  CS3=$("${RO[@]}" "${PSQL[@]}" -At -c "select coalesce(confirmation_sent_at::text,'none') from auth.users where email = '$EM3'" 2>/dev/null || echo '?')
+  "${PSQL[@]}" -At -c "delete from public.docs where data->>'email' = '$EM3'; delete from auth.users where email in ('$EM', '$EM3')" >/dev/null || say "⚠️ מחיקת משתמשי הבדיקה נכשלה"
   LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c "select count(*) from auth.users where email like 'life.through.numbers333+smtp-%'")
-  RES="איפוס סיסמה (משתמש קיים): HTTP $R1 ${M1:+| $M1} ;; קישור כניסה (משתמש קיים): HTTP $R2 ${M2:+| $M2} ;; משתמשי בדיקה שנשארו: $LEFT"
+  RES="איפוס סיסמה (משתמש קיים): HTTP $R1 ${M1:+| $M1} ;; קישור כניסה (משתמש קיים): HTTP $R2 ${M2:+| $M2} ;; הרשמה חדשה (מייל אישור): HTTP $R3 ${M3:+| $M3} | נשלח אישור: $CS3 ;; משתמשי בדיקה שנשארו: $LEFT"
   say "$RES"; ann notice "smtp-diag" "$RES"
   if [ -n "$SBT" ]; then
     LC=$(curl -sS -m 30 -o /tmp/logs.json -w '%{http_code}' -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs" \
@@ -217,8 +223,11 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
     ann notice "smtp-auth-log" "אין SUPABASE_ACCESS_TOKEN בסביבה staging — היומן לא נקרא"
   fi
   unset SBT
-  case "$R1$R2" in 200*200*) ann notice "staging-result" "✅ smtp: מיילים למשתמש קיים נשלחים — ה-SMTP עובד; הכשל הוא רק במייל אישור ההרשמה (התבנית)";;
-                   *) ann error "staging-result" "❌ smtp: גם מיילים למשתמש קיים נכשלים — הבעיה בחיבור ל-Gmail (לא בתבנית)";; esac
+  case "${R1%% *}${R2%% *}${R3%% *}" in
+    200200200) ann notice "staging-result" "✅ smtp: איפוס סיסמה, קישור כניסה ומייל אישור הרשמה — כולם נשלחו";;
+    200200*)   ann error "staging-result" "⚠️ smtp: מיילים למשתמש קיים נשלחים, אבל מייל אישור ההרשמה נכשל (התבנית / ההגדרה)";;
+    *)         ann error "staging-result" "❌ smtp: מיילים למשתמש קיים נכשלים — הבעיה בחיבור ל-Gmail";;
+  esac
   exit 0
 fi
 
