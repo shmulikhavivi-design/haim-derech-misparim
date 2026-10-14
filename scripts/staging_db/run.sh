@@ -163,6 +163,24 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
       SN=$(jq -r '.smtp_sender_name // ""' /tmp/cfg.json)
       INFO=$(jq -c '{mailer_autoconfirm, smtp_host, smtp_port, smtp_user_is_admin: (.smtp_user == .smtp_admin_email), smtp_pass_set: ((.smtp_pass // "") != ""), smtp_max_frequency, rate_limit_email_sent, sender_name_len: ((.smtp_sender_name // "")|length), sender_name_has_newline: ((.smtp_sender_name // "")|test("\n"))}' /tmp/cfg.json)
       ann notice "smtp-config" "$INFO"
+      # בדיקת התחברות ישירה ל-Gmail (בלי לשלוח מייל). הסיסמה לא מודפסת; מדווח רק קוד התשובה של Gmail
+      SPW=$(jq -r '.smtp_pass // ""' /tmp/cfg.json); SUSR=$(jq -r '.smtp_user // ""' /tmp/cfg.json)
+      [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "$SPW" ] && echo "::add-mask::$SPW"
+      PWSHAPE=$(python3 -c 'import sys;p=sys.argv[1];c=p.replace(" ","");print(f"len={len(p)} nospace_len={len(c)} spaces={p.count(chr(32))} masked={set(p)<=set("*•")} letters_only={c.isalpha()} lower={c.islower()}")' "$SPW")
+      SMTPTEST=$(HDM_U="$SUSR" HDM_P="$SPW" timeout 40 python3 -I -c '
+import os,smtplib,ssl
+u,p=os.environ["HDM_U"],os.environ["HDM_P"]
+out=[]
+for label,pw in (("as-is",p),("no-spaces",p.replace(" ",""))):
+    try:
+        s=smtplib.SMTP_SSL("smtp.gmail.com",465,context=ssl.create_default_context(),timeout=20); s.login(u,pw); s.quit(); out.append(label+": 235 login OK")
+    except smtplib.SMTPAuthenticationError as e: out.append(label+": "+str(e.smtp_code)+" "+e.smtp_error.decode(errors="ignore").split("
+")[0][:90])
+    except Exception as e: out.append(label+": "+type(e).__name__)
+    if pw==p.replace(" ",""): break
+print(" | ".join(out))' 2>&1 | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g')
+      ann notice "smtp-gmail-login" "צורת הסיסמה השמורה: $PWSHAPE ;; התחברות ל-Gmail: $SMTPTEST"
+      unset SPW SUSR
       CLEAN='חיים דרך מספרים'
       if [ "$MODE" = "smtpfix" ] && [ "$SN" != "$CLEAN" ]; then
         PC=$(curl -sS -m 20 -o /tmp/patch.json -w '%{http_code}' -X PATCH -H "Authorization: Bearer $SBT" -H 'Content-Type: application/json' "$API/config/auth" -d "$(jq -nc --arg n "$CLEAN" '{smtp_sender_name:$n}')" || echo 000)
