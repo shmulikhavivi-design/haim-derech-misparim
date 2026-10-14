@@ -13,8 +13,8 @@ for kind in ("security", "performance"):
     code, d = get(f"/advisors/{kind}")
     lints = d.get("lints", []) if isinstance(d, dict) else []
     out.append(f"{kind}: HTTP {code}, {len(lints)} findings")
-    for l in lints[:12]:
-        out.append(f"  · [{l.get('level')}] {l.get('name')}: {(l.get('detail') or l.get('title') or '')[:220]}")
+    for l in lints:
+        out.append(f"  · [{l.get('level')}] {l.get('name')}: {(l.get('detail') or l.get('title') or '')[:90]}")
 for path in ("/config/database/postgres", "/network-restrictions", "/ssl-enforcement"):
     code, d = get(path)
     out.append(f"{path}: HTTP {code} {json.dumps(d, ensure_ascii=False)[:250] if code == 200 else ''}")

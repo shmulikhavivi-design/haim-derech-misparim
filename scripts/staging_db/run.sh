@@ -333,7 +333,10 @@ if [ "$MODE" = "advisors" ]; then
   [ -n "$SBT" ] || stop "חסר SUPABASE_ACCESS_TOKEN"
   [ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$SBT"
   ADV=$(SBT="$SBT" API="https://api.supabase.com/v1/projects/$STAGING_REF" timeout 120 python3 -I "$HERE/advisors.py" 2>&1 || true)
-  echo "$ADV"; ann notice "advisors" "$ADV"; ann notice "staging-result" "advisors: הסתיים (קריאה בלבד)"
+  echo "$ADV"; ann notice "advisors" "$ADV"
+  FNS=$("${RO[@]}" "${PSQL[@]}" -A -F ' | ' -f "$HERE/exposed_functions.sql" 2>&1 || true)
+  echo "$FNS"; ann notice "exposed-functions" "$FNS"
+  ann notice "staging-result" "advisors: הסתיים (קריאה בלבד)"
   exit 0
 fi
 
