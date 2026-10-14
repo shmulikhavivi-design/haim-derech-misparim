@@ -30,6 +30,13 @@
 - **מה חוזר מהשרת:** מספרים מצטברים בלבד. לא חוזרים שמות, אימיילים, מזהי פרופיל, תאריכי לידה או תוכן שיחות.
 - **הלוח לקריאה בלבד:** אין בו כפתורים שמשנים נתונים.
 
+## גיל ומין
+- טווחים: 18–24, 25–34, 35–44, 45–54, 55–64, 65 ומעלה. בכל טווח: גברים, נשים, סך הכול (ו"אחר / לא צוין" רק אם יש כאלה).
+- הגיל מחושב **בשרת** מתאריך הלידה הקיים, לפי שעון ישראל. יום ההולדת עצמו כבר נחשב לגיל החדש.
+- `hdm_admin_age_gender()` מחזירה מספרים בלבד ונבדקת בשרת כמו שאר הלוח (`HDM_NOT_ADMIN` למי שאינו מנהל).
+- בדף: סינון לפי מין (כולם / גברים / נשים) ולפי טווחי גיל (אפשר לבחור כמה), גרף פסים מוערם, טבלה וסיכום לבחירה.
+- פרופילים בלי תאריך לידה לא נכנסים לטווחים, ומספרם מוצג בהערה.
+
 ## קבצים
 | קובץ | מה |
 |---|---|
@@ -38,11 +45,14 @@
 | `supabase/staging_secure/06_staging_admin_dashboard.sql` | קוד השרת (Staging, מותקן) |
 | `supabase/staging_secure/07_staging_admin_tests.sql` | 24 בדיקות SQL (הכול מתבטל בסוף) |
 | `supabase/production/06_production_admin_dashboard.sql` | אותו קוד שרת ל-Production. **לא הורץ**, ממתין לאישור |
-| `scripts/staging_e2e/e2e_admin.py` | 16 בדיקות דפדפן במסך אייפון |
+| `supabase/staging_secure/08_staging_admin_age_gender.sql` | פילוח גיל × מין (Staging) |
+| `supabase/staging_secure/09_staging_age_gender_tests.sql` | 16 בדיקות SQL לפילוח (הכול מתבטל בסוף) |
+| `supabase/production/08_production_admin_age_gender.sql` | אותו קוד ל-Production. **לא הורץ**, ממתין לאישור |
+| `scripts/staging_e2e/e2e_admin.py` | בדיקות דפדפן במסך אייפון (Chromium וגם WebKit של ספארי) |
 | `scripts/staging_db/test_admin_local.sh` | בדיקה על Postgres מקומי (07 וגם 74 בדיקות השרת) |
 
 ## הפעלה ב-Production (אחרי ההשקה, באישור)
-1. ב-SQL Editor של Production מריצים את `supabase/production/06_production_admin_dashboard.sql`.
+1. ב-SQL Editor של Production מריצים את `supabase/production/06_production_admin_dashboard.sql`, ואחריו את `supabase/production/08_production_admin_age_gender.sql`.
 2. באותו מקום מגדירים מנהל: `select public.hdm_admin_grant('<האימייל של חשבון המנהל>');`
 3. ממזגים את ה-PR. הדף יהיה בכתובת:
    `https://shmulikhavivi-design.github.io/haim-derech-misparim/admin.html`

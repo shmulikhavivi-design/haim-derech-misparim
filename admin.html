@@ -52,6 +52,27 @@
   .hidden{ display:none !important; }
   .err{ color:#9B2C2C; font-size:14px; min-height:20px; }
   .plans .tile .v{ font-size:22px; }
+  /* גיל ומין */
+  .seg{ display:flex; background:var(--bg2); border-radius:12px; padding:3px; gap:3px; }
+  .seg button{ flex:1; border:0; background:transparent; min-height:40px; padding:6px 4px; font-size:15px; }
+  .seg button[aria-pressed="true"]{ background:var(--card); font-weight:700; box-shadow:0 1px 2px rgba(59,36,41,.12); }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chips button{ min-height:38px; padding:6px 12px; border-radius:999px; font-size:14px; font-variant-numeric:tabular-nums; }
+  .chips button[aria-pressed="true"]{ background:var(--gold); border-color:var(--gold); color:#fff; font-weight:700; }
+  .ag-sum{ margin:12px 0 4px; font-size:15px; }
+  .ag-sum b{ font-size:20px; font-variant-numeric:tabular-nums; }
+  .ag-chart{ display:flex; flex-direction:column; gap:9px; margin-top:8px; }
+  .ag-row{ display:grid; grid-template-columns:48px 1fr 36px; align-items:center; gap:8px; font-size:14px; }
+  .ag-row .lbl{ direction:ltr; text-align:right; font-variant-numeric:tabular-nums; }
+  .ag-row .track{ display:flex; height:16px; background:var(--bg2); border-radius:8px; overflow:hidden; }
+  .ag-row .track span{ display:block; height:100%; }
+  .ag-row .n{ text-align:left; font-variant-numeric:tabular-nums; font-weight:700; }
+  table.ag{ width:100%; border-collapse:collapse; margin-top:14px; font-size:14px; font-variant-numeric:tabular-nums; }
+  table.ag th, table.ag td{ padding:8px 4px; border-bottom:1px solid var(--line); text-align:center; }
+  table.ag th:first-child, table.ag td:first-child{ text-align:right; }
+  table.ag td:first-child{ direction:ltr; unicode-bidi:plaintext; }
+  table.ag th{ color:var(--muted); font-weight:500; }
+  table.ag tfoot td{ font-weight:700; border-bottom:0; }
 </style>
 </head>
 <body>
@@ -107,8 +128,24 @@
       <div class="legend" id="g-legend"></div>
     </div>
 
-    <h2>קבוצות גיל</h2>
-    <div class="card"><div class="rows" id="ages"></div></div>
+    <h2>גיל ומין</h2>
+    <section class="card" id="ag" aria-label="פילוח לפי גיל ומין">
+      <div class="seg" role="group" aria-label="סינון לפי מין" id="ag-gender">
+        <button type="button" data-g="all" aria-pressed="true">כולם</button>
+        <button type="button" data-g="male" aria-pressed="false">גברים</button>
+        <button type="button" data-g="female" aria-pressed="false">נשים</button>
+      </div>
+      <div class="chips" role="group" aria-label="סינון לפי טווח גיל" id="ag-ages"></div>
+      <div class="ag-sum" id="ag-sum" aria-live="polite">—</div>
+      <div class="ag-chart" id="ag-chart" role="img"></div>
+      <div class="legend" id="ag-legend" style="margin-top:10px"></div>
+      <table class="ag" id="ag-table">
+        <thead><tr><th scope="col">טווח</th><th scope="col" data-c="male">גברים</th><th scope="col" data-c="female">נשים</th><th scope="col" data-c="other">אחר</th><th scope="col" data-c="total">סך הכול</th></tr></thead>
+        <tbody></tbody>
+        <tfoot><tr><td>סה״כ בבחירה</td><td data-c="male"></td><td data-c="female"></td><td data-c="other"></td><td data-c="total"></td></tr></tfoot>
+      </table>
+      <p class="note" id="ag-note" style="margin-top:10px"></p>
+    </section>
 
     <h2>מנויים</h2>
     <div class="grid plans" id="plans"></div>
@@ -193,10 +230,124 @@
       $('load-err').textContent = 'הנתונים לא נטענו. נסו לרענן.'; return;
     }
     render(r.data); show('dash');
+    loadAges();
+  }
+
+  // ===== גיל ומין: מספרים מצטברים מהשרת (hdm_admin_age_gender), סינון בדפדפן =====
+  var AG = { data: null, gender: 'all', ages: {} };
+  var AG_KEYS = ['18-24','25-34','35-44','45-54','55-64','65+'];
+  var AG_LABEL = { '18-24':'18–24', '25-34':'25–34', '35-44':'35–44', '45-54':'45–54', '55-64':'55–64', '65+':'65+' };
+  AG_KEYS.forEach(function(k){ AG.ages[k] = true; });
+
+  async function loadAges(){
+    var r = await sb.rpc('hdm_admin_age_gender');
+    if(r.error){
+      AG.data = null;
+      $('ag-sum').textContent = /HDM_NOT_ADMIN|42501/.test((r.error.message || '') + (r.error.code || '')) ? 'אין הרשאה.' : 'הפילוח לא זמין כרגע.';
+      ['ag-chart','ag-legend','ag-note'].forEach(function(id){ $(id).innerHTML = ''; });
+      $('ag-table').classList.add('hidden'); return;
+    }
+    AG.data = r.data; $('ag-table').classList.remove('hidden');
+    renderAges();
+  }
+
+  function agBuild(){
+    var box = $('ag-ages'); box.innerHTML = '';
+    var all = document.createElement('button'); all.type = 'button'; all.dataset.a = 'all'; all.textContent = 'כל הגילאים';
+    box.appendChild(all);
+    AG_KEYS.forEach(function(k){
+      var b = document.createElement('button'); b.type = 'button'; b.dataset.a = k;
+      b.textContent = AG_LABEL[k]; b.dir = 'ltr'; box.appendChild(b);
+    });
+    box.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if(!b) return;
+      var k = b.dataset.a;
+      if(k === 'all'){ AG_KEYS.forEach(function(x){ AG.ages[x] = true; }); }
+      else {
+        var allOn = AG_KEYS.every(function(x){ return AG.ages[x]; });
+        if(allOn){ AG_KEYS.forEach(function(x){ AG.ages[x] = (x === k); }); }   // לחיצה ראשונה: רק הטווח הזה
+        else { AG.ages[k] = !AG.ages[k]; if(!AG_KEYS.some(function(x){ return AG.ages[x]; })) AG_KEYS.forEach(function(x){ AG.ages[x] = true; }); }
+      }
+      renderAges();
+    });
+    $('ag-gender').addEventListener('click', function(e){
+      var b = e.target.closest('button'); if(!b) return;
+      AG.gender = b.dataset.g; renderAges();
+    });
+  }
+  agBuild();
+
+  function renderAges(){
+    var d = AG.data; if(!d) return;
+    var g = AG.gender;
+    Array.prototype.forEach.call($('ag-gender').children, function(b){ b.setAttribute('aria-pressed', String(b.dataset.g === g)); });
+    var allOn = AG_KEYS.every(function(x){ return AG.ages[x]; });
+    Array.prototype.forEach.call($('ag-ages').children, function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.a === 'all' ? allOn : (!allOn && AG.ages[b.dataset.a])));
+    });
+
+    var rows = (d.buckets || []).filter(function(b){ return AG.ages[b.key]; });
+    var hasOther = (d.buckets || []).some(function(b){ return b.other > 0; });
+    var val = function(b){ return g === 'all' ? b.total : b[g]; };
+    var sum = { male:0, female:0, other:0, total:0 };
+    rows.forEach(function(b){ ['male','female','other','total'].forEach(function(f){ sum[f] += b[f] || 0; }); });
+
+    // סיכום
+    var who = g === 'male' ? 'גברים' : g === 'female' ? 'נשים' : 'משתמשים';
+    var range = allOn ? 'בכל הגילאים' : 'בגילאי ' + rows.map(function(b){ return AG_LABEL[b.key]; }).join(', ');
+    var sumEl = $('ag-sum'); sumEl.innerHTML = '';
+    var bEl = document.createElement('b'); bEl.textContent = n(g === 'all' ? sum.total : sum[g]); sumEl.appendChild(bEl);
+    sumEl.appendChild(document.createTextNode(' ' + who + ' ' + range + (g === 'all' ? ' · גברים ' + n(sum.male) + ' · נשים ' + n(sum.female) + (sum.other ? ' · אחר ' + n(sum.other) : '') : '')));
+    sumEl.querySelector('b').dir = 'ltr';
+
+    // גרף: פס מוערם לכל טווח (גברים / נשים / אחר), לפי הסינון
+    var parts = g === 'all' ? [['male','var(--male)'],['female','var(--female)'],['other','var(--other)']] : [[g, g === 'male' ? 'var(--male)' : 'var(--female)']];
+    var mx = Math.max.apply(null, rows.map(val).concat([1]));
+    var ch = $('ag-chart'); ch.innerHTML = '';
+    rows.forEach(function(b){
+      var row = document.createElement('div'); row.className = 'ag-row'; row.dataset.key = b.key;
+      row.innerHTML = '<span class="lbl"></span><div class="track"></div><span class="n"></span>';
+      row.children[0].textContent = AG_LABEL[b.key];
+      parts.forEach(function(p){
+        if(!b[p[0]]) return;
+        var sp = document.createElement('span'); sp.style.width = (100 * b[p[0]] / mx) + '%'; sp.style.background = p[1];
+        row.children[1].appendChild(sp);
+      });
+      row.children[2].textContent = n(val(b));
+      ch.appendChild(row);
+    });
+    ch.setAttribute('aria-label', rows.map(function(b){ return AG_LABEL[b.key] + ': ' + val(b); }).join(', '));
+    var lg = $('ag-legend'); lg.innerHTML = '';
+    parts.forEach(function(p){
+      if(p[0] === 'other' && !hasOther) return;
+      var it = document.createElement('div'); it.innerHTML = '<span class="dot"></span>'; it.firstChild.style.background = p[1];
+      it.appendChild(document.createTextNode({ male:'גברים', female:'נשים', other:'אחר / לא צוין' }[p[0]])); lg.appendChild(it);
+    });
+
+    // טבלה
+    var cols = g === 'all' ? ['male','female'].concat(hasOther ? ['other'] : []).concat(['total']) : [g];
+    var tb = $('ag-table').tBodies[0]; tb.innerHTML = '';
+    rows.forEach(function(b){
+      var tr = document.createElement('tr'); var th = document.createElement('td'); th.textContent = AG_LABEL[b.key]; tr.appendChild(th);
+      cols.forEach(function(c){ var td = document.createElement('td'); td.dataset.c = c; td.textContent = n(b[c]); tr.appendChild(td); });
+      tb.appendChild(tr);
+    });
+    $('ag-table').querySelectorAll('thead th[data-c], tfoot td[data-c]').forEach(function(el){
+      var on = cols.indexOf(el.dataset.c) >= 0; el.classList.toggle('hidden', !on);
+      if(on && el.tagName === 'TD') el.textContent = n(sum[el.dataset.c]);
+    });
+    // סדר העמודות בכותרת/סיכום זהה לסדר בגוף הטבלה (male, female, other, total)
+
+    var notes = [];
+    var o = d.outside || {};
+    if(o.noBirthdate) notes.push(n(o.noBirthdate) + ' פרופילים בלי תאריך לידה אינם נכללים בטווחים.');
+    if(o.under18) notes.push(n(o.under18) + ' פרופילים מתחת לגיל 18.');
+    notes.push('הגיל מחושב בשרת מתאריך הלידה, לפי שעון ישראל. מוצגים מספרים בלבד.');
+    $('ag-note').textContent = notes.join(' ');
   }
 
   function render(d){
-    var u = d.users || {}, s = d.subscriptions || {}, a = d.activity || {}, ages = d.ages || {};
+    var u = d.users || {}, s = d.subscriptions || {}, a = d.activity || {};
     var t = new Date(d.generatedAt);
     setText('updated', 'עודכן ' + t.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', dateStyle: 'short', timeStyle: 'short' }));
 
@@ -225,22 +376,6 @@
     });
     if(!total) lg.textContent = 'אין עדיין משתמשים.';
     bar.setAttribute('aria-label', 'גברים ' + (u.malePct || 0) + '%, נשים ' + (u.femalePct || 0) + '%');
-
-    // גיל
-    var groups = [['18-24','18–24'],['25-34','25–34'],['35-44','35–44'],['45-54','45–54'],['55-64','55–64'],['65+','65+'],['under18','מתחת ל-18'],['unknown','לא ידוע']];
-    var mx = Math.max.apply(null, groups.map(function(g){ return ages[g[0]] || 0; }).concat([1]));
-    var box = $('ages'); box.innerHTML = '';
-    groups.forEach(function(g){
-      var v = ages[g[0]] || 0;
-      if(!v && (g[0] === 'under18' || g[0] === 'unknown')) return;
-      var row = document.createElement('div'); row.className = 'row';
-      row.innerHTML = '<span></span><div class="track"><div class="fill"></div></div><span class="n"></span>';
-      row.children[0].textContent = g[1];
-      if(/^[0-9]/.test(g[1])){ row.children[0].dir = 'ltr'; row.children[0].style.textAlign = 'right'; }
-      row.querySelector('.fill').style.width = (100 * v / mx) + '%';
-      row.children[2].textContent = n(v);
-      box.appendChild(row);
-    });
 
     // מסלולים
     var names = { free: 'חינם', basic: 'בסיסי', plus: 'פלוס', vip: 'VIP' };
