@@ -1,0 +1,66 @@
+# אבחון SMTP — Staging בלבד, קריאה בלבד.
+# משתמש בטוקן Supabase מוגבל (Scoped PAT): פרויקט Staging בלבד, הרשאות Auth Config (Read) + Logs (Read).
+# הטוקן שמור רק כ-Environment Secret בסביבת GitHub בשם "staging". הסיסמה של Gmail לעולם לא מודפסת.
+name: Staging SMTP diagnose
+on:
+  push: { branches: [ 'staging-tests/smtp-diag' ] }
+  workflow_dispatch:
+permissions: { contents: read }
+concurrency: { group: staging-smtp, cancel-in-progress: false }
+jobs:
+  diagnose:
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim'
+    runs-on: ubuntu-24.04
+    environment: staging
+    timeout-minutes: 6
+    env:
+      REF: ousepgdvzammgkxkweze          # Staging בלבד
+      PROD: qtspzigjlbtckqfyaubp         # הפרויקט הפעיל — אסור
+      KEY: sb_publishable_UXJrkbmi6h3j3Yvaey5Nvw_HIDJOy40
+      TOKEN: ${{ secrets.SUPABASE_STAGING_READ_TOKEN }}
+    steps:
+      - run: |
+          set -u
+          case "$REF" in "$PROD") echo "::error::Production ref — stop"; exit 1;; esac
+          note(){ echo "$2"; echo "::notice title=$1::$2"; echo "- **$1:** $2" >> "$GITHUB_STEP_SUMMARY"; }
+          [ -n "$TOKEN" ] || { echo "::error title=token::הסוד SUPABASE_STAGING_READ_TOKEN חסר בסביבה staging"; exit 1; }
+          API="https://api.supabase.com/v1/projects/$REF"
+          A=(-H "Authorization: Bearer $TOKEN")
+
+          # 1) הגדרות SMTP (בלי הסיסמה עצמה)
+          C=$(curl -sS -m 30 -w '\n%{http_code}' "${A[@]}" "$API/config/auth"); CODE=${C##*$'\n'}; C=${C%$'\n'*}
+          note auth-config-http "$CODE"
+          if [ "$CODE" = 200 ]; then
+            P=$(echo "$C" | jq -r '.smtp_pass // ""'); [ -n "$P" ] && echo "::add-mask::$P"
+            note smtp "$(echo "$C" | jq -c '{smtp_host, smtp_port, smtp_user, smtp_admin_email, smtp_sender_name, smtp_max_frequency, rate_limit_email_sent, mailer_autoconfirm, external_email_enabled, site_url}')"
+            note smtp-password "$(echo "$C" | jq -r 'if (.smtp_pass // "") == "" then "לא מוחזר מה-API (שמור, אבל מוסתר)" else "קיים" end')$( [ -n "$P" ] && case "$P" in *" "*) echo " | ⚠️ מכיל רווחים";; *) echo " | בלי רווחים";; esac )"
+            note checks "$(echo "$C" | jq -r '[
+              (if .smtp_user != (.smtp_user|gsub("\\s";"")) then "⚠️ רווח בשם המשתמש" else empty end),
+              (if (.smtp_user//""|ascii_downcase) != "life.through.numbers333@gmail.com" then "⚠️ Username שונה מ-life.through.numbers333@gmail.com" else "Username תקין" end),
+              (if (.smtp_admin_email//""|ascii_downcase) != (.smtp_user//""|ascii_downcase) then "⚠️ Sender email שונה מה-Username" else "Sender = Username" end),
+              (if .smtp_host != "smtp.gmail.com" then "⚠️ Host אינו smtp.gmail.com" else "Host תקין" end),
+              (if ((.smtp_port|tostring) != "465" and (.smtp_port|tostring) != "587") then "⚠️ Port אינו 465/587" else "Port תקין" end)
+            ] | join(" · ")')"
+          else note auth-config-error "$(echo "$C" | head -c 300)"; fi
+
+          # 2) ניסיון שליחה טרי (הרשמה של משתמש בדיקה) כדי שתהיה שגיאה עדכנית בלוג
+          EMAIL="life.through.numbers333+smtp-diag-${GITHUB_RUN_ID}@gmail.com"
+          R=$(curl -sS -m 60 -o /tmp/su.json -w '%{http_code}' -H "apikey: $KEY" -H "Content-Type: application/json" \
+               -X POST "https://$REF.supabase.co/auth/v1/signup" \
+               -d "$(jq -nc --arg e "$EMAIL" --arg p "T$(openssl rand -hex 12)!a" '{email:$e,password:$p}')")
+          note signup "HTTP $R | $(jq -r '(.msg // .error_description // .message // "ok") | tostring' /tmp/su.json)"
+          sleep 25
+
+          # 3) לוגי Auth — שגיאות מהשעתיים האחרונות
+          SQL="select timestamp, event_message from auth_logs order by timestamp desc limit 200"
+          START=$(date -u -d '-2 hours' +%Y-%m-%dT%H:%M:%SZ); END=$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)
+          L=$(curl -sS -m 30 -G -w '\n%{http_code}' "${A[@]}" "$API/analytics/endpoints/logs.all" \
+               --data-urlencode "sql=$SQL" --data-urlencode "iso_timestamp_start=$START" --data-urlencode "iso_timestamp_end=$END")
+          LC=${L##*$'\n'}; L=${L%$'\n'*}
+          note logs-http "$LC"
+          echo "$L" | jq -r '.result[]? | .event_message' > /tmp/ev.txt || true
+          note logs-count "$(wc -l < /tmp/ev.txt) אירועים"
+          grep -iE 'smtp|mail|535|534|auth|dial|tls|error' /tmp/ev.txt | grep -iE 'error|fail|535|534|denied|refused|timeout' | head -8 | while IFS= read -r line; do
+            note smtp-log "$(echo "$line" | jq -r '[.level, .msg, .error] | map(select(.!=null)) | join(" | ")' 2>/dev/null || echo "$line" | head -c 400)"
+          done
+          [ "$LC" = 200 ] || note logs-error "$(echo "$L" | head -c 300)"
