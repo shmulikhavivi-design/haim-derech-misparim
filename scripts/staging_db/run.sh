@@ -163,12 +163,6 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
       SN=$(jq -r '.smtp_sender_name // ""' /tmp/cfg.json)
       INFO=$(jq -c '{mailer_autoconfirm, smtp_host, smtp_port, smtp_user_is_admin: (.smtp_user == .smtp_admin_email), smtp_pass_set: ((.smtp_pass // "") != ""), smtp_max_frequency, rate_limit_email_sent, sender_name_len: ((.smtp_sender_name // "")|length), sender_name_has_newline: ((.smtp_sender_name // "")|test("\n"))}' /tmp/cfg.json)
       ann notice "smtp-config" "$INFO"
-      # בדיקת התחברות ישירה ל-Gmail (בלי לשלוח מייל). הסיסמה לא מודפסת; מדווח רק קוד התשובה של Gmail
-      SPW=$(jq -r '.smtp_pass // ""' /tmp/cfg.json); SUSR=$(jq -r '.smtp_user // ""' /tmp/cfg.json)
-      [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "$SPW" ] && echo "::add-mask::$SPW"
-      SMTPTEST=$(HDM_U="$SUSR" HDM_P="$SPW" timeout 60 python3 -I "$HERE/smtp_login_check.py" 2>&1 | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g' || true)
-      ann notice "smtp-gmail-login" "${SMTPTEST:-(אין תוצאה)}"
-      unset SPW SUSR
       CLEAN='חיים דרך מספרים'
       if [ "$MODE" = "smtpfix" ] && [ "$SN" != "$CLEAN" ]; then
         PC=$(curl -sS -m 20 -o /tmp/patch.json -w '%{http_code}' -X PATCH -H "Authorization: Bearer $SBT" -H 'Content-Type: application/json' "$API/config/auth" -d "$(jq -nc --arg n "$CLEAN" '{smtp_sender_name:$n}')" || echo 000)
