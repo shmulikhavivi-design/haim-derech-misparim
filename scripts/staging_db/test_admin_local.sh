@@ -17,13 +17,15 @@ P=(psql -h "$WORK" -p "$PORT" -U postgres -d postgres -X -v ON_ERROR_STOP=1 -q -
 "${P[@]}" -f "$ROOT/scripts/release/local_supabase_mock.sql" >/dev/null
 # ב-Supabase האמיתי קיימת auth.sessions; במדמה המקומי — מוסיפים אותה
 "${P[@]}" -c "create table if not exists auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid references auth.users(id) on delete cascade, created_at timestamptz default now(), updated_at timestamptz default now(), refreshed_at timestamp)"
-for f in 01_staging_setup 03_staging_fixes 04_staging_profile_id_fix 05_staging_profile_hardening 06_staging_admin_dashboard 08_staging_admin_age_gender; do
+for f in 01_staging_setup 03_staging_fixes 04_staging_profile_id_fix 05_staging_profile_hardening 06_staging_admin_dashboard 08_staging_admin_age_gender 10_staging_admin_live; do
   "${P[@]}" -f "$SQL/$f.sql" >/dev/null || { echo "❌ ההתקנה של $f נכשלה"; exit 1; }
 done
 echo "== 07 — לוח הניהול"
 OUT7=$("${P[@]}" -f "$SQL/07_staging_admin_tests.sql"); echo "$OUT7"
 echo "== 09 — פילוח גיל ומין"
 OUT9=$("${P[@]}" -f "$SQL/09_staging_age_gender_tests.sql"); echo "$OUT9"
+echo "== 11 — רשומים ומחוברים כרגע"
+OUT11=$("${P[@]}" -f "$SQL/11_staging_admin_live_tests.sql"); echo "$OUT11"
 echo "== 02 — בדיקות השרת הקיימות (שלא נשבר כלום)"
 OUT2=$("${P[@]}" -f "$SQL/02_staging_tests.sql"); echo "$OUT2" | grep -E '❌|סיכום'
-echo "$OUT7" | grep -q 'סיכום.*✅' && echo "$OUT9" | grep -q 'סיכום.*✅' && echo "$OUT2" | grep -q 'עברו 74 מתוך 74' && echo "✅ הכול עבר" || { echo "❌ יש כשלים"; exit 1; }
+echo "$OUT7" | grep -q 'סיכום.*✅' && echo "$OUT9" | grep -q 'סיכום.*✅' && echo "$OUT11" | grep -q 'סיכום.*✅' && echo "$OUT2" | grep -q 'עברו 74 מתוך 74' && echo "✅ הכול עבר" || { echo "❌ יש כשלים"; exit 1; }
