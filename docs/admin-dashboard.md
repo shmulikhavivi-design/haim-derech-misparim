@@ -30,6 +30,11 @@
 - **מה חוזר מהשרת:** מספרים מצטברים בלבד. לא חוזרים שמות, אימיילים, מזהי פרופיל, תאריכי לידה או תוכן שיחות.
 - **הלוח לקריאה בלבד:** אין בו כפתורים שמשנים נתונים.
 
+## רשומים ומחוברים כרגע
+- **רשומים:** כל הפרופילים הרשומים.
+- **מחוברים כרגע:** משתמשים עם התחברות פעילה (לא התנתקו, לא פג תוקף) שהייתה בה כניסה או רענון ב-60 הדקות האחרונות. האפליקציה מרעננת את ההתחברות לפחות פעם בשעה כשהיא פתוחה, ולכן זה החלון. המספר מתעדכן בדף כל דקה.
+- `hdm_admin_live()` — למנהל בלבד, מספרים בלבד.
+
 ## גיל ומין
 - טווחים: 18–24, 25–34, 35–44, 45–54, 55–64, 65 ומעלה. בכל טווח: גברים, נשים, סך הכול (ו"אחר / לא צוין" רק אם יש כאלה).
 - הגיל מחושב **בשרת** מתאריך הלידה הקיים, לפי שעון ישראל. יום ההולדת עצמו כבר נחשב לגיל החדש.
@@ -48,11 +53,13 @@
 | `supabase/staging_secure/08_staging_admin_age_gender.sql` | פילוח גיל × מין (Staging) |
 | `supabase/staging_secure/09_staging_age_gender_tests.sql` | 16 בדיקות SQL לפילוח (הכול מתבטל בסוף) |
 | `supabase/production/08_production_admin_age_gender.sql` | אותו קוד ל-Production. **לא הורץ**, ממתין לאישור |
+| `supabase/staging_secure/10_staging_admin_live.sql` / `11_staging_admin_live_tests.sql` | רשומים ומחוברים כרגע + 7 בדיקות |
+| `supabase/production/10_production_admin_live.sql` | אותו קוד ל-Production. **לא הורץ** |
 | `scripts/staging_e2e/e2e_admin.py` | בדיקות דפדפן במסך אייפון (Chromium וגם WebKit של ספארי) |
 | `scripts/staging_db/test_admin_local.sh` | בדיקה על Postgres מקומי (07 וגם 74 בדיקות השרת) |
 
 ## הפעלה ב-Production (אחרי ההשקה, באישור)
-1. ב-SQL Editor של Production מריצים את `supabase/production/06_production_admin_dashboard.sql`, ואחריו את `supabase/production/08_production_admin_age_gender.sql`.
+1. ב-SQL Editor של Production מריצים את `supabase/production/06_production_admin_dashboard.sql`, ואחריו את `08_production_admin_age_gender.sql` ואת `10_production_admin_live.sql`.
 2. באותו מקום מגדירים מנהל: `select public.hdm_admin_grant('<האימייל של חשבון המנהל>');`
 3. ממזגים את ה-PR. הדף יהיה בכתובת:
    `https://shmulikhavivi-design.github.io/haim-derech-misparim/admin.html`

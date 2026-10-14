@@ -159,6 +159,8 @@ try:
         anon = pg.evaluate("async () => { const r = await sb.rpc('hdm_admin_dashboard'); return r.error ? 'blocked' : 'DATA'; }")
         anon2 = pg.evaluate("async () => { const r = await sb.rpc('hdm_admin_age_gender'); return r.error ? 'blocked' : 'DATA'; }")
         check('אורח: קריאה ישירה לפילוח גיל ומין נחסמת', anon2 == 'blocked', anon2)
+        anon3 = pg.evaluate("async () => { const r = await sb.rpc('hdm_admin_live'); return r.error ? 'blocked' : 'DATA'; }")
+        check('אורח: קריאה ישירה ל"מחוברים כרגע" נחסמת', anon3 == 'blocked', anon3)
         check('אורח: קריאה ישירה ל-API של הלוח נחסמת', anon == 'blocked', anon)
 
         login(pg, 'user')
@@ -167,6 +169,8 @@ try:
         check('משתמש רגיל: קריאה ישירה ל-API נחסמת בשרת (HDM_NOT_ADMIN)', 'HDM_NOT_ADMIN' in direct, direct)
         direct2 = pg.evaluate("async () => { const r = await sb.rpc('hdm_admin_age_gender'); return r.error ? (r.error.message || 'blocked') : 'DATA'; }")
         check('משתמש רגיל: פילוח גיל ומין נחסם בשרת (HDM_NOT_ADMIN)', 'HDM_NOT_ADMIN' in direct2, direct2)
+        direct3 = pg.evaluate("async () => { const r = await sb.rpc('hdm_admin_live'); return r.error ? (r.error.message || 'blocked') : 'DATA'; }")
+        check('משתמש רגיל: "מחוברים כרגע" נחסם בשרת (HDM_NOT_ADMIN)', 'HDM_NOT_ADMIN' in direct3, direct3)
         tbl = pg.evaluate("async () => { const r = await sb.from('hdm_admins').select('*'); return r.error ? 'blocked' : (r.data || []).length; }")
         check('משתמש רגיל: אין גישה לרשימת המנהלים', tbl in ('blocked', 0), tbl)
         grant = pg.evaluate(f"async () => {{ const r = await sb.rpc('hdm_admin_grant', {{ p_email: '{MAIL}user@example.invalid' }}); return r.error ? 'blocked' : 'GRANTED'; }}")
@@ -187,6 +191,15 @@ try:
         body = pg.inner_text('body')
         check('אין בדף אימיילים או שמות של משתמשים', '@' not in body and 'מנהלת בדיקה' not in body and 'משתמש בדיקה' not in body)
         check('הדף מותאם לאייפון (בלי גלילה לרוחב)', pg.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth + 1"))
+        pg.wait_for_function("() => /^[0-9,]+$/.test(document.getElementById('u-online').textContent.trim())", timeout=15000)
+        online_ui = int(pg.inner_text('#u-online').replace(',', ''))
+        online_db = int(sql("""select count(distinct a.profile_id) from public.hdm_accounts a
+            join auth.sessions s on s.user_id = a.auth_user_id
+            join public.docs p on p.collection='profiles' and p.id = a.profile_id
+           where greatest(s.created_at, s.updated_at, s.refreshed_at at time zone 'UTC') >= now() - interval '60 minutes'
+             and coalesce(s.not_after, 'infinity') > now()"""))
+        check('מחוברים כרגע: המספר בלוח = במסד, והמנהלת המחוברת נספרת', online_ui == online_db and online_ui >= 1, f'{online_ui} vs {online_db}')
+        check('רשומים: המספר בלוח = מספר הפרופילים במסד', pg.inner_text('#u-total').replace(',', '').strip() == sql("select count(*) from public.docs where collection='profiles'"))
         check_ages(pg, 'Chromium')
         # ספארי (WebKit) בפרופיל iPhone 13
         wk = p.webkit.launch()
@@ -195,6 +208,8 @@ try:
         wp.goto(URL); wp.wait_for_timeout(2000)
         login(wp, 'admin')
         check('iPhone (WebKit): הלוח מוצג למנהלת', visible(wp, 'dash'))
+        wp.wait_for_function("() => /^[0-9,]+$/.test(document.getElementById('u-online').textContent.trim())", timeout=15000)
+        check('iPhone: מחוברים כרגע מוצג כמספר (לפחות 1)', int(wp.inner_text('#u-online').replace(',', '')) >= 1, wp.inner_text('#u-online'))
         check_ages(wp, 'iPhone')
         wp.screenshot(path=f'{SHOTS}/admin-iphone-webkit-full.png', full_page=True)
         wk.close()

@@ -114,6 +114,7 @@
     <h2>משתמשים</h2>
     <div class="grid">
       <div class="tile"><div class="k">סך המשתמשים הרשומים</div><div class="v" id="u-total">—</div><div class="s" id="u-login">—</div></div>
+      <div class="tile"><div class="k">מחוברים כרגע</div><div class="v" id="u-online">—</div><div class="s" id="u-online-s">פעילים בשעה האחרונה</div></div>
       <div class="tile"><div class="k">חדשים היום</div><div class="v" id="u-today">—</div></div>
       <div class="tile"><div class="k">חדשים השבוע</div><div class="v" id="u-week">—</div><div class="s">מיום ראשון</div></div>
       <div class="tile"><div class="k">חדשים החודש</div><div class="v" id="u-month">—</div></div>
@@ -230,8 +231,20 @@
       $('load-err').textContent = 'הנתונים לא נטענו. נסו לרענן.'; return;
     }
     render(r.data); show('dash');
-    loadAges();
+    loadAges(); loadLive();
   }
+
+  // ===== רשומים ומחוברים כרגע (hdm_admin_live) — מתעדכן כל דקה כשהדף פתוח =====
+  async function loadLive(){
+    var r = await sb.rpc('hdm_admin_live');
+    if(r.error || !r.data){ setText('u-online', '—'); setText('u-online-s', 'לא זמין כרגע'); return; }
+    setText('u-online', n(r.data.onlineNow));
+    setText('u-online-s', 'פעילים ב-' + n(r.data.windowMinutes) + ' הדקות האחרונות');
+    if(r.data.registered !== undefined) setText('u-total', n(r.data.registered));
+  }
+  setInterval(function(){
+    if(document.visibilityState === 'visible' && !$('dash').classList.contains('hidden')) loadLive();
+  }, 60000);
 
   // ===== גיל ומין: מספרים מצטברים מהשרת (hdm_admin_age_gender), סינון בדפדפן =====
   var AG = { data: null, gender: 'all', ages: {} };
