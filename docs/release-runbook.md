@@ -23,8 +23,11 @@
      - Site URL: `https://shmulikhavivi-design.github.io/haim-derech-misparim/`
      - Redirect URLs: `https://shmulikhavivi-design.github.io/haim-derech-misparim/**`
        (שורה אחת שמכסה גם את הכתובת עם `index.html` וגם בלעדיה, כולל `?hdm_reset=1`).
-   - **שליחת מיילים (SMTP) — קודם:** לפי `docs/smtp-setup.md` (דומיין + Resend). שירות המיילים המובנה של Supabase שולח רק לחברי הצוות, ובלעדיו מיילי אישור ואיפוס לא יגיעו למשתמשים.
-   - **Sign In / Providers ← Email:** להפעיל **Confirm email** — **רק אחרי** שמייל הבדיקה מ-SMTP הגיע.
+   - **שליחת מיילים — קודם:** שירות המיילים המובנה של Supabase שולח רק לחברי הצוות, ובלעדיו מיילי אישור ואיפוס לא יגיעו למשתמשים.
+     - **ברירת המחדל להשקה (בלי דומיין ובלי סיסמת אפליקציה):** ממסר Gmail — `docs/email-gmail-relay.md`, שלב ב.
+       הקובץ `supabase/production/12_production_mail_hook.sql` רץ **אחרי** שלב 3 (המעבר), ואז מפעילים את ה-Hook.
+     - **שדרוג בהמשך (עם דומיין):** Resend — `docs/smtp-setup.md`.
+   - **Sign In / Providers ← Email:** להפעיל **Confirm email** — **רק אחרי** שמייל בדיקה ("שכחתי סיסמה") הגיע.
      (נכון ל-13.10: בבדיקה הציבורית של Production, Confirm email כבוי.)
    - **תבניות המייל בעברית:** `docs/email-templates.md`.
 
