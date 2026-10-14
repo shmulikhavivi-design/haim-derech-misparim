@@ -13,6 +13,7 @@ names = sorted(k for k in ALL if k.lower() != 'github_token')
 print('סודות בסביבה staging:', ', '.join(names) or '(אין)')
 for k in names:
     v = (ALL[k] or '').strip()
+    if not v: print(f'- {k}: לא מוגדר / ריק'); continue
     if v.startswith('postgres'): print(f'- {k}: כתובת מסד נתונים'); continue
     if not v.startswith('sbp_'): print(f'- {k}: לא טוקן Supabase (אורך {len(v)})'); continue
     c, b = req('GET', 'https://api.supabase.com/v1/projects', v)

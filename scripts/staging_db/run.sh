@@ -476,8 +476,10 @@ fi
 
 # ---- מה מותר לכל סוד בסביבה staging (שמות והרשאות בלבד — אף ערך לא מודפס) ----
 if [ "$MODE" = "perms" ]; then
-  OUTP=$(ALL="${ALL_SECRETS_JSON:-}" SREF="$STAGING_REF" PREF="$PRODUCTION_REF" python3 -I "$HERE/perms_probe.py" 2>&1 || true)
-  unset ALL_SECRETS_JSON
+  ALLJ=$(jq -nc --arg a "${SUPABASE_ACCESS_TOKEN:-}" --arg b "${SUPABASE_STAGING_READ_TOKEN:-}" --arg c "${URL:+postgres-set}" \
+    '{SUPABASE_ACCESS_TOKEN:$a, SUPABASE_STAGING_READ_TOKEN:$b, STAGING_DB_URL:(if $c=="" then "" else "postgresql://set" end)}')
+  unset SUPABASE_ACCESS_TOKEN SUPABASE_STAGING_READ_TOKEN
+  OUTP=$(ALL="$ALLJ" SREF="$STAGING_REF" PREF="$PRODUCTION_REF" python3 -I "$HERE/perms_probe.py" 2>&1 || true); unset ALLJ
   ann notice "perms" "$OUTP"; ann notice "staging-result" "perms: הסתיים (בלי שינוי)"; exit 0
 fi
 
