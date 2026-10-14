@@ -335,6 +335,9 @@ if [ "$MODE" = "advisors" ] || [ "$MODE" = "sslfix" ]; then
   if [ "$MODE" = "sslfix" ]; then
     SC=$(curl -sS -m 30 -o /tmp/ssl.json -w '%{http_code}' -X PUT -H "Authorization: Bearer $SBT" -H 'Content-Type: application/json' \
       "https://api.supabase.com/v1/projects/$STAGING_REF/ssl-enforcement" -d '{"requestedConfig":{"database":true}}' || echo 000)
+    AC=$(curl -sS -m 30 -o /tmp/ac.json -w '%{http_code}' -X PATCH -H "Authorization: Bearer $SBT" -H 'Content-Type: application/json' \
+      "https://api.supabase.com/v1/projects/$STAGING_REF/config/auth" -d '{}' || echo 000)
+    ann notice "perm-auth-config" "בדיקת הרשאת כתיבה להגדרות Auth (בקשה ריקה, לא משנה כלום): HTTP $AC | $(jq -c '.error // .message // "ok"' /tmp/ac.json 2>/dev/null | head -c 200)"
     ann notice "ssl-fix" "הפעלת אכיפת SSL ב-Staging: HTTP $SC | $(head -c 200 /tmp/ssl.json)"
     sleep 30
   fi
