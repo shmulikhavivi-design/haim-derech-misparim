@@ -195,6 +195,14 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
       --data-urlencode "sql=select timestamp, event_message from auth_logs order by timestamp desc limit 300" \
       --data-urlencode "iso_timestamp_start=$(date -u -d '-30 minutes' +%Y-%m-%dT%H:%M:%SZ)" \
       --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo 000)
+    sleep 45
+    LC=$(curl -sS -m 30 -o /tmp/logs.json -w '%{http_code}' -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs" \
+      --data-urlencode "sql=select timestamp, event_message from auth_logs order by timestamp desc limit 100" \
+      --data-urlencode "iso_timestamp_start=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)" \
+      --data-urlencode "iso_timestamp_end=$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)" || echo 000)
+    ERRS=$(jq -r '.result[]? | .event_message' /tmp/logs.json 2>/dev/null | grep -iE '"level":"error"|smtp|gomail|535|534|dial|tls|sender' \
+      | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g' | cut -c1-350 | head -5)
+    ann notice "smtp-log-errors" "${ERRS:-(אין שורות שגיאה)}"
     ann notice "smtp-log-http" "יומן Auth: HTTP $LC | שורות: $(jq '.result|length' /tmp/logs.json 2>/dev/null) | $(jq -r '.error.message // .message // empty' /tmp/logs.json 2>/dev/null | cut -c1-200)"
     LOGS=$( { curl -sS -m 30 -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs" \
       --data-urlencode "sql=select timestamp, event_message from auth_logs order by timestamp desc limit 300" \
