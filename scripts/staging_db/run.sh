@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|e2eadmin) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|e2eadmin|audit) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -328,7 +328,7 @@ SUMMARY $OKN/$ALLN passed"
 fi
 
 # ---- יועצי אבטחה של Supabase (קריאה בלבד) ----
-if [ "$MODE" = "advisors" ] || [ "$MODE" = "sslfix" ]; then
+if [ "$MODE" = "advisors" ] || [ "$MODE" = "sslfix" ] || [ "$MODE" = "audit" ]; then
   SBT="${SUPABASE_ACCESS_TOKEN:-}"; unset SUPABASE_ACCESS_TOKEN
   [ -n "$SBT" ] || stop "חסר SUPABASE_ACCESS_TOKEN"
   [ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$SBT"
@@ -343,6 +343,13 @@ if [ "$MODE" = "advisors" ] || [ "$MODE" = "sslfix" ]; then
   fi
   ADV=$(SBT="$SBT" API="https://api.supabase.com/v1/projects/$STAGING_REF" timeout 120 python3 -I "$HERE/advisors.py" 2>&1 || true)
   echo "$ADV"; ann notice "advisors" "$ADV"
+  if [ "$MODE" = "audit" ]; then
+    AUD=$(SBT="$SBT" API="https://api.supabase.com/v1/projects/$STAGING_REF" timeout 240 python3 -I "$HERE/access_audit.py" 2>&1 || true)
+    ann notice "audit-logs" "$AUD"
+    AUD2=$("${RO[@]}" "${PSQL[@]}" -A -F ' : ' -f "$HERE/access_audit.sql" 2>&1 || true)
+    ann notice "audit-db" "$AUD2"
+    ann notice "staging-result" "audit: הסתיים (קריאה בלבד)"; exit 0
+  fi
   FNS=$("${RO[@]}" "${PSQL[@]}" -A -F ' | ' -f "$HERE/exposed_functions.sql" 2>&1 || true)
   echo "$FNS"; ann notice "exposed-functions" "$FNS"
   ann notice "staging-result" "advisors: הסתיים (קריאה בלבד)"
