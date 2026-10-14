@@ -198,12 +198,12 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
   say "$RES"; ann notice "smtp-diag" "$RES"
   if [ -n "$SBT" ]; then
     LC=$(curl -sS -m 30 -o /tmp/logs.json -w '%{http_code}' -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs" \
-      --data-urlencode "sql=SELECT timestamp, event_message FROM logs WHERE source_name = 'auth_logs' ORDER BY timestamp DESC LIMIT 300" \
+      --data-urlencode "sql=SELECT timestamp, event_message FROM logs WHERE source = 'auth_logs' ORDER BY timestamp DESC LIMIT 300" \
       --data-urlencode "iso_timestamp_start=$(date -u -d '-30 minutes' +%Y-%m-%dT%H:%M:%SZ)" \
       --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo 000)
     sleep 45
     LC=$(curl -sS -m 30 -o /tmp/logs.json -w '%{http_code}' -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs" \
-      --data-urlencode "sql=SELECT timestamp, event_message FROM logs WHERE source_name = 'auth_logs' ORDER BY timestamp DESC LIMIT 200" \
+      --data-urlencode "sql=SELECT timestamp, event_message FROM logs WHERE source = 'auth_logs' ORDER BY timestamp DESC LIMIT 200" \
       --data-urlencode "iso_timestamp_start=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)" \
       --data-urlencode "iso_timestamp_end=$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)" || echo 000)
     NROWS=$(jq '.result|length' /tmp/logs.json 2>/dev/null || echo '?')
@@ -213,7 +213,7 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
     ann notice "smtp-log-errors" "${ERRS:-(אין שורות שגיאה)}"
     ann notice "smtp-log-http" "יומן Auth: HTTP $LC | שורות: $(jq '.result|length' /tmp/logs.json 2>/dev/null) | $(jq -r '.error.message // .message // empty' /tmp/logs.json 2>/dev/null | cut -c1-200)"
     LOGS=$( { curl -sS -m 30 -G -H "Authorization: Bearer $SBT" "$API/analytics/endpoints/logs" \
-      --data-urlencode "sql=SELECT timestamp, event_message FROM logs WHERE source_name = 'auth_logs' ORDER BY timestamp DESC LIMIT 300" \
+      --data-urlencode "sql=SELECT timestamp, event_message FROM logs WHERE source = 'auth_logs' ORDER BY timestamp DESC LIMIT 300" \
       --data-urlencode "iso_timestamp_start=$(date -u -d '-30 minutes' +%Y-%m-%dT%H:%M:%SZ)" \
       --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       | jq -r '.result[]? | .event_message' | grep -iE 'smtp|mail|535|534|tls|dial|auth' \

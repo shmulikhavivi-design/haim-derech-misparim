@@ -21,11 +21,11 @@ def q(sql, hours=1):
     return d
 scrub = lambda s: re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+", "<email>", s)
 out = []
-d = q("SELECT source_name, count() AS n FROM logs GROUP BY source_name ORDER BY n DESC LIMIT 20")
+d = q("SELECT source, count() AS n FROM logs GROUP BY source ORDER BY n DESC LIMIT 20")
 out.append("sources(1h): " + (json.dumps(d.get("result"), ensure_ascii=False) if d.get("result") is not None else "ERR " + str(d.get("error"))[:200]))
 for label, sql in (
-    ("auth-errors", "SELECT timestamp, event_message FROM logs WHERE source_name = 'auth_logs' AND (event_message ILIKE '%error%' OR event_message ILIKE '%mail%' OR event_message ILIKE '%smtp%') ORDER BY timestamp DESC LIMIT 15"),
-    ("any-mail", "SELECT timestamp, source_name, event_message FROM logs WHERE event_message ILIKE '%smtp%' OR event_message ILIKE '%gomail%' OR event_message ILIKE '%sending%' ORDER BY timestamp DESC LIMIT 15"),
+    ("auth-errors", "SELECT timestamp, event_message FROM logs WHERE source = 'auth_logs' AND (event_message ILIKE '%error%' OR event_message ILIKE '%mail%' OR event_message ILIKE '%smtp%') ORDER BY timestamp DESC LIMIT 15"),
+    ("any-mail", "SELECT timestamp, source, event_message FROM logs WHERE event_message ILIKE '%smtp%' OR event_message ILIKE '%gomail%' OR event_message ILIKE '%sending%' ORDER BY timestamp DESC LIMIT 15"),
 ):
     d = q(sql)
     rows = d.get("result")
