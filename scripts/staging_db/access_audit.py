@@ -46,4 +46,29 @@ for src in ("supavisor_logs", "postgres_logs", "pgbouncer_logs"):
     for (u, c), v in sorted(allc.items(), key=lambda kv: -kv[1])[:12]:
         out.append(f"  {v:5d}  user={u}  source={c}")
     for s in samples: out.append("  sample: " + s)
+# פירוט: הודעות כישלון ביומן המסד וחיבורים מאושרים — עם שדות המטא (משתמש / אפליקציה / כתובת מסווגת)
+def attrs(r):
+    a = r.get("log_attributes") or {}
+    if isinstance(a, str):
+        try: a = json.loads(a)
+        except Exception: a = {}
+    return a
+for label, cond in (("pg-fail", "event_message ILIKE '%fail%' OR event_message ILIKE '%denied%'"),
+                    ("pg-auth", "event_message ILIKE '%connection authorized%' OR event_message ILIKE '%connection received%'")):
+    d = q(f"SELECT timestamp, event_message, log_attributes FROM logs WHERE source = 'postgres_logs' AND ({cond}) ORDER BY timestamp DESC LIMIT 300", 24)
+    rows = d.get("result") or []
+    msgs = collections.Counter(); who = collections.Counter(); keys = set()
+    for r in rows:
+        a = attrs(r); keys |= set(a.keys())
+        msg = re.sub(r'"[^"]{0,80}"', '"…"', scrub(r.get("event_message", "")))[:150]
+        msgs[msg] += 1
+        u = next((str(a[k]) for k in a if re.search(r'user_name|usename|\buser\b', k)), "?")
+        app = next((str(a[k]) for k in a if 'application' in k), "-")
+        ip = next((str(a[k]) for k in a if re.search(r'remote|client|host', k) and IPRE.search(str(a[k]))), "")
+        ipc = (cls(IPRE.search(ip).group(1)) if ip else "no-ip")
+        who[(u, app[:30], ipc)] += 1
+    out.append(f"{label}: {len(rows)} rows {('ERR ' + d['error']) if d.get('error') else ''}")
+    for m, v in msgs.most_common(6): out.append(f"  msg {v:4d}  {m}")
+    for (u, app, c), v in who.most_common(10): out.append(f"  who {v:4d}  user={u} app={app} source={c}")
+    if keys: out.append("  attr keys: " + ", ".join(sorted(keys))[:300])
 print("\n".join(out))
