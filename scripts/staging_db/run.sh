@@ -163,6 +163,11 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
       SN=$(jq -r '.smtp_sender_name // ""' /tmp/cfg.json)
       INFO=$(jq -c '{mailer_autoconfirm, smtp_host, smtp_port, smtp_user_is_admin: (.smtp_user == .smtp_admin_email), smtp_pass_set: ((.smtp_pass // "") != ""), smtp_max_frequency, rate_limit_email_sent, sender_name_len: ((.smtp_sender_name // "")|length), sender_name_has_newline: ((.smtp_sender_name // "")|test("\n"))}' /tmp/cfg.json)
       ann notice "smtp-config" "$INFO"
+      UCHK=$(jq -r '.smtp_user // ""' /tmp/cfg.json | python3 -I -c 'import sys
+u=sys.stdin.read().rstrip("\n"); k=["life.through.numbers333@gmail.com","shmulikhavivi@gmail.com"]
+m=[x for x in k if u==x]; ml=[x for x in k if u.strip().lower()==x]
+print(f"user_len={len(u)} exact_match={m[0].split(chr(64))[0] if m else None} match_ignoring_case_space={ml[0].split(chr(64))[0] if ml else None} has_space={chr(32) in u} has_upper={u!=u.lower()} domain={u.rsplit(chr(64),1)[-1] if chr(64) in u else None}")')
+      ann notice "smtp-user-check" "$UCHK"
       CLEAN='חיים דרך מספרים'
       if [ "$MODE" = "smtpfix" ] && [ "$SN" != "$CLEAN" ]; then
         PC=$(curl -sS -m 20 -o /tmp/patch.json -w '%{http_code}' -X PATCH -H "Authorization: Bearer $SBT" -H 'Content-Type: application/json' "$API/config/auth" -d "$(jq -nc --arg n "$CLEAN" '{smtp_sender_name:$n}')" || echo 000)
