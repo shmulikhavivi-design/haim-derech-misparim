@@ -172,6 +172,9 @@ print(f"user_len={len(u)} exact_match={m[0].split(chr(64))[0] if m else None} ma
 p=sys.stdin.read().rstrip("\n"); s=p.replace(" ","")
 print(f"pass_len={len(p)} len_without_spaces={len(s)} has_space={chr(32) in p} has_tab_or_newline={bool(re.search(r"[\t\r\n]",p))} only_lowercase_letters={bool(re.fullmatch(r"[a-z]+",s))} looks_masked={bool(re.fullmatch(r"[*•]+",s))} gmail_app_password_shape={bool(re.fullmatch(r"[a-z]{16}",s))}")')
       ann notice "smtp-pass-shape" "$PCHK"
+      PFP=$(jq -r '.smtp_pass // ""' /tmp/cfg.json | python3 -I -c 'import sys,hashlib
+v=sys.stdin.read().rstrip("\n"); print("hex64" if len(v)==64 and all(c in "0123456789abcdef" for c in v) else "other", hashlib.sha256(v.encode()).hexdigest()[:8])')
+      ann notice "smtp-pass-fingerprint" "מזהה הערך השמור (משתנה רק כשנשמרת סיסמה אחרת): $PFP"
       CLEAN='חיים דרך מספרים'
       if [ "$MODE" = "smtpfix" ] && [ "$SN" != "$CLEAN" ]; then
         PC=$(curl -sS -m 20 -o /tmp/patch.json -w '%{http_code}' -X PATCH -H "Authorization: Bearer $SBT" -H 'Content-Type: application/json' "$API/config/auth" -d "$(jq -nc --arg n "$CLEAN" '{smtp_sender_name:$n}')" || echo 000)
