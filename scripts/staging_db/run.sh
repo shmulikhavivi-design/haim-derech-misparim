@@ -218,6 +218,8 @@ if [ "$MODE" = "smtp" ] || [ "$MODE" = "smtpfix" ]; then
       --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       | jq -r '.result[]? | .event_message' | grep -iE 'smtp|mail|535|534|tls|dial|auth' \
       | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g' | cut -c1-300 | head -8; } 2>&1 || true)
+    PROBE=$(SBT="$SBT" API="$API" timeout 150 python3 -I "$HERE/auth_log_probe.py" 2>&1 || true)
+    ann notice "smtp-log-probe" "${PROBE:-(אין תוצאה)}"
     ann notice "smtp-auth-log" "${LOGS:-(לא נמצאו שורות מייל ביומן)}"
   else
     ann notice "smtp-auth-log" "אין SUPABASE_ACCESS_TOKEN בסביבה staging — היומן לא נקרא"
