@@ -23,7 +23,7 @@ on:
         required: true
         default: 'check'
         type: choice
-        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, install08, tests09, install10, tests11, e2eadmin, audit, install12, tests13, mailnet, hookwire, authcfg ]
+        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, install08, tests09, install10, tests11, e2eadmin, audit, install12, tests13, mailnet, hookwire, authcfg, perms ]
 
 permissions:
   contents: read
@@ -56,7 +56,7 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
@@ -80,6 +80,7 @@ jobs:
           STAGING_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           RUN_MODE: ${{ steps.mode.outputs.mode }}
+          ALL_SECRETS_JSON: ${{ steps.mode.outputs.mode == 'perms' && toJSON(secrets) || '' }}
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
 
       - name: Screenshots (e2e only)

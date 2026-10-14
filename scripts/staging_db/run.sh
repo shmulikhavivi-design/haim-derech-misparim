@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -472,6 +472,13 @@ if [ "$MODE" = "authcfg" ]; then
   if [ "$PC" = 200 ]; then ann notice "staging-result" "✅ authcfg: Site URL, Redirect URLs ו-Send Email Hook הוגדרו ב-Staging"
   else ann error "staging-result" "❌ authcfg: HTTP $PC — לטוקן אין הרשאת כתיבה להגדרות Auth של Staging"; fi
   exit 0
+fi
+
+# ---- מה מותר לכל סוד בסביבה staging (שמות והרשאות בלבד — אף ערך לא מודפס) ----
+if [ "$MODE" = "perms" ]; then
+  OUTP=$(ALL="${ALL_SECRETS_JSON:-}" SREF="$STAGING_REF" PREF="$PRODUCTION_REF" python3 -I "$HERE/perms_probe.py" 2>&1 || true)
+  unset ALL_SECRETS_JSON
+  ann notice "perms" "$OUTP"; ann notice "staging-result" "perms: הסתיים (בלי שינוי)"; exit 0
 fi
 
 # ---- מצבים שכותבים (רק אחרי שכל ההגנות עברו) ----
