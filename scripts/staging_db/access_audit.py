@@ -11,10 +11,10 @@ def q(sql, hours):
         with urllib.request.urlopen(req, timeout=60) as r: return json.load(r)
     except Exception as e: return {"error": str(e)[:120]}
 out = []
-for hours in (24*7, 24*3, 24):
+for hours in (24, 6, 1):
     d = q("SELECT min(timestamp) AS first, max(timestamp) AS last, count() AS n FROM logs WHERE source = 'postgres_logs'", hours)
-    if d.get("result"): out.append(f"postgres_logs ({hours//24}d window): {d['result'][0]}"); break
-H = 24*7
+    if d.get("result"): out.append(f"postgres_logs ({hours}h window): {d['result'][0]}"); break
+H = int(os.environ.get("AUDIT_HOURS", "24"))
 for src in ("postgres_logs", "supavisor_logs", "pgbouncer_logs"):
     d = q(f"SELECT timestamp, event_message FROM logs WHERE source = '{src}' AND (event_message ILIKE '%connection authorized%' OR event_message ILIKE '%authentication failed%' OR event_message ILIKE '%password%' OR event_message ILIKE '%client%') ORDER BY timestamp DESC LIMIT 1000", H)
     rows = d.get("result") or []

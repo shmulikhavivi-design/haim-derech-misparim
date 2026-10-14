@@ -8,3 +8,5 @@ union all select 'schemas (non-system)', string_agg(nspname, ', ') from pg_names
 union all select 'functions in public not hdm_/pg_temp', coalesce(string_agg(proname, ', '), 'none') from pg_proc where pronamespace='public'::regnamespace and proname !~ '^hdm_'
 union all select 'event triggers', coalesce(string_agg(evtname, ', '), 'none') from pg_event_trigger where evtname !~ '^(issue_|pgrst_|graphql_|supabase_)'
 union all select 'active connections now (app | client)', string_agg(distinct coalesce(application_name,'') || ' | ' || coalesce(host(client_addr),'local'), '; ') from pg_stat_activity where usename = 'postgres';
+union all select 'rls_auto_enable: owner | security definer | created by Supabase?', (select pg_get_userbyid(proowner) || ' | ' || prosecdef::text || ' | ' || left(regexp_replace(pg_get_functiondef(oid), '\s+', ' ', 'g'), 260) from pg_proc where proname = 'rls_auto_enable' and pronamespace = 'public'::regnamespace)
+union all select 'ensure_rls trigger: owner | event | function', (select pg_get_userbyid(evtowner) || ' | ' || evtevent || ' | ' || evtfoid::regproc::text from pg_event_trigger where evtname = 'ensure_rls');
