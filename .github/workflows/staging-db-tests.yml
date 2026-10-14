@@ -23,7 +23,7 @@ on:
         required: true
         default: 'check'
         type: choice
-        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix ]
+        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, e2eadmin ]
 
 permissions:
   contents: read
@@ -56,7 +56,7 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|e2eadmin) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
@@ -64,12 +64,12 @@ jobs:
         run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
 
       - uses: actions/setup-python@v6
-        if: steps.mode.outputs.mode == 'e2e'
+        if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2eadmin'
         with:
           python-version: '3.12'
 
       - name: Browser (e2e only)
-        if: steps.mode.outputs.mode == 'e2e'
+        if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2eadmin'
         run: |
           python3 -m pip install --quiet playwright==1.55.0
           python3 -m playwright install --with-deps chromium
@@ -83,7 +83,7 @@ jobs:
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
 
       - name: Screenshots (e2e only)
-        if: always() && steps.mode.outputs.mode == 'e2e'
+        if: always() && (steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2eadmin')
         uses: actions/upload-artifact@v5
         with:
           name: e2e-screenshots

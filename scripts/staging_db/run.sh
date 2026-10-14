@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|e2eadmin) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -349,6 +349,17 @@ if [ "$MODE" = "advisors" ] || [ "$MODE" = "sslfix" ]; then
   exit 0
 fi
 
+# ---- בדיקת דפדפן ללוח הניהול ----
+if [ "$MODE" = "e2eadmin" ]; then
+  say ""; say "### בדיקת דפדפן: admin-staging.html (מסך אייפון)"
+  OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/admin-staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_admin.py" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; { echo '```'; echo "$OUT"; echo '```'; } >> "$SUMMARY"
+  ann notice "staging-e2e-admin" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY)|ניקוי' | tail -n 40)"
+  [ $RC -eq 0 ] || stop "בדיקת הדפדפן של לוח הניהול נכשלה (ראו פלט)."
+  ann notice "staging-result" "✅ e2eadmin: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"
+  exit 0
+fi
+
 # ---- בדיקת דפדפן מלאה ----
 if [ "$MODE" = "e2e" ]; then
   if [ -z "${STAGING_PUBLISHABLE_KEY:-}" ]; then   # גיבוי: המפתח הציבורי שכתוב ב-staging.html (ציבורי מעצם הגדרתו)
@@ -371,6 +382,8 @@ case "$MODE" in
   install03) FILE="$SQLDIR/03_staging_fixes.sql" ;;
   install04) FILE="$SQLDIR/04_staging_profile_id_fix.sql" ;;
   install05) FILE="$SQLDIR/05_staging_profile_hardening.sql" ;;
+  install06) FILE="$SQLDIR/06_staging_admin_dashboard.sql" ;;
+  tests07)   FILE="$SQLDIR/07_staging_admin_tests.sql" ;;
   tests02)   FILE="$SQLDIR/02_staging_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."
@@ -380,6 +393,12 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests07" ]; then
+  echo "$OUT" | grep -qE 'סיכום.*✅' || stop "לא כל בדיקות לוח הניהול עברו (ראו פלט)."
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
+  say "✅ לוח הניהול: $SUMM (הכול בוטל — לא נשמר כלום)."; ann notice "staging-result" "✅ tests07: $SUMM"
+  exit 0
+fi
 if [ "$MODE" = "tests02" ]; then
   echo "$OUT" | grep -q 'עברו 74 מתוך 74' || stop "לא כל 74 הבדיקות עברו (ראו פלט)."
   LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c \
