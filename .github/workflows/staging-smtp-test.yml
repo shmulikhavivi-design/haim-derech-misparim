@@ -10,7 +10,7 @@ jobs:
   smtp:
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 8
     env:
       REF: ousepgdvzammgkxkweze          # Staging בלבד
       PROD: qtspzigjlbtckqfyaubp         # הפרויקט הפעיל — אסור
@@ -49,7 +49,13 @@ jobs:
           # אבחון לפי זמן תגובה: כשל מהיר (<3ש') = Gmail דחה את ההתחברות (בדרך כלל סיסמת אפליקציה/שם משתמש);
           # כשל איטי (>8ש') = לא נוצר חיבור תקין לשרת (Host/Port/הצפנה)
           note timing-hint "$(awk -v t="$T1" 'BEGIN{ if (t<3) print "מהיר — סביר שהבעיה בפרטי ההתחברות"; else if (t>8) print "איטי — סביר שהבעיה בשרת/פורט"; else print "לא חד-משמעי" }')"
-          # הערה: /recover מחזיר 200 גם למשתמש שלא קיים, ולכן אינו הוכחה. ההוכחה היא signup/otp.
-          if [ "$R" = 200 ] && [ "$SENT" != none ] && [ "$R2" = 200 ]; then
-            note RESULT "✅ SMTP עובד: שני מיילים (אישור הרשמה + קישור כניסה) נמסרו לשרת Gmail"
-          else echo "::error title=RESULT::❌ שליחת מייל דרך ה-SMTP נכשלה (signup=$R, otp=$R2)"; exit 1; fi
+          # 3) איפוס סיסמה למשתמש שנוצר בשלב 1 (משתמש קיים => כשל SMTP יחזיר 500). המתנה 65ש' בגלל מגבלת מייל אחד לדקה לכתובת.
+          sleep 65
+          R3=$(curl -sS -m 60 -o /tmp/rec.json -w '%{http_code} %{time_total}' "${H[@]}" -X POST "$B/recover" \
+                -d "$(jq -nc --arg e "$EMAIL" '{email:$e}')")
+          T3=${R3#* }; R3=${R3%% *}
+          MSG3=$(jq -r '(.msg // .error_description // .message // "") | tostring' /tmp/rec.json 2>/dev/null)
+          note password-reset "HTTP $R3 | ${T3}s ${MSG3:+| $MSG3}"
+          if [ "$R" = 200 ] && [ "$SENT" != none ] && [ "$R2" = 200 ] && [ "$R3" = 200 ]; then
+            note RESULT "✅ SMTP עובד: אישור הרשמה + קישור כניסה + איפוס סיסמה נמסרו לשרת Gmail"
+          else echo "::error title=RESULT::❌ שליחת מייל דרך ה-SMTP נכשלה (signup=$R, otp=$R2, recover=$R3)"; exit 1; fi
