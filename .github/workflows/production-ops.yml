@@ -1,0 +1,32 @@
+# חיים דרך מספרים — פעולות Production (הסביבה "production" ב-GitHub בלבד)
+# רץ רק ב-push לענף production-ops/run. המצב נקבע לפי [prod:<mode>] בשורת הנושא; בלי סימון = check (קריאה בלבד).
+# authcfg / migrate / confirmon משנים את Production — מופעלים רק אחרי אישור מפורש של הבעלים בצ'אט.
+# הסודות (Environment Secrets בסביבה production): PRODUCTION_DB_URL, PRODUCTION_SUPABASE_TOKEN, BREVO_SMTP_KEY. אף ערך לא מודפס.
+name: Production ops
+on: { push: { branches: [ 'production-ops/run' ] } }
+permissions: { contents: read }
+concurrency: { group: production-ops, cancel-in-progress: false }
+jobs:
+  prod:
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - name: Choose mode
+        id: mode
+        env: { COMMIT_MSG: '${{ github.event.head_commit.message }}' }
+        run: |
+          mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[prod:\([a-z]*\)\].*/\1/p'); mode="${mode:-check}"
+          case "$mode" in check|authcfg|migrate|confirmon) ;; *) echo "unknown mode $mode"; exit 1;; esac
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+      - name: psql
+        run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
+      - name: Run
+        env:
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+          PRODUCTION_SUPABASE_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_TOKEN }}
+          BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
+        run: bash scripts/production/run.sh "${{ steps.mode.outputs.mode }}"
