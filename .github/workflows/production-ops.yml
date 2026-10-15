@@ -20,13 +20,78 @@ jobs:
         env: { COMMIT_MSG: '${{ github.event.head_commit.message }}' }
         run: |
           mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[prod:\([a-z]*\)\].*/\1/p'); mode="${mode:-check}"
-          case "$mode" in check|authcfg|migrate|confirmon) ;; *) echo "unknown mode $mode"; exit 1;; esac
+          case "$mode" in check|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
+      - name: Secret names (presence only)
+        if: steps.mode.outputs.mode == 'secrets'
+        env:
+          NAMES: 'PRODUCTION_DB_URL PROD_DB_URL SUPABASE_DB_URL DATABASE_URL DB_URL SUPABASE_DB_PASSWORD PRODUCTION_DB_PASSWORD PRODUCTION_SUPABASE_TOKEN SUPABASE_ACCESS_TOKEN SUPABASE_TOKEN SUPABASE_PAT SUPABASE_MANAGEMENT_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_KEY SUPABASE_SECRET_KEY SUPABASE_KEY BREVO_SMTP_KEY BREVO_API_KEY BREVO_KEY SMTP_PASSWORD SMTP_PASS STAGING_DB_URL SUPABASE_STAGING_READ_TOKEN'
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DB_URL: ${{ secrets.DB_URL }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PRODUCTION_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+          PRODUCTION_SUPABASE_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_TOKEN: ${{ secrets.SUPABASE_TOKEN }}
+          SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+          SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_MANAGEMENT_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_KEY: ${{ secrets.BREVO_KEY }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_STAGING_READ_TOKEN: ${{ secrets.SUPABASE_STAGING_READ_TOKEN }}
+        run: bash scripts/production/secret_names.sh production-env-plus-repo
       - name: psql
+        if: steps.mode.outputs.mode != 'secrets'
         run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
       - name: Run
+        if: steps.mode.outputs.mode != 'secrets'
         env:
           PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
           PRODUCTION_SUPABASE_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_TOKEN }}
           BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
         run: bash scripts/production/run.sh "${{ steps.mode.outputs.mode }}"
+  repo-secrets:
+    # בלי environment — רק סודות ברמת הריפו
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && contains(github.event.head_commit.message, '[prod:secrets]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - name: Secret names (presence only)
+        env:
+          NAMES: 'PRODUCTION_DB_URL PROD_DB_URL SUPABASE_DB_URL DATABASE_URL DB_URL SUPABASE_DB_PASSWORD PRODUCTION_DB_PASSWORD PRODUCTION_SUPABASE_TOKEN SUPABASE_ACCESS_TOKEN SUPABASE_TOKEN SUPABASE_PAT SUPABASE_MANAGEMENT_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_KEY SUPABASE_SECRET_KEY SUPABASE_KEY BREVO_SMTP_KEY BREVO_API_KEY BREVO_KEY SMTP_PASSWORD SMTP_PASS STAGING_DB_URL SUPABASE_STAGING_READ_TOKEN'
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+          PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DB_URL: ${{ secrets.DB_URL }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PRODUCTION_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+          PRODUCTION_SUPABASE_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_TOKEN: ${{ secrets.SUPABASE_TOKEN }}
+          SUPABASE_PAT: ${{ secrets.SUPABASE_PAT }}
+          SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_MANAGEMENT_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_KEY: ${{ secrets.BREVO_KEY }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_STAGING_READ_TOKEN: ${{ secrets.SUPABASE_STAGING_READ_TOKEN }}
+        run: bash scripts/production/secret_names.sh repository
