@@ -23,7 +23,9 @@
      - Site URL: `https://shmulikhavivi-design.github.io/haim-derech-misparim/`
      - Redirect URLs: `https://shmulikhavivi-design.github.io/haim-derech-misparim/**`
        (שורה אחת שמכסה גם את הכתובת עם `index.html` וגם בלעדיה, כולל `?hdm_reset=1`).
-   - **שליחת מיילים (SMTP) — קודם:** לפי `docs/smtp-setup.md` (דומיין + Resend). שירות המיילים המובנה של Supabase שולח רק לחברי הצוות, ובלעדיו מיילי אישור ואיפוס לא יגיעו למשתמשים.
+   - **שליחת מיילים (SMTP) — קודם:** אותן הגדרות שעברו את הבדיקה ב-Staging (Brevo, חינמי, בלי דומיין):
+     Host `smtp-relay.brevo.com`, Port `587`, Username = ה-SMTP login מ-Brevo, Password = מפתח ה-SMTP, Sender `life.through.numbers333@gmail.com`, Sender name `חיים דרך מספרים`.
+     שירות המיילים המובנה של Supabase שולח רק לחברי הצוות, ובלעדיו מיילי אישור ואיפוס לא יגיעו למשתמשים.
    - **Sign In / Providers ← Email:** להפעיל **Confirm email** — **רק אחרי** שמייל הבדיקה מ-SMTP הגיע.
      (נכון ל-13.10: בבדיקה הציבורית של Production, Confirm email כבוי.)
    - **תבניות המייל בעברית:** `docs/email-templates.md`.
