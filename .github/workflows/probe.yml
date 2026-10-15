@@ -13,3 +13,10 @@ jobs:
           S=$(curl -sS -m 20 -H "apikey: $K" https://qtspzigjlbtckqfyaubp.supabase.co/auth/v1/settings)
           OUT=$(echo "$S" | jq -c '{mailer_autoconfirm, disable_signup, email_enabled: .external.email, phone_autoconfirm}')
           echo "::notice title=auth-settings::$OUT"
+          B=https://qtspzigjlbtckqfyaubp.supabase.co/rest/v1
+          P=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' -H "apikey: $K" "$B/hdm_plans?select=id&limit=1")
+          D=$(curl -sS -m 20 -o /dev/null -D /tmp/h -w '%{http_code}' -H "apikey: $K" -H 'Prefer: count=exact' -H 'Range: 0-0' "$B/docs?select=collection")
+          CR=$(grep -i '^content-range' /tmp/h | tr -d '\r' | awk '{print $2}')
+          echo "::notice title=prod-db-state::hdm_plans (exists only after migration): HTTP $P | docs readable by anonymous visitor: HTTP $D range=$CR"
+          L=$(curl -sS -m 20 -o /tmp/site.html -w '%{http_code}' https://shmulikhavivi-design.github.io/haim-derech-misparim/)
+          echo "::notice title=live-site::HTTP $L | supabase refs: $(grep -oE '[a-z]{20}\.supabase\.co' /tmp/site.html | sort -u | tr '\n' ' ')"
