@@ -487,7 +487,7 @@ if [ "$MODE" = "perms" ]; then
   RQ=""; for ep in database/query/read-only database/query; do
     C=$(curl -sS -m 20 -o /tmp/rq.json -w '%{http_code}' -X POST -H "Authorization: Bearer $SBT_PROBE" -H 'Content-Type: application/json' \
         "https://api.supabase.com/v1/projects/$STAGING_REF/$ep" -d '{"query":"select 1 as ok"}' || echo 000)
-    RQ="$RQ $ep: HTTP $C $(jq -c '.message // .' /tmp/rq.json 2>/dev/null | cut -c1-160);"
+    RQ="$RQ $ep: HTTP $C $( (jq -c '.message // .' /tmp/rq.json 2>/dev/null || head -c 160 /tmp/rq.json) | cut -c1-160 || true);"
   done
   ann notice "perms-sql-api" "$RQ"; unset SBT_PROBE
   ann notice "staging-result" "perms: הסתיים (בלי שינוי)"; exit 0
