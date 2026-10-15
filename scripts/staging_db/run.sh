@@ -240,7 +240,7 @@ v=sys.stdin.read().rstrip("\n"); print("hex64" if len(v)==64 and all(c in "01234
   case "${R1%% *}${R2%% *}${R3%% *}" in
     200200200) ann notice "staging-result" "✅ smtp: איפוס סיסמה, קישור כניסה ומייל אישור הרשמה — כולם נשלחו";;
     200200*)   ann error "staging-result" "⚠️ smtp: מיילים למשתמש קיים נשלחים, אבל מייל אישור ההרשמה נכשל (התבנית / ההגדרה)";;
-    *)         ann error "staging-result" "❌ smtp: מיילים למשתמש קיים נכשלים — הבעיה בחיבור ל-Gmail";;
+    *)         ann error "staging-result" "❌ smtp: מיילים למשתמש קיים נכשלים — הבעיה בהתחברות לשרת המייל (SMTP)";;
   esac
   exit 0
 fi
