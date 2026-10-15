@@ -477,11 +477,20 @@ fi
 
 # ---- מה מותר לכל סוד בסביבה staging (שמות והרשאות בלבד — אף ערך לא מודפס) ----
 if [ "$MODE" = "perms" ]; then
+  SBT_PROBE="${SUPABASE_ACCESS_TOKEN:-}"; [ -n "${GITHUB_ACTIONS:-}" ] && [ -n "$SBT_PROBE" ] && echo "::add-mask::$SBT_PROBE"
   ALLJ=$(jq -nc --arg a "${SUPABASE_ACCESS_TOKEN:-}" --arg b "${SUPABASE_STAGING_READ_TOKEN:-}" --arg c "${URL:+postgres-set}" \
     '{SUPABASE_ACCESS_TOKEN:$a, SUPABASE_STAGING_READ_TOKEN:$b, STAGING_DB_URL:(if $c=="" then "" else "postgresql://set" end)}')
   unset SUPABASE_ACCESS_TOKEN SUPABASE_STAGING_READ_TOKEN
   OUTP=$(ALL="$ALLJ" SREF="$STAGING_REF" PREF="$PRODUCTION_REF" python3 -I "$HERE/perms_probe.py" 2>&1 || true); unset ALLJ
-  ann notice "perms" "$OUTP"; ann notice "staging-result" "perms: הסתיים (בלי שינוי)"; exit 0
+  ann notice "perms" "$OUTP"
+  # האם Supabase מאפשר שאילתת SQL לקריאה בלבד דרך הטוקן (בלי סיסמת מסד)? בודק על Staging בלבד, select 1.
+  RQ=""; for ep in database/query/read-only database/query; do
+    C=$(curl -sS -m 20 -o /tmp/rq.json -w '%{http_code}' -X POST -H "Authorization: Bearer $SBT_PROBE" -H 'Content-Type: application/json' \
+        "https://api.supabase.com/v1/projects/$STAGING_REF/$ep" -d '{"query":"select 1 as ok"}' || echo 000)
+    RQ="$RQ $ep: HTTP $C $(jq -c '.message // .' /tmp/rq.json 2>/dev/null | cut -c1-160);"
+  done
+  ann notice "perms-sql-api" "$RQ"; unset SBT_PROBE
+  ann notice "staging-result" "perms: הסתיים (בלי שינוי)"; exit 0
 fi
 
 # ---- מצבים שכותבים (רק אחרי שכל ההגנות עברו) ----
