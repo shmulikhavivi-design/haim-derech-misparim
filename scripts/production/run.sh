@@ -3,7 +3,9 @@
 # חיים דרך מספרים — פעולות Production דרך GitHub Actions (סביבת GitHub בשם "production")
 #
 # מצבים (לפי [prod:<mode>] בשורת הנושא של ה-commit; בלי סימון = check):
-#   check     — קריאה בלבד: הבדיקה המקדימה (00) בטרנזקציה לקריאה בלבד + סיכום הגדרות Auth. לא משנה כלום.
+#   check     — קריאה בלבד: הבדיקה המקדימה (00) + סיכום הגדרות Auth. לא משנה כלום.
+#               מספיק PRODUCTION_SUPABASE_TOKEN עם הרשאות קריאה (Auth config read + Database read): השאילתה רצה
+#               דרך נקודת הקצה database/query/read-only של Supabase, בלי סיסמת מסד.
 #   authcfg   — מגדיר ב-Auth: SMTP של Brevo, Site URL, Redirect URLs ותבניות מייל בעברית. לא נוגע במסד ולא במשתמשים.
 #               לא מפעיל Confirm email (זה שלב נפרד אחרי המעבר).
 #   migrate   — מריץ את 01_production_migration.sql ("הכול או כלום", גיבוי מלא קודם). רק אחרי אישור מפורש של הבעלים.
@@ -61,7 +63,20 @@ if [ "$MODE" = "check" ]; then
   if [ ${#PSQL[@]} -gt 0 ]; then
     OUT=$(env PGOPTIONS='-c default_transaction_read_only=on' "${PSQL[@]}" -f "$ROOT/supabase/production/00_production_preflight_readonly.sql" 2>&1) || { ann error "prod-preflight" "$OUT"; stop "הבדיקה המקדימה נכשלה."; }
     ann notice "prod-preflight" "$OUT"
-  else ann warning "prod-preflight" "לא הורצה: חסר PRODUCTION_DB_URL"; fi
+  elif [ -n "$TOK" ]; then
+    # בלי סיסמת מסד: אותה בדיקה מקדימה דרך נקודת הקצה של Supabase לשאילתות לקריאה בלבד
+    Q=$(sed -e '/^begin transaction read only;/d' -e '/^rollback;/d' "$ROOT/supabase/production/00_production_preflight_readonly.sql")
+    C=$(curl -sS -m 60 -o /tmp/pf.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+        "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+    if [ "$C" = 200 ] || [ "$C" = 201 ]; then
+      ann notice "prod-preflight" "$(jq -r '.[] | "\(.n). \(.["תקין"]) \(.["בדיקה"]): \(.["ערך"])"' /tmp/pf.json)"
+    else ann error "prod-preflight" "שאילתה לקריאה בלבד: HTTP $C $( (jq -c '.message // .' /tmp/pf.json 2>/dev/null || true) | cut -c1-300)"; fi
+    # מצב ציבורי של הנתונים — ספירות בלבד
+    C=$(curl -sS -m 30 -o /tmp/ct.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+        "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
+        -d '{"query":"select (select count(*) from auth.users) as auth_users, (select count(*) from auth.users where email_confirmed_at is not null) as confirmed, (select count(*) from public.docs) as docs_rows"}' || echo 000)
+    ann notice "prod-counts" "HTTP $C $(jq -c '.[0] // .' /tmp/ct.json 2>/dev/null || true)"
+  else ann warning "prod-preflight" "לא הורצה: חסר PRODUCTION_SUPABASE_TOKEN"; fi
   if [ -n "$TOK" ]; then
     C=$(authget); [ "$C" = 200 ] && ann notice "prod-auth" "$(authsummary)" || ann error "prod-auth" "קריאת הגדרות Auth: HTTP $C $(jq -r '.message // empty' /tmp/cfg.json 2>/dev/null)"
   else ann warning "prod-auth" "לא נקרא: חסר PRODUCTION_SUPABASE_TOKEN"; fi
