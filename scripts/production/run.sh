@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|keycheck|smtptest|supamail|maildiag|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
@@ -304,6 +304,40 @@ PY
 )
   ann notice "prod-brevo-smtp" "$SEND"
   ann notice "prod-result" "maildiag הסתיים — קריאה בלבד + מייל אבחון אחד לתיבת האפליקציה"
+  exit 0
+fi
+
+# ---- ownertest: מייל ישיר דרך Brevo (בלי Supabase) לכתובת של חשבון הבעלים + הגדרות האיפוס. קריאה בלבד מלבד המייל.
+if [ "$MODE" = "ownertest" ]; then
+  [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
+  OWNER_MD5='162e004328485070b0af8b256ad2e798'
+  curl -sS -m 30 -o /tmp/ow.json -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
+      -d "$(jq -nc --arg h "$OWNER_MD5" '{query:("select email, to_char(recovery_sent_at at time zone '"'"'Asia/Jerusalem'"'"','"'"'HH24:MI:SS'"'"') as rs, email_confirmed_at is not null as confirmed, banned_until, (raw_app_meta_data->>'"'"'provider'"'"') as provider from auth.users where md5(lower(email)) = '"'"'" + $h + "'"'"'")}')" || true
+  OE=$(jq -r '.[0].email // empty' /tmp/ow.json); [ -n "$OE" ] || stop "חשבון הבעלים לא נמצא"
+  echo "::add-mask::$OE"
+  ann notice "prod-owner-auth" "$(jq -c '.[0] | del(.email)' /tmp/ow.json) | domain=$(printf '%s' "$OE" | sed 's/.*@//')"
+  C=$(authget); ann notice "prod-recovery-cfg" "$(jq -c '{site_url, uri_allow_list, mailer_subjects_recovery, recovery_template_custom: ((.mailer_templates_recovery_content // "") != ""), smtp_max_frequency, rate_limit_email_sent, mailer_secure_email_change_enabled}' /tmp/cfg.json)"
+  SEND=$(BK="$KEY" OE="$OE" python3 -I - <<'PY'
+import os,smtplib,ssl,email.utils
+from email.message import EmailMessage
+k=os.environ["BK"].strip(); to=os.environ["OE"]; out=[]
+m=EmailMessage(); m["From"]=email.utils.formataddr(("חיים דרך מספרים","life.through.numbers333@gmail.com"))
+m["To"]=to; m["Subject"]="בדיקת משלוח לכתובת החשבון — חיים דרך מספרים"
+m["Date"]=email.utils.formatdate(localtime=True); m["Message-ID"]=email.utils.make_msgid(domain="smtp-brevo.com")
+m.set_content("מייל בדיקה ישיר דרך Brevo לכתובת שאיתה את/ה מתחבר/ת לאפליקציה. אין צורך לעשות דבר.")
+try:
+    s=smtplib.SMTP("smtp-relay.brevo.com",587,timeout=30); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo()
+    s.login("be5ab9001@smtp-brevo.com",k)
+    c,msg=s.mail("life.through.numbers333@gmail.com"); out.append(f"MAIL {c}")
+    c,msg=s.rcpt(to); out.append(f"RCPT {c} {msg.decode(errors='replace')[:60].replace(to,'<owner>')}")
+    c,msg=s.data(m.as_bytes()); out.append(f"DATA {c} {msg.decode(errors='replace')[:120]}")
+    s.quit()
+except Exception as e: out.append(f"ERR {type(e).__name__} {getattr(e,'smtp_code','')}")
+print(" | ".join(out))
+PY
+)
+  ann notice "prod-owner-direct" "$SEND"
+  ann notice "prod-result" "ownertest הסתיים — מייל ישיר אחד לכתובת החשבון, בלי שינוי בהגדרות או בנתונים"
   exit 0
 fi
 
