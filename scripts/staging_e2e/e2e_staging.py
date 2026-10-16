@@ -345,8 +345,8 @@ try:
         check('פלוס: בצ׳אט אין כפתור ניתוח מורחב', 'ניתוח' not in tools, tools)
         an = pg.evaluate("async () => { document.getElementById('hdm-analysis-body').innerHTML=''; await hdmOpenAnalysis(); await new Promise(r=>setTimeout(r,1200)); return { body: document.getElementById('hdm-analysis-body').innerText, plans: hdmLayerOpen('hdm-plans-screen'), msg: (document.getElementById('hdm-plans-body')||{}).innerText || '' }; }")
         check('פלוס: גם אחרי הדדיות אין ניתוח מורחב — מוצג "זמין במסלול VIP"', an['body'] == '' and an['plans'] and 'במסלול VIP' in an['msg'], an)
-        srv = pg.evaluate(f"async () => {{ const r = await window.__sb.rpc('hdm_extended_analysis', {{ p_target: '{B}' }}); return r.error ? r.error.message : 'opened'; }}")
-        check('פלוס: השרת חוסם ניתוח מורחב', 'HDM_PLAN_REQUIRED' in srv, srv)
+        an_srv = pg.evaluate(f"async () => {{ const r = await window.__sb.rpc('hdm_extended_analysis', {{ p_target: '{B}' }}); return r.error ? r.error.message : 'opened'; }}")
+        check('פלוס: השרת חוסם ניתוח מורחב', 'HDM_PLAN_REQUIRED' in an_srv, an_srv)
         logout(pg)
 
         # חינם

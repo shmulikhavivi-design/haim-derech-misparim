@@ -119,6 +119,11 @@ T15=$("${P[@]}" -d prod -At -F'|' -f "$ROOT/supabase/staging_secure/15_staging_c
 check "בדיקות האישור (15) על המסד שאחרי המעבר" "1" "$(echo "$T15" | grep -c 'עברו \([0-9]*\) מתוך \1$')"
 echo "$T15" | grep '❌' | head -5 || true
 
+# ---------- 4ב. פלוס בלי ניתוח מורחב (07) ----------
+if "${P[@]}" -d prod -f "$ROOT/supabase/production/07_production_plus_no_extended.sql" >"$WORK/07.out" 2>&1; then ok "07: פלוס בלי ניתוח מורחב — עבר"; else bad "07 עבר" "$(tail -3 "$WORK/07.out")"; fi
+check "07: פלוס=none, VIP=after_my_target, מחירים ללא שינוי" "plus:none:4890,vip:after_my_target:7990" "$(q prod "select string_agg(plan||':'||extended_analysis||':'||price_agorot, ',' order by sort_order) from public.hdm_plans where plan in ('plus','vip')")"
+if "${P[@]}" -d prod -f "$ROOT/supabase/production/07_production_plus_no_extended.sql" >/dev/null 2>&1; then ok "07: הרצה חוזרת לא משנה כלום"; else bad "07 הרצה חוזרת" "נכשלה"; fi
+
 # ---------- 5. ביטול ----------
 if "${P[@]}" -d prod -f "$ROOT/supabase/production/99_production_rollback.sql" >"$WORK/rb.out" 2>&1; then ok "הביטול עבר"; else bad "הביטול עבר" "$(tail -3 "$WORK/rb.out")"; fi
 check "אחרי הביטול docs זהה בדיוק למצב שלפני" "$BEFORE" "$(q prod "$SNAP")"
@@ -129,7 +134,7 @@ check "אחרי הביטול אין טבלאות hdm_ חדשות" "0" "$(q prod 
 # ---------- 6. בדיקות השרת של Staging (אותו קוד שרת) ----------
 "${P[@]}" -c 'create database stg'
 "${P[@]}" -d stg -f "$HERE/local_supabase_mock.sql" >/dev/null 2>&1
-for f in 01_staging_setup 03_staging_fixes 04_staging_profile_id_fix 05_staging_profile_hardening 14_staging_consent; do
+for f in 01_staging_setup 03_staging_fixes 04_staging_profile_id_fix 05_staging_profile_hardening 14_staging_consent 16_staging_plus_no_extended; do
   "${P[@]}" -d stg -f "$ROOT/supabase/staging_secure/$f.sql" >/dev/null
 done
 T=$("${P[@]}" -d stg -At -F'|' -f "$ROOT/supabase/staging_secure/02_staging_tests.sql")
