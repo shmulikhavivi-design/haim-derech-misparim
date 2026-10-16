@@ -389,7 +389,7 @@ PY
                  *) ann error "prod-rehearse" "❌ החזרה נעצרה לפני הסוף (לא נשמר כלום): HTTP $C $MSG";; esac
   C=$(curl -sS -m 30 -o /tmp/mk.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
       "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
-      -d '{"query":"select (to_regclass('"'"'public.hdm_release_marker'"'"') is null) as not_migrated, (to_regclass('"'"'hdm_backup.docs_before_migration'"'"') is null) as no_new_backup, (select count(*) from public.docs) as docs_rows, (select count(*) from auth.users) as auth_users"}' || echo 000)
+      -d '{"query":"select (to_regclass('"'"'public.hdm_release_marker'"'"') is null) as not_migrated, (to_regclass('"'"'hdm_backup.docs_before_migration'"'"') is null) as no_new_backup, (select count(*) from public.docs) as docs_rows, (select count(*) from auth.users) as auth_users, (to_regclass(\u0027public.hdm_profile_private\u0027) is null) as no_new_tables, (select count(*) from pg_policies where schemaname=\u0027public\u0027 and tablename=\u0027docs\u0027) as docs_policies, (select md5(string_agg(collection||\u0027|\u0027||id||\u0027|\u0027||data::text, \u0027,\u0027 order by collection, id)) from public.docs) as docs_md5"}' || echo 000)
   ann notice "prod-rehearse-after" "אימות שלא נשמר כלום: HTTP $C $(jq -c '.[0] // .' /tmp/mk.json 2>/dev/null)"
   ann notice "prod-result" "rehearse הסתיים — שום שינוי לא נשמר"
   exit 0
