@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|keycheck|smtptest|supamail|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|keycheck|smtptest|supamail|maildiag|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
@@ -267,6 +267,44 @@ fi
 if [ "$MODE" = "export" ]; then
   [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
   source "$HERE/export.sh"; exit 0
+fi
+
+# ---- maildiag: אבחון מיילים — קריאה בלבד. יומני Auth של Supabase, יומן הפעולות, מדיניות DMARC של Gmail, ותשובת Brevo המלאה.
+if [ "$MODE" = "maildiag" ]; then
+  [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
+  scrub(){ sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g'; }
+  S=$(date -u -d '-8 hours' +%Y-%m-%dT%H:%M:%SZ); E=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  C=$(curl -sS -m 60 -G -o /tmp/lg.json -w '%{http_code}' -H "Authorization: Bearer $TOK" \
+      "https://api.supabase.com/v1/projects/$PROD_REF/analytics/endpoints/logs.all" \
+      --data-urlencode "iso_timestamp_start=$S" --data-urlencode "iso_timestamp_end=$E" \
+      --data-urlencode "sql=select timestamp, event_message from auth_logs where regexp_contains(lower(event_message), 'mail|smtp|recover|send') order by timestamp desc limit 40" || echo 000)
+  ann notice "prod-authlogs" "HTTP $C $( (jq -r '(.result // [])[] | ((.timestamp|tostring) + " " + (.event_message|tostring))' /tmp/lg.json 2>/dev/null || cat /tmp/lg.json) | scrub | cut -c1-400 | head -40)"
+  C=$(curl -sS -m 30 -o /tmp/au.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
+      -d '{"query":"select to_char(created_at at time zone '"'"'Asia/Jerusalem'"'"','"'"'HH24:MI:SS'"'"') as t, payload->>'"'"'action'"'"' as action, payload->>'"'"'log_type'"'"' as type from auth.audit_log_entries where created_at > now() - interval '"'"'10 hours'"'"' order by created_at desc limit 25"}' || echo 000)
+  ann notice "prod-audit" "HTTP $C $(jq -c '.' /tmp/au.json 2>/dev/null | cut -c1-2000)"
+  ann notice "prod-dmarc" "gmail.com: $(dig +short TXT _dmarc.gmail.com | tr -d '\n') | brevo SPF include: $(dig +short TXT spf.brevo.com | head -1)"
+  SEND=$(BK="$KEY" python3 -I - <<'PY'
+import os,smtplib,ssl,email.utils
+from email.message import EmailMessage
+k=os.environ["BK"].strip(); out=[]
+m=EmailMessage(); m["From"]=email.utils.formataddr(("חיים דרך מספרים","life.through.numbers333@gmail.com"))
+m["To"]="life.through.numbers333@gmail.com"; m["Subject"]="אבחון משלוח — חיים דרך מספרים"
+m["Date"]=email.utils.formatdate(localtime=True); m["Message-ID"]=email.utils.make_msgid(domain="smtp-brevo.com")
+m.set_content("מייל אבחון. אין צורך לעשות דבר.")
+try:
+    s=smtplib.SMTP("smtp-relay.brevo.com",587,timeout=30); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo()
+    s.login("be5ab9001@smtp-brevo.com",k)
+    c,msg=s.mail("life.through.numbers333@gmail.com"); out.append(f"MAIL FROM {c} {msg.decode(errors='replace')[:120]}")
+    c,msg=s.rcpt("life.through.numbers333@gmail.com"); out.append(f"RCPT {c} {msg.decode(errors='replace')[:120]}")
+    c,msg=s.data(m.as_bytes()); out.append(f"DATA {c} {msg.decode(errors='replace')[:200]}")
+    s.quit()
+except Exception as e: out.append(f"ERR {type(e).__name__} {getattr(e,'smtp_code','')} {str(getattr(e,'smtp_error',e))[:200]}")
+print(" | ".join(out))
+PY
+)
+  ann notice "prod-brevo-smtp" "$SEND"
+  ann notice "prod-result" "maildiag הסתיים — קריאה בלבד + מייל אבחון אחד לתיבת האפליקציה"
+  exit 0
 fi
 
 if [ "$MODE" = "simulate" ]; then
