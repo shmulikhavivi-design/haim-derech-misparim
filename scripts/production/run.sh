@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|keycheck|smtptest|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|keycheck|smtptest|supamail|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
@@ -233,6 +233,34 @@ PY
 )
   ann notice "prod-smtp-send" "$SEND"
   ann notice "prod-result" "smtptest הסתיים — לא שונו הגדרות, משתמשים או נתונים"
+  exit 0
+fi
+
+# ---- supamail: מייל אמיתי דרך Supabase — בקשת "שכחתי סיסמה" לחשבון של הבעלים בלבד (מזוהה לפי md5 של האימייל, האימייל לא כתוב בריפו).
+#      הסיסמה לא משתנה; Supabase רק שולח קישור איפוס. לא נוגע בפרופילים, בנתונים או בהגדרות.
+if [ "$MODE" = "supamail" ]; then
+  [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
+  C=$(authget); [ "$C" = 200 ] || stop "קריאת הגדרות Auth: HTTP $C"
+  SN=$(jq -r '.smtp_sender_name // ""' /tmp/cfg.json)
+  [ "$SN" = "חיים דרך מספרים" ] && ann notice "prod-sender-name" "✅ Sender name בדיוק: חיים דרך מספרים" || ann error "prod-sender-name" "❌ Sender name: $SN"
+  ann notice "prod-auth" "$(authsummary)"
+  OWNER_MD5='162e004328485070b0af8b256ad2e798'
+  C=$(curl -sS -m 30 -o /tmp/ow.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
+      -d "$(jq -nc --arg h "$OWNER_MD5" '{query:("select email, recovery_sent_at from auth.users where md5(lower(email)) = '"'"'" + $h + "'"'"'")}')" || echo 000)
+  OE=$(jq -r '.[0].email // empty' /tmp/ow.json 2>/dev/null); BEFORE_RS=$(jq -r '.[0].recovery_sent_at // "null"' /tmp/ow.json 2>/dev/null)
+  [ -n "$OE" ] || stop "לא נמצא חשבון Auth לאימייל של הבעלים (HTTP $C). לא נשלח מייל."
+  echo "::add-mask::$OE"; ann notice "prod-owner" "✅ נמצא חשבון הבעלים (האימייל לא מודפס)"
+  PUB='sb_publishable_wwoXFH3xChSfQxHKZEbTKA_t_u5aGMP'
+  RC=$(curl -sS -m 40 -o /tmp/rc.json -w '%{http_code}' -X POST -H "apikey: $PUB" -H 'Content-Type: application/json' \
+       "https://$PROD_REF.supabase.co/auth/v1/recover?redirect_to=$(jq -rn --arg s "$SITE" '$s|@uri')" -d "$(jq -nc --arg e "$OE" '{email:$e}')" || echo 000)
+  RM=$(jq -r '.msg // .message // .error_description // .error // empty' /tmp/rc.json 2>/dev/null | cut -c1-300)
+  sleep 5
+  curl -sS -m 30 -o /tmp/ow2.json -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
+      -d "$(jq -nc --arg h "$OWNER_MD5" '{query:("select recovery_sent_at, (recovery_sent_at > now() - interval '"'"'3 minutes'"'"') as just_sent from auth.users where md5(lower(email)) = '"'"'" + $h + "'"'"'")}')" || true
+  JS=$(jq -r '.[0].just_sent // "?"' /tmp/ow2.json 2>/dev/null)
+  if [ "$RC" = 200 ] && [ "$JS" = "true" ]; then ann notice "prod-supamail" "✅ Supabase שלח מייל איפוס דרך Brevo (HTTP 200, נרשם זמן שליחה עכשיו). הסיסמה לא שונתה."
+  else ann error "prod-supamail" "❌ שליחה דרך Supabase: HTTP $RC $RM | נרשם עכשיו: $JS"; fi
+  ann notice "prod-result" "supamail הסתיים — לא שונו סיסמאות, נתונים או הגדרות"
   exit 0
 fi
 
