@@ -80,6 +80,10 @@ if [ "$MODE" = "check" ]; then
     C=$(curl -sS -m 60 -o /tmp/sec.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
         "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q2" '{query:$q}')" || echo 000)
     ann notice "prod-security" "HTTP $C $(jq -c '.[0].report // .' /tmp/sec.json 2>/dev/null | cut -c1-6000 || true)"
+    Q3=$(cat "$ROOT/supabase/production/00c_production_backup_readonly.sql")
+    C=$(curl -sS -m 60 -o /tmp/bk.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+        "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q3" '{query:$q}')" || echo 000)
+    ann notice "prod-backup" "HTTP $C $(jq -c '.[0].backup // .' /tmp/bk.json 2>/dev/null | cut -c1-4000 || true)"
     # האם הטוקן יכול לכתוב? בדיקה בלי שינוי: שאילתת קריאה דרך נקודת הקצה הרגילה מחזירה את אותו מידע, אבל לא נשלחת שום כתיבה.
     # (לא שולחים PATCH, גם לא ריק.)
   else ann warning "prod-preflight" "לא הורצה: חסר PRODUCTION_SUPABASE_TOKEN"; fi
