@@ -64,6 +64,11 @@ begin
     insert into auth.users (id, email, aud, role)
     select u, pfx || '_' || k || '@example.invalid', 'authenticated', 'authenticated'
       from unnest(array[uF, uB, uP, uV] || uQ, array['f','b','p','v','q1','q2','q3','q4','q5','q6','q7']) as x(u, k);
+    -- מנגנון האישור (14): משתמשי הבדיקה מאשרים את המסמכים כמו בהרשמה
+    if to_regclass('public.hdm_consents') is not null then
+      execute 'insert into public.hdm_consents (user_id, version, source) select u, public.hdm_required_terms_version(), ''signup'' from unnest($1) u'
+        using array[uF, uB, uP, uV] || uQ;
+    end if;
 
     F := substr(pg_temp.as_user(uF, $q$ select public.hdm_claim_profile() $q$), 4);
     B := substr(pg_temp.as_user(uB, $q$ select public.hdm_claim_profile() $q$), 4);

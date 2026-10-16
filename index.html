@@ -365,6 +365,25 @@
   .legal-links{ margin-top:10px; font-size:12.5px; color:#A99E90; }
   .legal-links a{ color:#E2B769; text-decoration:underline; }
   .su-legal{ text-align:center; margin:4px 0 10px; }
+  .su-consent{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; text-align:right; font-size:14px; line-height:1.6; color:#D9CFC2;
+    background:rgba(226,183,105,.06); border:1px solid rgba(226,183,105,.3); border-radius:14px; padding:12px 14px; }
+  .su-field .su-consent input[type="checkbox"]{
+    -webkit-appearance:none; appearance:none; flex:none; width:24px; min-width:24px; height:24px; margin:1px 0 0; padding:0;
+    border:1.5px solid #E2B769; border-radius:7px; background:rgba(255,255,255,.04) center/16px 16px no-repeat; box-shadow:none; cursor:pointer; }
+  .su-field .su-consent input[type="checkbox"]:checked{
+    background-color:#E2B769;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d1409' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+  .su-field .su-consent input[type="checkbox"]:focus-visible{ outline:2px solid #F8DFA4; outline-offset:2px; }
+  .su-consent-field.bad .su-consent input[type="checkbox"]{ border-color:#F0A396; }
+  .su-consent a{ color:#E2B769; text-decoration:underline; }
+  .su-consent-field.bad .su-consent{ border-color:#F0A396; }
+  .signup.terms-gate{ z-index:140; }
+  .tg-docs{ display:flex; flex-direction:column; gap:10px; margin:18px 0; }
+  .tg-doc{ display:flex; justify-content:space-between; align-items:center; width:100%; padding:14px 16px; border-radius:14px; cursor:pointer;
+    background:rgba(255,255,255,.04); border:1px solid rgba(226,183,105,.35); color:#F2EADF; font-family:'Heebo',sans-serif; font-size:15.5px; }
+  .tg-doc b{ color:#E2B769; font-weight:400; }
+  .tg-lead{ color:#D9CFC2; font-size:15px; line-height:1.65; margin:10px 0 0; }
+  .tg-out{ display:block; margin:16px auto 0; background:none; border:none; color:#A99E90; font-family:'Heebo',sans-serif; font-size:14px; text-decoration:underline; cursor:pointer; }
   .su-section{ color:#E2B769; font-size:14px; font-weight:600; margin:18px 0 10px; padding-top:12px; border-top:1px solid rgba(226,183,105,.25); }
   .signup-inner{ padding:22px 24px 36px; max-width:420px; margin:0 auto; }
   .signup-back{
@@ -755,6 +774,7 @@
       <div class="set-title">מסמכים</div>
       <button type="button" class="set-row" onclick="openLegal('privacy')"><span>🔒 מדיניות פרטיות</span><b>‹</b></button>
       <button type="button" class="set-row" onclick="openLegal('terms')"><span>📄 תנאי שימוש</span><b>‹</b></button>
+      <button type="button" class="set-row" onclick="openLegal('conduct')"><span>🤝 כללי התנהגות</span><b>‹</b></button>
     </div>
     <div class="set-group">
       <div class="set-title">אודות</div>
@@ -876,7 +896,7 @@
         <button type="button" class="auth-btn auth-btn-secondary" onclick="chooseAuth('login')">התחברות</button>
       </div>
       <p class="auth-note">כבר רשומים? בחרו התחברות</p>
-      <p class="legal-links"><a href="#" onclick="openLegal('privacy');return false;">מדיניות פרטיות</a> · <a href="#" onclick="openLegal('terms');return false;">תנאי שימוש</a></p>
+      <p class="legal-links"><a href="#" onclick="openLegal('privacy');return false;">מדיניות פרטיות</a> · <a href="#" onclick="openLegal('terms');return false;">תנאי שימוש</a> · <a href="#" onclick="openLegal('conduct');return false;">כללי התנהגות</a></p>
       <button type="button" class="auth-about" onclick="hdmOpenAbout()">✨ אודות</button>
     </div>
   </div>
@@ -908,7 +928,11 @@
         <div class="su-pass"><input type="password" id="su-pass" dir="ltr" autocomplete="new-password"><button type="button" onclick="toggleSignupPass(this)">הצגה</button></div>
         <div class="su-hint">לפחות 8 תווים</div><span class="su-err"></span></div>
 
-      <p class="legal-links su-legal">ההרשמה מיועדת לגילאי 18 ומעלה. <a href="#" onclick="openLegal('terms');return false;">תנאי שימוש</a> · <a href="#" onclick="openLegal('privacy');return false;">מדיניות פרטיות</a></p>
+      <p class="legal-links su-legal">ההרשמה מיועדת לגילאי 18 ומעלה.</p>
+      <div class="su-field su-consent-field" id="su-f-consent">
+        <label class="su-consent"><input type="checkbox" id="su-consent" autocomplete="off">
+          <span>קראתי ואני מסכים/ה <a href="#" onclick="openLegal('terms');return false;">לתנאי השימוש</a>, <a href="#" onclick="openLegal('privacy');return false;">למדיניות הפרטיות</a> <a href="#" onclick="openLegal('conduct');return false;">ולכללי ההתנהגות</a> של חיים דרך מספרים</span></label>
+        <span class="su-err"></span></div>
       <button type="button" class="su-submit" onclick="submitSignup()">המשך</button>
       <div class="su-status" id="su-status" role="status"></div>
     </div>
@@ -1026,6 +1050,25 @@
   </div>
 
   <!-- מדיניות פרטיות / תנאי שימוש -->
+  <!-- אישור תנאי שימוש, מדיניות פרטיות וכללי התנהגות — למשתמש שעוד לא אישר או כשהמסמכים עודכנו -->
+  <div class="signup terms-gate" id="terms-gate" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="tg-title">
+    <div class="signup-inner">
+      <h2 class="signup-title" id="tg-title">לפני שממשיכים</h2>
+      <p class="tg-lead" id="tg-lead">כדי להמשיך להשתמש בחיים דרך מספרים, יש לקרוא ולאשר את המסמכים האלה. הפרופיל, ההתאמות והשיחות שלך שמורים ולא ישתנו.</p>
+      <div class="tg-docs">
+        <button type="button" class="tg-doc" onclick="openLegal('terms')"><span>📄 תנאי שימוש</span><b>קריאה ‹</b></button>
+        <button type="button" class="tg-doc" onclick="openLegal('privacy')"><span>🔒 מדיניות פרטיות</span><b>קריאה ‹</b></button>
+        <button type="button" class="tg-doc" onclick="openLegal('conduct')"><span>🤝 כללי התנהגות</span><b>קריאה ‹</b></button>
+      </div>
+      <div class="su-field su-consent-field" id="tg-f-consent">
+        <label class="su-consent"><input type="checkbox" id="tg-consent" autocomplete="off">
+          <span>קראתי ואני מסכים/ה <a href="#" onclick="openLegal('terms');return false;">לתנאי השימוש</a>, <a href="#" onclick="openLegal('privacy');return false;">למדיניות הפרטיות</a> <a href="#" onclick="openLegal('conduct');return false;">ולכללי ההתנהגות</a> של חיים דרך מספרים</span></label>
+        <span class="su-err"></span></div>
+      <button type="button" class="su-submit" id="tg-accept">אישור והמשך</button>
+      <div class="su-status" id="tg-status" role="status"></div>
+      <button type="button" class="tg-out" id="tg-logout">לא עכשיו — התנתקות</button>
+    </div>
+  </div>
   <div class="signup legal" id="legal-screen" aria-hidden="true">
     <div class="signup-inner">
       <button type="button" class="signup-back" onclick="closeLegal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
@@ -4101,6 +4144,7 @@
     check('su-f-city', city ? '' : 'נא למלא עיר');
     check('su-f-email', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? '' : 'נא להזין אימייל תקין');
     check('su-f-pass', pass.length >= 8 ? '' : 'הסיסמה צריכה לכלול לפחות 8 תווים');
+    check('su-f-consent', document.getElementById('su-consent').checked ? '' : 'כדי להירשם יש לאשר את תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות');
 
     var status = document.getElementById('su-status');
     if(!ok){
@@ -4279,6 +4323,7 @@
       status.className = 'su-status'; status.style.color = '#F0A396';
       if(/HDM_EMAIL_EXISTS/.test(String(e && e.message || ''))){ status.textContent = 'האימייל הזה כבר רשום. אפשר להתחבר איתו במסך "התחברות".'; return; }
       if(/HDM_WEAK_PASSWORD/.test(String(e && e.message || ''))){ status.textContent = 'הסיסמה חלשה מדי. בחרו סיסמה ארוכה יותר, עם אותיות ומספרים.'; return; }
+      if(/HDM_TERMS_REQUIRED/.test(String(e && e.message || ''))){ status.textContent = 'כדי להירשם יש לחזור לשלב הראשון ולאשר את תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות.'; return; }
       var ageErr = hdmDbAgeError(e);
       status.textContent = (ageErr === 'UNDERAGE' || ageErr === 'AGE_BLOCKED') ? HDM_AGE_MSG :
                            ageErr ? 'נא להזין תאריך לידה תקין' : 'השמירה נכשלה. בדקו את החיבור ונסו שוב.';
@@ -4777,18 +4822,19 @@
   var HDM_CONTACT_EMAIL = 'life.through.numbers333@gmail.com';
   var HDM_LEGAL = {
     privacy: { title: 'מדיניות פרטיות', sections: [
-      ['עדכון אחרון', '8 באוקטובר 2026'],
+      ['עדכון אחרון', '16 באוקטובר 2026'],
       ['כללי',
         'מדיניות זו מסבירה איזה מידע נאסף באפליקציית ההיכרויות „חיים דרך מספרים” (להלן: „האפליקציה”), למה הוא משמש, היכן הוא נשמר, עם מי הוא משותף ואילו זכויות יש לך לגביו.',
         'האפליקציה נוצרה ומופעלת על ידי שמוליק חביבי ולימור רון (להלן: „אנחנו” או „מפעילי האפליקציה”).',
         'האפליקציה מציעה היכרויות על בסיס נומרולוגיה: מתאריך הלידה ומהשם שנולדת איתו מחושבים מספרים נומרולוגיים, ועל פיהם מוצגות התאמות למשתמשים אחרים.',
-        'השימוש באפליקציה מותנה בהסכמה למדיניות זו ולתנאי השימוש. המדיניות מנוסחת לעיתים בלשון זכר או נקבה מטעמי נוחות בלבד, והיא פונה לכל המגדרים.'],
+        'השימוש באפליקציה מותנה באישור מפורש של מדיניות זו, של תנאי השימוש ושל כללי ההתנהגות. המדיניות מנוסחת לעיתים בלשון זכר או נקבה מטעמי נוחות בלבד, והיא פונה לכל המגדרים.'],
       ['המידע שנאסף',
         'פרטי הרשמה: שם, תאריך לידה, מין, עיר, כתובת אימייל וסיסמה.',
         'פרטי פרופיל: תמונת פרופיל, את מי את/ה מחפש/ת, „כמה מילים על עצמי”, השם הפרטי ושם המשפחה שנולדת איתם, עיסוק ותחומי עניין.',
         'מידע שנוצר בשימוש באפליקציה: המספרים הנומרולוגיים שמחושבים מתאריך הלידה ומשם הלידה, סימוני 🎯 והתאמות, שיחות והודעות בצ׳אט וסימוני קריאה, חסימות שביצעת ודיווחים ששלחת (סיבת הדיווח, פרטים שהוספת ומועד הדיווח).',
         'מידע שנשמר במכשיר שלך: כדי שתישאר/י מחובר/ת, נתוני ההתחברות נשמרים בדפדפן (באחסון המקומי ובעוגייה של האתר בלבד). אנחנו לא משתמשים בכלי פרסום או במעקב פרסומי.',
         'המידע על מי את/ה מחפש/ת עשוי ללמד על נטייה מינית, ולכן הוא מידע רגיש. מסירתו נעשית מרצונך, והוא משמש אך ורק להצגת התאמות מתאימות.',
+        'תיעוד האישור: מתי אישרת את תנאי השימוש, את מדיניות הפרטיות ואת כללי ההתנהגות, ואיזו גרסה שלהם — כדי שנוכל להראות שההסכמה ניתנה.',
         'אינך חייב/ת על פי דין למסור את המידע, אבל בלי פרטי ההרשמה הבסיסיים לא ניתן להשתמש באפליקציה.'],
       ['מטרות השימוש במידע',
         'יצירה וניהול של החשבון שלך והתחברות אליו.',
@@ -4814,7 +4860,7 @@
         '• אם הפעילות של האפליקציה תועבר לגורם אחר, בכפוף לכך שהוא ימשיך לפעול לפי מדיניות זו.'],
       ['תקופת שמירת המידע',
         'המידע נשמר כל עוד החשבון שלך פעיל.',
-        'כשמוחקים את החשבון נמחקים: הפרופיל, התמונה וכל הפרטים שלך, סימוני ה־🎯, ההתאמות, השיחות וההודעות (שיחה נמחקת גם אצל הצד השני), סימוני הקריאה והחסימות שעשית ושנעשו כלפיך.',
+        'כשמוחקים את החשבון נמחקים: הפרופיל, התמונה וכל הפרטים שלך, סימוני ה־🎯, ההתאמות, השיחות וההודעות (שיחה נמחקת גם אצל הצד השני), סימוני הקריאה, החסימות שעשית ושנעשו כלפיך, ותיעוד אישור המסמכים.',
         'דיווחים שנשלחו נשמרים רק כל עוד הדבר נדרש לצורכי בטיחות המשתמשים, טיפול בתלונות ואכיפת תנאי השימוש, או כל עוד הדין מחייב זאת.',
         'רשומת ההתחברות (כתובת האימייל) במערכת ההתחברות מנותקת מהפרופיל ומסומנת כמחוקה. למחיקה מלאה של כתובת האימייל ממערכת ההתחברות אפשר לפנות אלינו בכתובת ' + HDM_CONTACT_EMAIL + '.',
         'ייתכן שעותקי גיבוי של מסד הנתונים נשמרים אצל ספק השירות לתקופה מוגבלת. מידע שנמחק נמחק גם מהגיבויים במהלך מחזור הגיבוי הרגיל.'],
@@ -4834,16 +4880,46 @@
       ['קטינים',
         'האפליקציה מיועדת לגילאי 18 ומעלה בלבד. אם יתברר לנו שנפתח חשבון של מי שטרם מלאו לו 18, נמחק אותו.'],
       ['שינויים במדיניות',
-        'אנחנו עשויים לעדכן מדיניות זו מעת לעת. תאריך העדכון האחרון מופיע בראש העמוד. על שינוי מהותי נודיע באפליקציה. המשך השימוש לאחר העדכון מהווה הסכמה למדיניות המעודכנת.'],
+        'אנחנו עשויים לעדכן מדיניות זו מעת לעת. תאריך העדכון האחרון מופיע בראש העמוד. על שינוי מהותי נודיע באפליקציה, ונבקש לאשר את המדיניות המעודכנת לפני המשך השימוש.'],
       ['פרטי קשר',
         'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון.',
         'אימייל לכל הפניות — פרטיות, מחיקת חשבון, דיווח על משתמשים, חסימות ותמיכה: ' + HDM_CONTACT_EMAIL]
     ]},
+    conduct: { title: 'כללי התנהגות', sections: [
+      ['עדכון אחרון', '16 באוקטובר 2026'],
+      ['למה יש כללים',
+        '„חיים דרך מספרים” נועדה ליצירת היכרויות בכבוד הדדי ובביטחון. הכללים חלים על הפרופיל שלך, על ההודעות ועל כל פנייה למשתמשים אחרים.',
+        'הכללים הם חלק מתנאי השימוש. הם מנוסחים לעיתים בלשון זכר או נקבה מטעמי נוחות בלבד, והם פונים לכל המגדרים.'],
+      ['מה מצופה מכולם',
+        '• לפנות למשתמשים אחרים בנימוס ובכבוד.',
+        '• לכבד את רצונו של מי שאינו מעוניין בקשר, ולהפסיק לפנות אליו.',
+        '• לשמור על הפרטיות של אחרים: לא להעביר הלאה הודעות, תמונות או פרטים שנמסרו לך באפליקציה.',
+        '• למסור פרטים נכונים ולהשתמש בתמונה שלך בלבד.'],
+      ['מה אסור',
+        '• להתחזות לאדם אחר, להשתמש בתמונה או בפרטים של אדם אחר, או ליצור פרופיל בדוי.',
+        '• להטריד, לאיים, להשפיל, לבצע בריונות או לפנות שוב ושוב למי שביקש שלא יפנו אליו.',
+        '• לשלוח תוכן מיני מפורש או תמונות עירום, ובוודאי לא בלי הסכמה.',
+        '• לפרסם תוכן גזעני, מסית, אלים, משפיל או מפלה.',
+        '• לפרסם פרטים אישיים או תמונות של אדם אחר בלי הסכמתו.',
+        '• לשלוח פרסומות או ספאם, לבקש כסף, להציע שירותים בתשלום, או לבצע הונאה או ניסיון הונאה.',
+        '• כל תוכן או פעולה שאינם חוקיים, ובכלל זה כל תוכן שקשור לקטינים באופן מיני.',
+        '• לאסוף מידע על משתמשים באופן אוטומטי, או לנסות לעקוף את מנגנוני האבטחה של האפליקציה ולשבש את פעולתה.'],
+      ['בטיחות במפגשים',
+        'אנחנו לא מאמתים זהות ולא בודקים את הרקע של המשתמשים. מומלץ להיפגש לראשונה במקום ציבורי, לעדכן אדם קרוב על המפגש, לא להעביר כסף למי שהכרת באפליקציה ולא למסור פרטים רגישים.'],
+      ['חסימה ודיווח',
+        'אפשר לחסום כל משתמש ולדווח על משתמש שמפר את הכללים, מתוך האפליקציה או באימייל לכתובת ' + HDM_CONTACT_EMAIL + '. זהותך כמדווח/ת אינה נחשפת למשתמש שעליו דיווחת.',
+        'אסור לשלוח דיווחי שווא בכוונה.'],
+      ['הפרת הכללים',
+        'דיווחים נבדקים על ידינו. במקרה של הפרה אנחנו רשאים להגביל, להשעות או למחוק חשבון, עם או בלי הודעה מוקדמת, כמפורט בתנאי השימוש.'],
+      ['פרטי קשר',
+        'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון.',
+        'אימייל לכל הפניות: ' + HDM_CONTACT_EMAIL]
+    ]},
     terms: { title: 'תנאי שימוש', sections: [
-      ['עדכון אחרון', '8 באוקטובר 2026'],
+      ['עדכון אחרון', '16 באוקטובר 2026'],
       ['כללי והסכמה',
         'תנאים אלה חלים על השימוש באפליקציית ההיכרויות „חיים דרך מספרים” (להלן: „האפליקציה”), שנוצרה ומופעלת על ידי שמוליק חביבי ולימור רון (להלן: „אנחנו” או „מפעילי האפליקציה”).',
-        'ההרשמה לאפליקציה והשימוש בה מהווים הסכמה לתנאים אלה ולמדיניות הפרטיות. אם אינך מסכים/ה לתנאים, אין להשתמש באפליקציה.',
+        'ההרשמה לאפליקציה והשימוש בה מותנים באישור מפורש של תנאים אלה, של מדיניות הפרטיות ושל כללי ההתנהגות. אם אינך מסכים/ה להם, אין להשתמש באפליקציה.',
         'התנאים מנוסחים לעיתים בלשון זכר או נקבה מטעמי נוחות בלבד, והם פונים לכל המגדרים.'],
       ['השירות',
         'האפליקציה מאפשרת להכיר אנשים על בסיס נומרולוגיה: מתאריך הלידה ומהשם שנולדת איתו מחושבים מספרים נומרולוגיים, ועל פיהם מוצגות התאמות. כאשר שני משתמשים בוחרים 🎯 זה בזה, נפתח ביניהם צ׳אט.'],
@@ -4856,7 +4932,8 @@
         'מותר להחזיק חשבון אחד בלבד, ואסור להעביר אותו לאחר.',
         'את/ה אחראי/ת לשמירה על סודיות הסיסמה ולכל פעילות שנעשית בחשבון שלך. אם יש חשש לשימוש לא מורשה, יש להחליף סיסמה ולפנות אלינו בכתובת ' + HDM_CONTACT_EMAIL + '.'],
       ['כללי התנהגות',
-        'האפליקציה נועדה ליצירת היכרויות בכבוד הדדי. יש לפנות למשתמשים אחרים בנימוס ובכבוד, לכבד את רצונו של מי שאינו מעוניין בקשר ולהפסיק לפנות אליו, ולשמור על הפרטיות של אחרים.'],
+        'האפליקציה נועדה ליצירת היכרויות בכבוד הדדי. יש לפנות למשתמשים אחרים בנימוס ובכבוד, לכבד את רצונו של מי שאינו מעוניין בקשר ולהפסיק לפנות אליו, ולשמור על הפרטיות של אחרים.',
+        'הכללים המלאים מפורטים במסמך „כללי התנהגות”, שהוא חלק מתנאים אלה.'],
       ['התחזות, הטרדה ותוכן אסור',
         'אסור:',
         '• להתחזות לאדם אחר, להשתמש בתמונה או בפרטים של אדם אחר, או ליצור פרופיל בדוי.',
@@ -4891,7 +4968,7 @@
         'אנחנו לא אחראים להתנהגות של משתמשים, לתוכן שהם מפרסמים, לנכונות הפרטים שהם מוסרים, או לכל נזק שייגרם ממפגש או מקשר שנוצר דרך האפליקציה.',
         'כל זאת, במידה המרבית שהדין מתיר.'],
       ['שינויים בתנאים',
-        'אנחנו עשויים לעדכן את התנאים מעת לעת. תאריך העדכון האחרון מופיע בראש העמוד. על שינוי מהותי נודיע באפליקציה. המשך השימוש לאחר העדכון מהווה הסכמה לתנאים המעודכנים.'],
+        'אנחנו עשויים לעדכן את התנאים מעת לעת. תאריך העדכון האחרון מופיע בראש העמוד. על שינוי מהותי נודיע באפליקציה, ונבקש לאשר את התנאים המעודכנים לפני המשך השימוש.'],
       ['דין וסמכות שיפוט',
         'על תנאים אלה יחול הדין הישראלי בלבד. סמכות השיפוט הבלעדית בכל עניין הנוגע לתנאים אלה ולשימוש באפליקציה תהיה לבתי המשפט המוסמכים בישראל.'],
       ['פרטי קשר',
@@ -5883,7 +5960,10 @@
     var a = hdmStgAuth();
     if(!a) throw new Error('no-db');
     email = authNormEmail(email);
-    var r = await a.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname } });
+    var cb = document.getElementById('su-consent');
+    if(!cb || !cb.checked) throw new Error('HDM_TERMS_REQUIRED');
+    var r = await a.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname,
+      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString() } } });
     if(r.error){
       var m = hdmStgMsg(r.error);
       if(/already registered|already exists/i.test(m)) throw new Error('HDM_EMAIL_EXISTS');
@@ -6072,5 +6152,91 @@
   };
 </script>
 
+
+<script>
+  // =====================================================================
+  // אישור תנאי שימוש, מדיניות פרטיות וכללי התנהגות.
+  // השרת לא מחזיר שום נתון (פרופילים, התאמות, שיחות) ולא מקבל שום כתיבה עד שהמשתמש אישר את הגרסה הנדרשת.
+  // כאן: כל כניסה (התחברות, הרשמה, איפוס סיסמה, חזרה לאתר) עוברת דרך hdmStagingClaim — ושם נבדק האישור.
+  // =====================================================================
+  window.HDM_TERMS_VERSION = '2026-10-16';
+  (function(){
+    var baseClaim = window.hdmStagingClaim;
+    var okFor = null, waiting = null;
+    function rpc(name, args){ return window.__hdmRpc(name, args || {}); }
+
+    function showGate(st){
+      return new Promise(function(resolve){
+        var g = document.getElementById('terms-gate');
+        var cb = document.getElementById('tg-consent');
+        var btn = document.getElementById('tg-accept');
+        var status = document.getElementById('tg-status');
+        var required = st && st.required;
+        document.getElementById('tg-title').textContent = st && st.reconsent ? 'עדכנו את המסמכים' : 'לפני שממשיכים';
+        document.getElementById('tg-lead').textContent = st && st.reconsent
+          ? 'עדכנו את תנאי השימוש, את מדיניות הפרטיות או את כללי ההתנהגות. כדי להמשיך, יש לקרוא ולאשר את הגרסה החדשה. הפרופיל, ההתאמות והשיחות שלך שמורים ולא ישתנו.'
+          : 'כדי להמשיך להשתמש בחיים דרך מספרים, יש לקרוא ולאשר את המסמכים האלה. הפרופיל, ההתאמות והשיחות שלך שמורים ולא ישתנו.';
+        cb.checked = false; suSetErr('tg-f-consent', ''); status.textContent = '';
+        g.classList.add('open'); g.setAttribute('aria-hidden', 'false'); g.scrollTop = 0;
+        window.__hdmTermsGateOpen = true;
+        btn.onclick = async function(){
+          if(!cb.checked){ suSetErr('tg-f-consent', 'כדי להמשיך יש לסמן את תיבת האישור'); return; }
+          suSetErr('tg-f-consent', '');
+          btn.disabled = true; btn.textContent = 'שומר...'; status.textContent = '';
+          try{
+            var res = await rpc('hdm_accept_terms', { p_version: required, p_source: 'gate' });
+            if(!res || !res.accepted) throw new Error('not-accepted');
+            g.classList.remove('open'); g.setAttribute('aria-hidden', 'true');
+            window.__hdmTermsGateOpen = false;
+            resolve(res);
+          }catch(e){
+            var m = String((e && e.message) || e || '');
+            if(/HDM_TERMS_VERSION/.test(m)){
+              try{ var st2 = await rpc('hdm_terms_status'); required = st2 && st2.required; }catch(x){}
+              status.textContent = 'המסמכים עודכנו ממש עכשיו. נא לקרוא שוב ולאשר.';
+              cb.checked = false;
+            }else{
+              status.textContent = 'השמירה נכשלה. בדקו את החיבור ונסו שוב.';
+            }
+          }finally{
+            btn.disabled = false; btn.textContent = 'אישור והמשך';
+          }
+        };
+        document.getElementById('tg-logout').onclick = async function(){
+          try{ var a = window.__sbAuth; if(a) await a.auth.signOut({ scope: 'local' }); }catch(e){}
+          try{ if(window.authClearSession) window.authClearSession(); }catch(e){}
+          location.replace(location.pathname);
+        };
+      });
+    }
+
+    async function ensureConsent(){
+      var a = window.__sbAuth;
+      if(!a) return;
+      var s = (await a.auth.getSession()).data.session;
+      if(!s || !s.user) return;
+      if(okFor === s.user.id) return;
+      var st = await rpc('hdm_terms_status');
+      if(st && st.accepted){ okFor = s.user.id; return; }
+      // אישור שניתן בתיבת הסימון בהרשמה (נשמר עם ההרשמה ב-Supabase Auth; השרת מאמת אותו)
+      var meta = s.user.user_metadata || {};
+      if(st && !st.reconsent && meta.hdm_terms && meta.hdm_terms === st.required){
+        try{ st = await rpc('hdm_accept_terms', { p_version: st.required, p_source: 'signup' }); }catch(e){}
+        if(st && st.accepted){ okFor = s.user.id; return; }
+        try{ st = await rpc('hdm_terms_status'); }catch(e){}
+      }
+      if(!waiting) waiting = showGate(st).then(function(r){ waiting = null; return r; });
+      await waiting;
+      okFor = s.user.id;
+    }
+    window.hdmEnsureTerms = ensureConsent;
+
+    window.hdmStagingClaim = async function(proposed){
+      var id = await baseClaim(proposed);
+      await ensureConsent();
+      return id;
+    };
+  })();
+</script>
 </body>
 </html>

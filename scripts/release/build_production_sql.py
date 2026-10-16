@@ -13,6 +13,7 @@ s01 = (SRC / '01_staging_setup.sql').read_text(encoding='utf-8')
 s03 = (SRC / '03_staging_fixes.sql').read_text(encoding='utf-8')
 s04 = (SRC / '04_staging_profile_id_fix.sql').read_text(encoding='utf-8')
 s05 = (SRC / '05_staging_profile_hardening.sql').read_text(encoding='utf-8')
+s14 = (SRC / '14_staging_consent.sql').read_text(encoding='utf-8')
 
 def between(text, start, end, incl_start=True):
     i = text.index(start); j = text.index(end, i + len(start))
@@ -30,6 +31,8 @@ part_rest = between(s01, 'create trigger hdm_docs_guard', '\ndo $$\nbegin\n  if 
 part_03 = between(s03, '-- ---------------------------------------------------------------------\n-- תיקון 2', 'insert into public.hdm_staging_marker')
 # ---- 05: ניקוי פרופיל + מחיקת חשבון מלאה ----
 part_05 = between(s05, '-- ---------------------------------------------------------------------\n-- 1. ניקוי הפרופיל', 'insert into public.hdm_staging_marker')
+# ---- 14: אישור תנאי שימוש, מדיניות פרטיות וכללי התנהגות (נאכף בשרת) ----
+part_14 = between(s14, '-- ===== CONSENT START =====', '-- ===== CONSENT END =====')
 # רשימת השדות המותרים בפרופיל — אותה רשימה כמו ב-05
 allowed = re.search(r"allowed constant jsonb := '(\{.*?\})';", part_05, re.S).group(1)
 
@@ -42,7 +45,8 @@ HEADER = r"""-- ================================================================
 -- מה הקובץ עושה, "הכול או כלום" (שגיאה אחת = שום דבר לא נשמר):
 --   1. גיבוי מלא של טבלת docs ושל טבלאות hdm_* הקיימות לסכימה hdm_backup (באותו מסד, לא נמחק כלום).
 --   2. מסיר את כללי הגישה הפתוחים, הטריגרים והפונקציות הישנות (הגבלת גיל, מנויים מ-PR #9 אם הותקנו).
---   3. מתקין את אותו שרת שנבדק ב-Staging: טבלאות, RLS, פונקציות שרת, מסלולים ומחירים, הקשחות 03/04/05.
+--   3. מתקין את אותו שרת שנבדק ב-Staging: טבלאות, RLS, פונקציות שרת, מסלולים ומחירים, הקשחות 03/04/05,
+--      ואישור חובה של תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות (14) — כל משתמש קיים יאשר בכניסה הבאה.
 --   4. מעביר נתונים קיימים בלי למחוק אותם:
 --      * תאריך לידה, שם מלידה ומספרים — מהפרופיל הגלוי לטבלה הסגורה hdm_profile_private
 --      * likes ישנים בפרופיל → רשומות 🎯 (interests)
@@ -117,7 +121,7 @@ create table public.hdm_release_marker (
   installed_at timestamptz not null default now(),
   note         text
 );
-insert into public.hdm_release_marker (version, note) values ('production_secure_v1', 'מעבר לשרת המאובטח (01+03+04+05)');
+insert into public.hdm_release_marker (version, note) values ('production_secure_v1', 'מעבר לשרת המאובטח (01+03+04+05+14)');
 
 """
 
@@ -333,6 +337,11 @@ grant execute on function public.hdm_claim_profile(text) to authenticated;
 revoke all on function public.hdm_try_date(text) from public, anon, authenticated;
 revoke all on public.hdm_legacy_accounts, public.hdm_legacy_review, public.hdm_release_marker from public, anon, authenticated;
 
+-- =====================================================================
+-- 14: אישור תנאי שימוש, מדיניות פרטיות וכללי התנהגות — נאכף בשרת (hdm_me מחזיר פרופיל רק אחרי אישור)
+-- =====================================================================
+__P14__
+
 -- מנויים קיימים (אם PR #9 הותקן): מועתקים לטבלה החדשה, לפי אותם מסלולים
 do $$
 begin
@@ -394,7 +403,7 @@ sql = (HEADER
        + part_tables
        + DATA_MIGRATION
        + part_rest
-       + AFTER.replace('__P03__', part_03).replace('__P05__', part_05))
+       + AFTER.replace('__P03__', part_03).replace('__P05__', part_05).replace('__P14__', part_14))
 sql = sql.replace("'__ALLOWED__'", "'" + allowed + "'")
 MARK = 'alter table public.hdm_staging_marker      enable row level security;'
 assert sql.count(MARK) == 1

@@ -108,6 +108,17 @@ OUT=$("${P[@]}" -d prod -f "$WORK/tmp_link.sql" 2>&1) || true; check "פתרון
 sed -e "s/EMAIL_HERE/aaa-attacker@example.invalid/" -e "s/'TEMP_PASSWORD_HERE'/'Temp-Pass-12345'/" "$TMPL" > "$WORK/tmp_bad.sql"
 OUT=$("${P[@]}" -d prod -f "$WORK/tmp_bad.sql" 2>&1) || true; check "פתרון זמני: אימייל שאינו חשבון קיים נדחה" "1" "$(echo "$OUT" | grep -c 'לא נמצא')"
 
+# ---------- 4ב. אישור תנאי שימוש, מדיניות פרטיות וכללי התנהגות (14) ----------
+check "מנגנון האישור הותקן במעבר, גרסה 2026-10-16" "2026-10-16" "$(q prod "select public.hdm_required_terms_version()")"
+check "המעבר לא יצר אישורים בשם המשתמשים (כל קיים יאשר בעצמו)" "0" "$(q prod "select count(*) from public.hdm_consents")"
+asu(){ q prod "begin; select set_config('request.jwt.claims', json_build_object('sub',(select id from auth.users where email='$1'),'role','authenticated','amr',json_build_array(json_build_object('method','recovery')))::text, true); set local role authenticated; select public.hdm_claim_profile(); $2; rollback;"; }
+check "חשבון קיים שקושר ולא אישר: לא רואה פרופילים" "0" "$(asu bob@example.invalid "select count(*) from public.docs where collection='profiles'" | tail -1)"
+check "חשבון קיים שלא אישר: 🎯 נחסם בשרת" "HDM_TERMS_REQUIRED" "$(asu bob@example.invalid "select public.hdm_send_target('dave4')" | grep -o HDM_TERMS_REQUIRED | head -1)"
+check "חשבון קיים: אחרי אישור רואה את הפרופיל שלו" "bobby2" "$(asu bob@example.invalid "select public.hdm_accept_terms('2026-10-16','gate') is not null; select id from public.docs where collection='profiles' and id='bobby2'" | tail -1)"
+T15=$("${P[@]}" -d prod -At -F'|' -f "$ROOT/supabase/staging_secure/15_staging_consent_tests.sql" 2>&1)
+check "בדיקות האישור (15) על המסד שאחרי המעבר" "1" "$(echo "$T15" | grep -c 'עברו \([0-9]*\) מתוך \1$')"
+echo "$T15" | grep '❌' | head -5 || true
+
 # ---------- 5. ביטול ----------
 if "${P[@]}" -d prod -f "$ROOT/supabase/production/99_production_rollback.sql" >"$WORK/rb.out" 2>&1; then ok "הביטול עבר"; else bad "הביטול עבר" "$(tail -3 "$WORK/rb.out")"; fi
 check "אחרי הביטול docs זהה בדיוק למצב שלפני" "$BEFORE" "$(q prod "$SNAP")"
@@ -118,13 +129,15 @@ check "אחרי הביטול אין טבלאות hdm_ חדשות" "0" "$(q prod 
 # ---------- 6. בדיקות השרת של Staging (אותו קוד שרת) ----------
 "${P[@]}" -c 'create database stg'
 "${P[@]}" -d stg -f "$HERE/local_supabase_mock.sql" >/dev/null 2>&1
-for f in 01_staging_setup 03_staging_fixes 04_staging_profile_id_fix 05_staging_profile_hardening; do
+for f in 01_staging_setup 03_staging_fixes 04_staging_profile_id_fix 05_staging_profile_hardening 14_staging_consent; do
   "${P[@]}" -d stg -f "$ROOT/supabase/staging_secure/$f.sql" >/dev/null
 done
 T=$("${P[@]}" -d stg -At -F'|' -f "$ROOT/supabase/staging_secure/02_staging_tests.sql")
 TOT=$(echo "$T" | awk -F'|' '$1>0 && $1<999' | wc -l); OKN=$(echo "$T" | awk -F'|' '$1>0 && $1<999 && $6=="✅"' | wc -l)
 echo "$T" | awk -F'|' '$1>0 && $1<999 && $6!="✅" {print "   ❌ " $2 ": " $3 " (צפוי " $4 ", התקבל " $5 ")"}'
 check "בדיקות SQL של Staging (מנויים חינם/בסיסי/פלוס/VIP, RLS, עקיפות)" "$TOT/$TOT" "$OKN/$TOT"
+T15S=$("${P[@]}" -d stg -At -F'|' -f "$ROOT/supabase/staging_secure/15_staging_consent_tests.sql" 2>&1)
+check "בדיקות האישור (15) על שרת Staging" "1" "$(echo "$T15S" | grep -c 'עברו \([0-9]*\) מתוך \1$')"
 check "בדיקות SQL: לא נשארו נתוני בדיקה" "0|0" "$(q stg "select (select count(*) from public.docs)||'|'||(select count(*) from auth.users)")"
 
 echo; echo "סיכום: עברו $PASS מתוך $((PASS+FAIL))"
