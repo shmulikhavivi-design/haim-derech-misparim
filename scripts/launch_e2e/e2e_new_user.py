@@ -18,12 +18,13 @@ def step(name, ok, info=""):
 
 # ---------- תיבת דואר זמנית ----------
 API = "https://api.mail.tm"
+def members(x): return x if isinstance(x, list) else (x.get("hydra:member") or x.get("member") or [])
 def mt(method, path, data=None, tok=None):
     req = urllib.request.Request(API + path, method=method, data=json.dumps(data).encode() if data is not None else None,
                                  headers={"Content-Type": "application/json", "Accept": "application/json", **({"Authorization": "Bearer " + tok} if tok else {})})
     with urllib.request.urlopen(req, timeout=30) as r: return json.loads(r.read() or b"{}")
 try:
-    dom = mt("GET", "/domains")["hydra:member"][0]["domain"]
+    dom = members(mt("GET", "/domains"))[0]["domain"]
 except Exception as e:
     print(f"::error title=e2e-temp_inbox::mail.tm unreachable: {type(e).__name__}: {str(e)[:200]}"); sys.exit(1)
 user = "hdmtest" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -94,7 +95,7 @@ with sync_playwright() as p:
         # ---------- 2. מייל האימות ----------
         msg = None; t0 = time.time()
         while time.time() - t0 < 300:
-            ms = mt("GET", "/messages", tok=TOKEN).get("hydra:member", [])
+            ms = members(mt("GET", "/messages", tok=TOKEN))
             if ms: msg = mt("GET", "/messages/" + ms[0]["id"], tok=TOKEN); break
             time.sleep(8)
         if not step("confirmation_email_received", msg, f"after {int(time.time()-t0)}s"): raise SystemExit
@@ -168,7 +169,7 @@ if deleted:
         pg.fill("#li-email", EMAIL); pg.fill("#li-pass", APASS); pg.click("#li-submit"); pg.wait_for_timeout(4000)
         step("deleted_account_cannot_login", st and all(s == 400 for s in st), st); b.close()
 try:
-    for m in mt("GET", "/messages", tok=TOKEN).get("hydra:member", []): mt("DELETE", "/messages/" + m["id"], tok=TOKEN)
+    for m in members(mt("GET", "/messages", tok=TOKEN)): mt("DELETE", "/messages/" + m["id"], tok=TOKEN)
 except Exception: pass
 R["page_errors"] = R["page_errors"][:10]
 json.dump(R, open(f"{OUT}/result.json", "w"), ensure_ascii=False, indent=1)
