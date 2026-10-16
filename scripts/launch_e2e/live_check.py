@@ -21,6 +21,13 @@ with sync_playwright() as p:
     ok("site_200", r.status == 200, r.status)
     ok("new_version_live", "המסלולים בתשלום יופעלו בקרוב" in html and "'בקרוב'))" in html)
     ok("prices_unchanged", all(x in html for x in ["29.90", "48.90", "79.90", "₪0"]))
+    ok("heart_levels_live", all(x in html for x in ["❤️ התאמה גבוהה מאוד", "🩷 התאמה טובה", "💔 התאמה מאתגרת"]))
+    ok("plan_texts_live", "ניתוח נומרולוגי מקוצר (3 שורות)" in html and "❤️ גבוהה מאוד, 🩷 טובה או 💔 מאתגרת" in html and "ניתוח נומרולוגי מורחב לאחר סימון 🎯 הדדי" not in html)
+    ok("plus_extended_off_in_app", "plus:  { target: true,  chat: true,  chatLimit: null, score: 'full',  whoLiked: true,  analysis: 'none'" in html)
+    lvl = pg.evaluate("() => [matchCategoryLabel({goodCount:3}), matchCategoryLabel({goodCount:1}), matchCategoryLabel({goodCount:0})]")
+    ok("level_mapping", lvl == ["❤️ התאמה גבוהה מאוד", "🩷 התאמה טובה", "💔 התאמה מאתגרת"], lvl)
+    pv = pg.evaluate("() => { hdmEnt = null; return true; }")
+    ok("plus_card_shows_3_lines_basic_hides", pg.evaluate("() => HDM_PLAN_FEATURES.plus.score === 'full' && HDM_PLAN_FEATURES.basic.score === 'label' && HDM_PLAN_FEATURES.vip.analysis === 'own' && HDM_PLAN_FEATURES.plus.analysis === 'none'"))
     if pg.locator("#intro-screen").is_visible():
         bt = pg.locator("#intro-screen button").first; bt.click() if bt.count() else pg.evaluate("startFromIntro()"); pg.wait_for_timeout(800)
     ok("auth_choice_visible", pg.locator("#auth-choice-screen").is_visible())
