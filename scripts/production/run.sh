@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
@@ -94,8 +94,32 @@ if [ "$MODE" = "check" ]; then
   exit 0
 fi
 
+if [ "$MODE" = "authplan" ]; then
+  # קריאה בלבד: מה ישתנה ב-authcfg. לא נשלחת שום כתיבה.
+  [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
+  C=$(authget); [ "$C" = 200 ] || stop "קריאת הגדרות Auth: HTTP $C"
+  case "$KEY" in xsmtpsib-*) KS="✅ מפתח SMTP של Brevo";; xkeysib-*) KS="❌ זה מפתח API ולא מפתח SMTP";; "") KS="❌ חסר";; *) KS="❌ מבנה לא מוכר";; esac
+  TPL=$(python3 -I "$HERE/templates.py" "$ROOT/docs/email-templates.md") || stop "קריאת תבניות המייל נכשלה"
+  PLAN=$(jq -c --arg s "$SITE" --argjson t "$TPL" '[
+     ["Site URL", .site_url, $s],
+     ["Redirect URLs", .uri_allow_list, ($s + "**")],
+     ["SMTP host", .smtp_host, "smtp-relay.brevo.com"],
+     ["SMTP port", .smtp_port, "587"],
+     ["SMTP user", .smtp_user, "be5ab9001@smtp-brevo.com"],
+     ["Sender", .smtp_admin_email, "life.through.numbers333@gmail.com"],
+     ["Sender name", .smtp_sender_name, "חיים דרך מספרים"],
+     ["מגבלת מיילים לשעה", .rate_limit_email_sent, 30],
+     ["נושא איפוס", .mailer_subjects_recovery, $t.mailer_subjects_recovery],
+     ["נושא אישור הרשמה", .mailer_subjects_confirmation, $t.mailer_subjects_confirmation]
+   ] | map({שדה: .[0], עכשיו: .[1], יהיה: .[2], משתנה: (.[1] != .[2])})' /tmp/cfg.json)
+  ann notice "prod-authplan" "מפתח Brevo בסוד: $KS | Confirm email: לא משתנה בשלב הזה | $PLAN"
+  ann notice "prod-result" "authplan הסתיים — קריאה בלבד, לא שונה כלום"
+  exit 0
+fi
+
 if [ "$MODE" = "authcfg" ]; then
   [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"; [ -n "$KEY" ] || stop "חסר BREVO_SMTP_KEY"
+  case "$KEY" in xsmtpsib-*) ;; xkeysib-*) stop "BREVO_SMTP_KEY הוא מפתח API (xkeysib-) ולא מפתח SMTP (xsmtpsib-). לא שונה כלום.";; *) stop "BREVO_SMTP_KEY לא במבנה של מפתח SMTP של Brevo. לא שונה כלום.";; esac
   TPL=$(python3 -I "$HERE/templates.py" "$ROOT/docs/email-templates.md") || stop "קריאת תבניות המייל נכשלה"
   BODY=$(jq -nc --arg s "$SITE" --arg k "$KEY" --argjson t "$TPL" '{
       site_url:$s, uri_allow_list:($s + "**"), external_email_enabled:true,
