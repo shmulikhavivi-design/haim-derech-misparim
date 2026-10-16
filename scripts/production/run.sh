@@ -61,6 +61,24 @@ except Exception as e: print(f"❌ שגיאת חיבור: {type(e).__name__}")
 PY
 )
   ann notice "prod-keycheck-login" "$LOGIN"
+  PARTS=$(BK="$KEY" python3 -I - <<'PY'
+import os,re,smtplib,ssl
+toks=os.environ["BK"].split()
+desc=[]
+for i,t in enumerate(toks,1):
+    kind="xsmtpsib-" if t.startswith("xsmtpsib-") else ("xkeysib-" if t.startswith("xkeysib-") else "טקסט אחר")
+    r=""
+    if kind=="xsmtpsib-":
+        try:
+            s=smtplib.SMTP("smtp-relay.brevo.com",587,timeout=20); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo()
+            s.login("be5ab9001@smtp-brevo.com",t); s.quit(); r=" → ✅ התחברות הצליחה"
+        except smtplib.SMTPAuthenticationError as e: r=f" → ❌ נדחה {e.smtp_code}"
+        except Exception as e: r=f" → ❌ {type(e).__name__}"
+    desc.append(f"חלק {i}: {len(t)} תווים, {kind}{r}")
+print(f"{len(toks)} חלקים | " + " | ".join(desc))
+PY
+)
+  ann notice "prod-keycheck-parts" "$PARTS"
   ann notice "prod-result" "keycheck הסתיים — קריאה בלבד, לא שונה כלום ב-Supabase ולא נשלח מייל"
   exit 0
 fi
