@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
@@ -338,6 +338,16 @@ PY
 )
   ann notice "prod-owner-direct" "$SEND"
   ann notice "prod-result" "ownertest הסתיים — מייל ישיר אחד לכתובת החשבון, בלי שינוי בהגדרות או בנתונים"
+  exit 0
+fi
+
+# ---- fingerprint: קריאה בלבד — זהות הפרויקט, האם המעבר כבר רץ, וטביעת אצבע של docs להשוואה לגיבוי
+if [ "$MODE" = "fingerprint" ]; then
+  [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
+  C=$(curl -sS -m 30 -o /tmp/fp.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
+      -d '{"query":"select current_setting('"'"'cluster_name'"'"', true) as cluster, (to_regclass('"'"'public.hdm_staging_marker'"'"') is null) as not_staging, (to_regclass('"'"'public.hdm_release_marker'"'"') is null and to_regclass('"'"'hdm_backup.docs_before_migration'"'"') is null) as not_migrated, (select md5(string_agg(collection||'"'"'|'"'"'||id||'"'"'|'"'"'||data::text, '"'"','"'"' order by collection, id)) from public.docs) as docs_md5, (select count(*) from public.docs) as n, (select count(*) from auth.users) as auth_users"}' || echo 000)
+  ann notice "prod-fingerprint" "HTTP $C project=$PROD_REF $(jq -c '.[0]' /tmp/fp.json 2>/dev/null)"
+  ann notice "prod-result" "fingerprint הסתיים — קריאה בלבד"
   exit 0
 fi
 
