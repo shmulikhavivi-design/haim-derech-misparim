@@ -10,7 +10,7 @@ jobs:
   prod:
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: production
     steps:
       - uses: actions/checkout@v5
@@ -20,7 +20,7 @@ jobs:
         env: { COMMIT_MSG: '${{ github.event.head_commit.message }}' }
         run: |
           mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[prod:\([a-z]*\)\].*/\1/p'); mode="${mode:-check}"
-          case "$mode" in check|authplan|keycheck|rehearse|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
+          case "$mode" in check|authplan|keycheck|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
       - name: Secret names (presence only)
         if: steps.mode.outputs.mode == 'secrets'
@@ -52,7 +52,7 @@ jobs:
         run: bash scripts/production/secret_names.sh production-env-plus-repo
       - name: psql
         if: steps.mode.outputs.mode != 'secrets'
-        run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
+        run: if [ "${{ steps.mode.outputs.mode }}" = simulate ]; then sudo apt-get update -q && sudo apt-get install -y -q postgresql postgresql-client && (sudo systemctl stop postgresql || true); else command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client); fi
       - name: Run
         if: steps.mode.outputs.mode != 'secrets'
         env:
