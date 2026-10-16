@@ -25,13 +25,14 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
+OLDTOK="${PRODUCTION_SUPABASE_TOKEN:-}"   # הטוקן הישן (קריאת הגדרות Auth) — לקריאה בלבד במצב confirmplan
 if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then TOK="$SUPABASE_ACCESS_TOKEN"; TOKSRC=SUPABASE_ACCESS_TOKEN; else TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; TOKSRC=PRODUCTION_SUPABASE_TOKEN; fi
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN SUPABASE_ACCESS_TOKEN BREVO_SMTP_KEY
-for v in "$DB" "$TOK" "$KEY"; do [ -n "$v" ] && echo "::add-mask::$v"; done
+for v in "$DB" "$TOK" "$KEY" "$OLDTOK"; do [ -n "$v" ] && echo "::add-mask::$v"; done
 ann notice "prod-secrets" "PRODUCTION_DB_URL: $([ -n "$DB" ] && echo מוגדר || echo חסר) | טוקן בשימוש: $([ -n "$TOK" ] && echo "$TOKSRC" || echo חסר) | BREVO_SMTP_KEY: $([ -n "$KEY" ] && echo מוגדר || echo חסר)"
 
 # ---- keycheck: קריאה בלבד. מבנה המפתח (בלי ערך) + התחברות לשרת ה-SMTP של Brevo בלי לשלוח מייל. לא נוגע ב-Supabase. ----
@@ -402,6 +403,48 @@ if [ "$MODE" = "smoke" ]; then
   set +e; OUT=$(python3 "$HERE/smoke.py" 2>&1); RC=$?; set -e
   ann notice "prod-smoke" "$(printf '%s' "$OUT" | tail -c 3500)"
   [ $RC = 0 ] && ann notice "prod-result" "✅ smoke: כל הבדיקות עברו (לא נוצר חשבון, לא נכתבו נתונים)" || stop "smoke: בדיקה אחת או יותר נכשלה (לא נוצר חשבון)"
+  exit 0
+fi
+
+# ---- confirmplan: קריאה בלבד — מוכנות להפעלת Confirm email. לא משנה הגדרות, לא שולח מייל.
+if [ "$MODE" = "confirmplan" ]; then
+  # 1) הגדרות Auth (בטוקן הישן, שיש לו auth_config_read)
+  if [ -n "$OLDTOK" ]; then
+    C=$(curl -sS -m 30 -o /tmp/cfg.json -w '%{http_code}' -H "Authorization: Bearer $OLDTOK" "$API" || echo 000)
+    if [ "$C" = 200 ]; then
+      ann notice "prod-confirm-auth" "$(authsummary)"
+      ann notice "prod-confirm-mail" "$(jq -c '{mailer_subjects_confirmation, confirmation_template_custom: ((.mailer_templates_confirmation_content // "") != ""), confirmation_has_link: ((.mailer_templates_confirmation_content // "") | test("ConfirmationURL|TokenHash|\\.Token")), recovery_template_custom: ((.mailer_templates_recovery_content // "") != ""), mailer_otp_exp, smtp_max_frequency, external_email_enabled, disable_signup, mailer_secure_email_change_enabled, rate_limit_email_sent}' /tmp/cfg.json)"
+    else ann error "prod-confirm-auth" "קריאת הגדרות Auth: HTTP $C $(jq -r '.message // empty' /tmp/cfg.json 2>/dev/null)"; fi
+  else ann warning "prod-confirm-auth" "אין טוקן לקריאת הגדרות Auth"; fi
+  # 2) התחברות ל-Brevo SMTP בלי לשלוח מייל
+  if [ -n "$KEY" ]; then
+    L=$(BK="$KEY" python3 -I - <<'PY2'
+import os,smtplib,ssl
+k=os.environ["BK"].strip()
+try:
+    s=smtplib.SMTP("smtp-relay.brevo.com",587,timeout=20); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo()
+    s.login("be5ab9001@smtp-brevo.com",k); s.quit(); print("✅ ההתחברות ל-Brevo SMTP הצליחה (לא נשלח מייל)")
+except smtplib.SMTPAuthenticationError as e: print(f"❌ Brevo דחה את ההתחברות: {e.smtp_code}")
+except Exception as e: print(f"❌ שגיאת חיבור: {type(e).__name__}")
+PY2
+)
+    ann notice "prod-confirm-smtp" "$L"
+  fi
+  # 3) האם 4 המשתמשים הקיימים מאומתים (Confirm email חוסם רק משתמשים לא מאומתים)
+  Q=$(cat <<'SQL'
+select jsonb_build_object(
+ 'auth_users', (select count(*) from auth.users),
+ 'confirmed', (select count(*) from auth.users where email_confirmed_at is not null),
+ 'unconfirmed', (select count(*) from auth.users where email_confirmed_at is null),
+ 'banned', (select count(*) from auth.users where banned_until is not null and banned_until > now()),
+ 'per_user', (select jsonb_agg(jsonb_build_object('name', d.data->>'currentName', 'confirmed', u.email_confirmed_at is not null, 'domain', split_part(u.email,'@',2), 'last_sign_in', u.last_sign_in_at) order by d.data->>'currentName')
+               from auth.users u left join public.hdm_legacy_accounts l on l.email = lower(u.email) left join public.docs d on d.collection='profiles' and d.id=l.profile_id)
+) as r
+SQL
+)
+  C=$(curl -sS -m 60 -o /tmp/cu.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+  ann notice "prod-confirm-users" "HTTP $C $(jq -c 'if type=="array" then .[0].r else . end' /tmp/cu.json 2>/dev/null)"
+  ann notice "prod-result" "confirmplan הסתיים — קריאה בלבד, לא נשלח מייל ולא שונו הגדרות"
   exit 0
 fi
 
