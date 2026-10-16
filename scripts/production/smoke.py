@@ -19,6 +19,14 @@ res = {"page_errors": [], "console_errors": [], "signup_requests_blocked": 0, "c
 def ok(name, cond, info=""):
     res["checks"][name] = {"ok": bool(cond), "info": str(info)[:300]}
 
+def pass_intro(page):
+    # מסך הפתיחה: "מתחילים עכשיו" רק מסיר את השכבה
+    btn = page.locator("#intro-screen button, #intro-screen .intro-btn").first
+    if page.locator("#intro-screen").is_visible():
+        if btn.count(): btn.click()
+        else: page.evaluate("startFromIntro()")
+        page.wait_for_timeout(800)
+
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True, locale="he-IL")
@@ -39,6 +47,9 @@ with sync_playwright() as p:
     html = page.content()
     ok("new_version_deployed", 'id="su-consent"' in html and 'id="terms-gate"' in html)
     ok("no_staging_reference", "ousepgdvzammgkxkweze" not in html)
+    ok("intro_screen_shown", page.locator("#intro-screen").is_visible())
+    pass_intro(page)
+    page.screenshot(path=f"{OUT}/1b_auth_choice.png")
     ok("auth_choice_visible", page.locator("#auth-choice-screen").is_visible())
 
     # הרשמה: בלי סימון התיבה — לא אמור לצאת שום דבר לשרת
@@ -67,6 +78,7 @@ with sync_playwright() as p:
 
     # התחברות: כתובת שלא קיימת — Supabase Auth אמור לענות בדחייה
     page.goto(SITE + "?smoke2=" + str(int(time.time())), wait_until="networkidle", timeout=60000); page.wait_for_timeout(2000)
+    pass_intro(page)
     page.get_by_role("button", name="התחברות").first.click(); page.wait_for_timeout(800)
     ok("login_screen_visible", page.locator("#login-screen").is_visible())
     ok("forgot_password_present", page.locator("#li-forgot").is_visible())
