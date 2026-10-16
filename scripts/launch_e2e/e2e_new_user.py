@@ -12,7 +12,8 @@ OUT = os.environ.get("E2E_OUT", "/tmp/e2e"); os.makedirs(OUT, exist_ok=True)
 R = {"steps": {}, "page_errors": [], "email": {}, "notes": []}
 def step(name, ok, info=""):
     R["steps"][name] = {"ok": bool(ok), "info": str(info)[:400]}
-    print(("✅ " if ok else "❌ ") + name + (" — " + str(info)[:200] if info else ""), flush=True)
+    msg = (("✅ " if ok else "❌ ") + name + (" — " + str(info)[:300] if info else "")).replace("%", "%25").replace("\n", " ")
+    print(f"::{'notice' if ok else 'error'} title=e2e-{name}::{msg}", flush=True)
     return ok
 
 # ---------- תיבת דואר זמנית ----------
@@ -21,7 +22,10 @@ def mt(method, path, data=None, tok=None):
     req = urllib.request.Request(API + path, method=method, data=json.dumps(data).encode() if data is not None else None,
                                  headers={"Content-Type": "application/json", "Accept": "application/json", **({"Authorization": "Bearer " + tok} if tok else {})})
     with urllib.request.urlopen(req, timeout=30) as r: return json.loads(r.read() or b"{}")
-dom = mt("GET", "/domains")["hydra:member"][0]["domain"]
+try:
+    dom = mt("GET", "/domains")["hydra:member"][0]["domain"]
+except Exception as e:
+    print(f"::error title=e2e-temp_inbox::mail.tm unreachable: {type(e).__name__}: {str(e)[:200]}"); sys.exit(1)
 user = "hdmtest" + "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
 EMAIL = f"{user}@{dom}"
 MPASS = "".join(random.choices(string.ascii_letters + string.digits, k=16))
@@ -138,6 +142,10 @@ with sync_playwright() as p:
         step("server_functions_ok", not bad_rpc, json.dumps({k: v[:5] for k, v in rpc.items()}, ensure_ascii=False))
         plan = page.evaluate("async () => { try { return await window.__hdmRpc('hdm_my_plan'); } catch(e) { return String(e).slice(0,120); } }")
         R["new_user_plan"] = plan
+    except SystemExit:
+        pass
+    except Exception as e:
+        step("unexpected_error", False, f"{type(e).__name__}: {str(e)[:250]}")
     finally:
         # ---------- 6. מחיקת חשבון הבדיקה ----------
         try:
@@ -164,5 +172,5 @@ try:
 except Exception: pass
 R["page_errors"] = R["page_errors"][:10]
 json.dump(R, open(f"{OUT}/result.json", "w"), ensure_ascii=False, indent=1)
-print("RESULT " + json.dumps(R, ensure_ascii=False))
+print("::notice title=e2e-summary::" + json.dumps({k: R.get(k) for k in ("email", "notes", "page_errors", "new_user_plan", "delete_result")}, ensure_ascii=False).replace("%", "%25")[:3000])
 sys.exit(0 if all(s["ok"] for s in R["steps"].values()) else 1)
