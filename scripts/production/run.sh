@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -403,6 +403,23 @@ if [ "$MODE" = "smoke" ]; then
   set +e; OUT=$(python3 "$HERE/smoke.py" 2>&1); RC=$?; set -e
   ann notice "prod-smoke" "$(printf '%s' "$OUT" | tail -c 3500)"
   [ $RC = 0 ] && ann notice "prod-result" "✅ smoke: כל הבדיקות עברו (לא נוצר חשבון, לא נכתבו נתונים)" || stop "smoke: בדיקה אחת או יותר נכשלה (לא נוצר חשבון)"
+  exit 0
+fi
+
+# ---- advisors: קריאה בלבד — יועץ האבטחה והביצועים של Supabase + זיהוי איזה טוקן מה מותר לו. לא משנה כלום.
+if [ "$MODE" = "advisors" ]; then
+  for nm in TOK OLDTOK; do t="${!nm}"; [ -n "$t" ] || continue
+    for kind in security performance; do
+      C=$(curl -sS -m 60 -o /tmp/adv.json -w '%{http_code}' -H "Authorization: Bearer $t" "https://api.supabase.com/v1/projects/$PROD_REF/advisors/$kind" || echo 000)
+      if [ "$C" = 200 ]; then
+        ann notice "prod-advisors-$kind" "($nm) $(jq -c '[.lints[]? | {level, name, title, detail: (.detail|tostring|.[0:160])}] | group_by(.level) | map({(.[0].level): (map({name, title, detail}))}) | add // "none"' /tmp/adv.json | cut -c1-5000)"
+        break 2
+      else ann notice "prod-advisors-$kind-$nm" "HTTP $C $(jq -r '.message // empty' /tmp/adv.json 2>/dev/null | cut -c1-200)"; fi
+    done
+  done
+  C=$(curl -sS -m 30 -o /tmp/adv2.json -w '%{http_code}' -H "Authorization: Bearer $TOK" "https://api.supabase.com/v1/projects/$PROD_REF/advisors/performance" || echo 000)
+  ann notice "prod-advisors-performance" "HTTP $C $(jq -c '[.lints[]? | select(.level!="INFO") | {level, name, title}] | unique' /tmp/adv2.json 2>/dev/null | cut -c1-2000)"
+  ann notice "prod-result" "advisors הסתיים — קריאה בלבד"
   exit 0
 fi
 
