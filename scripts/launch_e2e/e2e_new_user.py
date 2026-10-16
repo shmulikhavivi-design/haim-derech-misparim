@@ -102,8 +102,13 @@ with sync_playwright() as p:
         R["email"].update({"seconds": int(time.time() - t0), "from_name": msg.get("from", {}).get("name"),
                            "from_domain": (msg.get("from", {}).get("address") or "").split("@")[-1], "subject": msg.get("subject")})
         body = " ".join(msg.get("html") or []) + " " + (msg.get("text") or "")
-        links = [l.replace("&amp;", "&") for l in re.findall(r'https?://[^\s"\'<>]+', body)]
-        link = next((l for l in links if "verify" in l or "token" in l or "confirm" in l), None)
+        html = " ".join(msg.get("html") or []) if isinstance(msg.get("html"), list) else (msg.get("html") or "")
+        hrefs = [h.replace("&amp;", "&") for h in re.findall(r'href=["\']([^"\']+)["\']', html)]
+        links = hrefs + [l.replace("&amp;", "&") for l in re.findall(r'https?://[^\s"\'<>\]\)]+', body)]
+        links = [l for l in links if l.startswith("http") and not re.search(r"\.(png|jpe?g|gif|svg)(\?|$)", l, re.I)]
+        R["email"]["link_hosts"] = sorted({re.sub(r"^https?://([^/]+).*", r"\1", l) for l in links})[:6]
+        R["email"]["has_html"] = bool(html); R["email"]["text_len"] = len(msg.get("text") or "")
+        link = next((l for l in links if "supabase" in l and ("verify" in l or "token" in l)), None) or (links[0] if links else None)
         R["email"]["hebrew_body"] = bool(re.search(r"[֐-׿]", body))
         if not step("confirmation_link_found", link, (link or "")[:60] + "…"): raise SystemExit
 
