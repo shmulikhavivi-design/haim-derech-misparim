@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|keycheck|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|keycheck|smtptest|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
@@ -194,6 +194,48 @@ fi
 
 # ---- rehearse: חזרה גנרלית על הנתונים האמיתיים — כל קובץ המעבר רץ בטרנזקציה אחת, ובסוף נזרקת שגיאה מכוונת
 #      שמבטלת הכול (במקום commit). שום דבר לא נשמר. הדוח מוחזר בהודעת השגיאה.
+# ---- smtptest: קריאת הגדרות Auth בלבד + מייל בדיקה אחד דרך Brevo לתיבת האפליקציה. לא נוגע במשתמשים או בהגדרות.
+if [ "$MODE" = "smtptest" ]; then
+  [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
+  C=$(authget); [ "$C" = 200 ] || stop "קריאת הגדרות Auth: HTTP $C"
+  ann notice "prod-auth" "$(authsummary)"
+  CMP=$(BK="$KEY" python3 -I - /tmp/cfg.json <<'PY'
+import json,os,sys
+c=json.load(open(sys.argv[1])); k=os.environ.get("BK","")
+exp={"smtp_host":"smtp-relay.brevo.com","smtp_port":"587","smtp_user":"be5ab9001@smtp-brevo.com","smtp_admin_email":"life.through.numbers333@gmail.com","smtp_sender_name":"חיים דרך מספרים"}
+out=[]
+for f,v in exp.items():
+    got=c.get(f); out.append(("✅" if str(got)==v else "❌")+f" {f}" + ("" if str(got)==v else f" (עכשיו: {got})"))
+p=c.get("smtp_pass") or ""
+if not p: out.append("❌ סיסמת SMTP לא מוגדרת")
+elif p==k: out.append("✅ סיסמת SMTP זהה למפתח שנבדק")
+elif p==k.strip(): out.append("✅ סיסמת SMTP זהה למפתח שנבדק")
+else: out.append(f"ℹ️ סיסמת SMTP מוגדרת (Supabase מחזיר אותה מוסתרת, אורך {len(p)}) — אי אפשר להשוות ישירות")
+out.append(f"ℹ️ smtp_max_frequency={c.get('smtp_max_frequency')} rate_limit_email_sent={c.get('rate_limit_email_sent')} confirm_email_on={c.get('mailer_autoconfirm') is False}")
+print(" | ".join(out))
+PY
+)
+  ann notice "prod-smtp-compare" "$CMP"
+  SEND=$(BK="$KEY" python3 -I - <<'PY'
+import os,smtplib,ssl,email.utils
+from email.message import EmailMessage
+k=os.environ["BK"].strip()
+m=EmailMessage(); m["From"]=email.utils.formataddr(("חיים דרך מספרים","life.through.numbers333@gmail.com"))
+m["To"]="life.through.numbers333@gmail.com"; m["Subject"]="בדיקת מייל — חיים דרך מספרים (Production)"
+m["Date"]=email.utils.formatdate(localtime=True); m["Message-ID"]=email.utils.make_msgid(domain="smtp-brevo.com")
+m.set_content("זהו מייל בדיקה מהגדרות ההשקה. אין צורך לעשות דבר.\nנשלח דרך Brevo SMTP עם אותם פרטים שהוגדרו ב-Supabase Production.")
+try:
+    s=smtplib.SMTP("smtp-relay.brevo.com",587,timeout=30); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo()
+    s.login("be5ab9001@smtp-brevo.com",k); r=s.send_message(m); s.quit()
+    print("✅ Brevo קיבל את המייל לשליחה" + (f" (נדחו: {list(r)})" if r else ""))
+except Exception as e: print(f"❌ {type(e).__name__}: {getattr(e,'smtp_code','')} {str(getattr(e,'smtp_error',''))[:200]}")
+PY
+)
+  ann notice "prod-smtp-send" "$SEND"
+  ann notice "prod-result" "smtptest הסתיים — לא שונו הגדרות, משתמשים או נתונים"
+  exit 0
+fi
+
 if [ "$MODE" = "simulate" ]; then
   [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
   source "$HERE/simulate.sh"; exit 0
