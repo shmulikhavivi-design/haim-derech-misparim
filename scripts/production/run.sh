@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -392,6 +392,16 @@ PY
       -d '{"query":"select (to_regclass('"'"'public.hdm_release_marker'"'"') is null) as not_migrated, (to_regclass('"'"'hdm_backup.docs_before_migration'"'"') is null) as no_new_backup, (select count(*) from public.docs) as docs_rows, (select count(*) from auth.users) as auth_users, (to_regclass(\u0027public.hdm_profile_private\u0027) is null) as no_new_tables, (select count(*) from pg_policies where schemaname=\u0027public\u0027 and tablename=\u0027docs\u0027) as docs_policies, (select md5(string_agg(collection||\u0027|\u0027||id||\u0027|\u0027||data::text, \u0027,\u0027 order by collection, id)) from public.docs) as docs_md5"}' || echo 000)
   ann notice "prod-rehearse-after" "אימות שלא נשמר כלום: HTTP $C $(jq -c '.[0] // .' /tmp/mk.json 2>/dev/null)"
   ann notice "prod-result" "rehearse הסתיים — שום שינוי לא נשמר"
+  exit 0
+fi
+
+# ---- smoke: בדיקת עשן לאתר החי בדפדפן. לא יוצרת חשבון ולא כותבת נתונים (בקשות הרשמה נחסמות בדפדפן).
+if [ "$MODE" = "smoke" ]; then
+  python3 -m pip install -q playwright >/dev/null && python3 -m playwright install --with-deps chromium >/dev/null 2>&1 || stop "התקנת הדפדפן נכשלה"
+  export SMOKE_OUT="${RUNNER_TEMP:-/tmp}/smoke"
+  set +e; OUT=$(python3 -I "$HERE/smoke.py" 2>&1); RC=$?; set -e
+  ann notice "prod-smoke" "$(printf '%s' "$OUT" | tail -c 3500)"
+  [ $RC = 0 ] && ann notice "prod-result" "✅ smoke: כל הבדיקות עברו (לא נוצר חשבון, לא נכתבו נתונים)" || stop "smoke: בדיקה אחת או יותר נכשלה (לא נוצר חשבון)"
   exit 0
 fi
 
