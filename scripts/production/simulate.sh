@@ -34,7 +34,7 @@ create policy "Allow public update" on public.docs for update using (true);
 create policy "Allow public delete" on public.docs for delete using (true);
 grant all on public.docs to anon, authenticated;
 \set content `cat __DOCS__`
-insert into public.docs select x->>'c', x->>'i', x->'d', (x->>'u')::timestamptz from jsonb_array_elements(:'content'::jsonb) x;
+insert into public.docs select x->>'c', x->>'i', x->'d', coalesce((x->>'u')::timestamptz, now()) from jsonb_array_elements(:'content'::jsonb) x;
 \set content `cat __USERS__`
 insert into auth.users (id,aud,role,email,email_confirmed_at,last_sign_in_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at,is_sso_user,is_anonymous)
   select (x->>'id')::uuid, x->>'aud', x->>'role', x->>'email', (x->>'email_confirmed_at')::timestamptz, (x->>'last_sign_in_at')::timestamptz,
@@ -68,6 +68,10 @@ chk "אין פרופילים לבדיקה ידנית" "0" "$("${P[@]}" -c "selec
 chk "הגיבוי הידני מ-9.10 לא השתנה" "$MAN" "$("${P[@]}" -c "select md5(string_agg(collection||'|'||id, ',' order by collection,id)) from hdm_backup.docs_20261009")"
 chk "משתמשי Auth לא נמחקו" "$(jq length "$W/users1.json")" "$("${P[@]}" -c "select count(*) from auth.users where id in (select (x->>'id')::uuid from jsonb_array_elements('$(cat "$W/users1.json" | jq -c '[.[]|{id}]')'::jsonb) x)")"
 chk "anon לא יכול לקרוא תאריכי לידה" "f" "$("${P[@]}" -c "select has_table_privilege('anon','public.hdm_profile_private','select')")"
+if PL=$("${P[@]}" -f "$ROOT/supabase/production/03_existing_accounts_plus.sql" 2>&1); then chk "Plus לחשבונות הקיימים רץ" ok ok; else chk "Plus לחשבונות הקיימים רץ" ok "שגיאה"; ann error "sim-plus-error" "$(printf '%s' "$PL" | tail -5)"; fi
+chk "4 מנויי Plus פעילים" "4" "$("${P[@]}" -c "select count(*) from public.hdm_subscriptions where plan='plus' and status='active'")"
+"${P[@]}" -f "$ROOT/supabase/production/03_existing_accounts_plus.sql" >/dev/null 2>&1 || true
+chk "הרצה חוזרת של Plus לא מוסיפה" "4" "$("${P[@]}" -c "select count(*) from public.hdm_subscriptions")"
 STATS=$("${P[@]}" -c "select 'interests='||(select count(*) from public.docs where collection='interests')||' chats='||(select count(*) from public.docs where collection='chats')||' subs='||(select count(*) from public.hdm_subscriptions)||' policies='||(select count(*) from pg_policies where schemaname='public')")
 ann notice "sim-after" "$STATS"
 if RB=$("${P[@]}" -f "$ROOT/supabase/production/99_production_rollback.sql" 2>&1); then chk "ביטול (rollback) רץ" ok ok; else chk "ביטול (rollback) רץ" ok "שגיאה"; ann error "sim-rollback-error" "$(printf '%s' "$RB" | tail -5)"; fi
