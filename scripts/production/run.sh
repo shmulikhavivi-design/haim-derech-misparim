@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -402,6 +402,37 @@ if [ "$MODE" = "smoke" ]; then
   set +e; OUT=$(python3 "$HERE/smoke.py" 2>&1); RC=$?; set -e
   ann notice "prod-smoke" "$(printf '%s' "$OUT" | tail -c 3500)"
   [ $RC = 0 ] && ann notice "prod-result" "✅ smoke: כל הבדיקות עברו (לא נוצר חשבון, לא נכתבו נתונים)" || stop "smoke: בדיקה אחת או יותר נכשלה (לא נוצר חשבון)"
+  exit 0
+fi
+
+# ---- emailcheck: קריאה בלבד — איפה מופיע האימייל השגוי (.con) של פרופיל נועה, והאם הכתובת המתוקנת תפוסה. כתובות מוסתרות.
+if [ "$MODE" = "emailcheck" ]; then
+  [ -n "$TOK" ] || stop "חסר טוקן"
+  Q=$(cat <<'SQL'
+with t as (select 'reg_muv7ffi3345nmx'::text as pid),
+ a as (select l.email as bad, regexp_replace(l.email, '\.con$', '.com') as good from public.hdm_legacy_accounts l, t where l.profile_id = t.pid)
+select jsonb_build_object(
+ 'profile_name', (select d.data->>'currentName' from public.docs d, t where d.collection='profiles' and d.id=t.pid),
+ 'legacy_email_ends_con', (select bad ~ '\.con$' from a),
+ 'legacy_masked', (select left(bad,2)||'***@'||split_part(bad,'@',2) from a),
+ 'auth_users_with_bad', (select count(*) from auth.users u, a where lower(u.email)=lower(a.bad)),
+ 'auth_user_meta_profile', (select jsonb_build_object('app', u.raw_app_meta_data - 'provider' - 'providers', 'user_profile', u.raw_user_meta_data->>'profile_id', 'confirmed', u.email_confirmed_at is not null, 'last_sign_in', u.last_sign_in_at) from auth.users u, a where lower(u.email)=lower(a.bad)),
+ 'identities_with_bad', (select count(*) from auth.identities i, a where lower(i.identity_data->>'email')=lower(a.bad)),
+ 'identities_provider', (select jsonb_agg(jsonb_build_object('provider', i.provider, 'provider_id_is_email', lower(i.provider_id)=lower(a.bad))) from auth.identities i, a where lower(i.identity_data->>'email')=lower(a.bad)),
+ 'docs_rows_containing_bad', (select jsonb_agg(jsonb_build_object('collection', d.collection, 'id_contains', position(lower(a.bad) in lower(d.id))>0)) from public.docs d, a where position(lower(a.bad) in lower(d.data::text))>0 or position(lower(a.bad) in lower(d.id))>0),
+ 'private_rows_containing_bad', (select count(*) from public.hdm_profile_private p, a where position(lower(a.bad) in lower(to_jsonb(p)::text))>0),
+ 'other_hdm_tables_containing_bad', (select count(*) from public.hdm_legacy_review r, a where position(lower(a.bad) in lower(to_jsonb(r)::text))>0),
+ 'conflict_auth_users_with_good', (select count(*) from auth.users u, a where lower(u.email)=lower(a.good)),
+ 'conflict_identities_with_good', (select count(*) from auth.identities i, a where lower(i.identity_data->>'email')=lower(a.good)),
+ 'conflict_legacy_with_good', (select count(*) from public.hdm_legacy_accounts l, a where lower(l.email)=lower(a.good)),
+ 'conflict_docs_with_good', (select count(*) from public.docs d, a where position(lower(a.good) in lower(d.data::text))>0 or position(lower(a.good) in lower(d.id))>0),
+ 'all_emails_ending_con', (select count(*) from auth.users where email ~ '\.con$')
+) as r
+SQL
+)
+  C=$(curl -sS -m 60 -o /tmp/ec.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+  ann notice "prod-emailcheck" "HTTP $C $(jq -c 'if type=="array" then .[0].r else . end' /tmp/ec.json 2>/dev/null | cut -c1-3500)"
+  ann notice "prod-result" "emailcheck הסתיים — קריאה בלבד"
   exit 0
 fi
 
