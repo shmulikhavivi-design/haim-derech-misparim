@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -404,6 +404,15 @@ if [ "$MODE" = "smoke" ]; then
   ann notice "prod-smoke" "$(printf '%s' "$OUT" | tail -c 3500)"
   [ $RC = 0 ] && ann notice "prod-result" "✅ smoke: כל הבדיקות עברו (לא נוצר חשבון, לא נכתבו נתונים)" || stop "smoke: בדיקה אחת או יותר נכשלה (לא נוצר חשבון)"
   exit 0
+fi
+
+# ---- testcleanup: מוחק רק את חשבון הבדיקה הלא מאומת שנשאר מבדיקת הקצה (05). אחריו testcheck לקריאה בלבד.
+if [ "$MODE" = "testcleanup" ]; then
+  Q=$(cat "$ROOT/supabase/production/05_cleanup_e2e_test_user.sql")
+  C=$(curl -sS -m 60 -o /tmp/tc.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+  ann notice "prod-testcleanup" "HTTP $C $(jq -c '.' /tmp/tc.json 2>/dev/null | cut -c1-600)"
+  { [ "$C" = 200 ] || [ "$C" = 201 ]; } || stop "testcleanup נכשל — שום דבר לא נשמר. HTTP $C"
+  MODE=testcheck
 fi
 
 # ---- testcheck: קריאה בלבד — מה נשאר מחשבונות בדיקת הקצה (דומיין זמני), והאם תאריך לידה חשוף בפרופיל ציבורי
