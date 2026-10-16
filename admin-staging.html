@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#FBF3F0">
+<title>לוח ניהול — חיים דרך מספרים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBF3F0; --bg2:#F5E6E1; --card:#FFFFFF; --card2:#F7E8E3;
+    --gold:#B8737C; --gold-soft:#EBC7CB; --ink:#3B2429; --muted:#8A6A6E;
+    --line:#EAD9D4; --ok:#4E7D5B; --warn:#A8642A; --male:#6E7FA8; --female:#B8737C; --other:#9C8F7D;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Heebo',sans-serif; -webkit-text-size-adjust:100%; }
+  body{ padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  .wrap{ max-width:720px; margin:0 auto; }
+  h1,h2{ font-family:'Frank Ruhl Libre',serif; margin:0; }
+  h1{ font-size:24px; }
+  h2{ font-size:18px; margin:22px 0 10px; }
+  .top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .sub{ color:var(--muted); font-size:13px; margin-top:4px; }
+  .env{ display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; background:var(--gold-soft); color:var(--ink); margin-inline-start:6px; vertical-align:middle; }
+  button{ font-family:'Heebo'; font-size:15px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); padding:9px 12px; min-height:44px; }
+  button.primary{ background:var(--gold); border-color:var(--gold); color:#fff; font-weight:700; width:100%; }
+  .grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; }
+  @media (min-width:560px){ .grid{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+  .tile{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+  .tile .k{ font-size:13px; color:var(--muted); }
+  .tile .v{ font-size:26px; font-weight:700; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .tile .s{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .bar{ display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--bg2); margin:8px 0; }
+  .bar span{ display:block; height:100%; }
+  .legend{ display:flex; flex-wrap:wrap; gap:6px 14px; font-size:13px; }
+  .dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-inline-end:5px; vertical-align:-1px; }
+  .rows{ display:flex; flex-direction:column; gap:8px; }
+  .row{ display:grid; grid-template-columns:64px 1fr 40px; align-items:center; gap:8px; font-size:14px; }
+  .row .track{ height:10px; background:var(--bg2); border-radius:5px; overflow:hidden; }
+  .row .fill{ height:100%; background:var(--gold); }
+  .row .n{ text-align:left; font-variant-numeric:tabular-nums; }
+  .note{ font-size:13px; color:var(--muted); line-height:1.5; }
+  .notice{ background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:14px; line-height:1.5; }
+  .notice.warn{ border-color:#E6C9A8; background:#FBF0E4; }
+  form{ display:flex; flex-direction:column; gap:10px; margin-top:16px; }
+  label{ font-size:14px; color:var(--muted); }
+  input{ font-family:'Heebo'; font-size:16px; padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); width:100%; }
+  .hidden{ display:none !important; }
+  .err{ color:#9B2C2C; font-size:14px; min-height:20px; }
+  .plans .tile .v{ font-size:22px; }
+  /* גיל ומין */
+  .seg{ display:flex; background:var(--bg2); border-radius:12px; padding:3px; gap:3px; }
+  .seg button{ flex:1; border:0; background:transparent; min-height:40px; padding:6px 4px; font-size:15px; }
+  .seg button[aria-pressed="true"]{ background:var(--card); font-weight:700; box-shadow:0 1px 2px rgba(59,36,41,.12); }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chips button{ min-height:38px; padding:6px 12px; border-radius:999px; font-size:14px; font-variant-numeric:tabular-nums; }
+  .chips button[aria-pressed="true"]{ background:var(--gold); border-color:var(--gold); color:#fff; font-weight:700; }
+  .ag-sum{ margin:12px 0 4px; font-size:15px; }
+  .ag-sum b{ font-size:20px; font-variant-numeric:tabular-nums; }
+  .ag-chart{ display:flex; flex-direction:column; gap:9px; margin-top:8px; }
+  .ag-row{ display:grid; grid-template-columns:48px 1fr 36px; align-items:center; gap:8px; font-size:14px; }
+  .ag-row .lbl{ direction:ltr; text-align:right; font-variant-numeric:tabular-nums; }
+  .ag-row .track{ display:flex; height:16px; background:var(--bg2); border-radius:8px; overflow:hidden; }
+  .ag-row .track span{ display:block; height:100%; }
+  .ag-row .n{ text-align:left; font-variant-numeric:tabular-nums; font-weight:700; }
+  table.ag{ width:100%; border-collapse:collapse; margin-top:14px; font-size:14px; font-variant-numeric:tabular-nums; }
+  table.ag th, table.ag td{ padding:8px 4px; border-bottom:1px solid var(--line); text-align:center; }
+  table.ag th:first-child, table.ag td:first-child{ text-align:right; }
+  table.ag td:first-child{ direction:ltr; unicode-bidi:plaintext; }
+  table.ag th{ color:var(--muted); font-weight:500; }
+  table.ag tfoot td{ font-weight:700; border-bottom:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>לוח ניהול <span class="env" id="env-tag">Staging</span></h1>
+      <div class="sub" id="updated">—</div>
+    </div>
+    <div id="top-actions" class="hidden">
+      <button type="button" onclick="load()" aria-label="רענון">↻ רענון</button>
+    </div>
+  </div>
+
+  <!-- כניסה -->
+  <section id="login" class="hidden">
+    <form onsubmit="event.preventDefault(); signIn();">
+      <div class="notice">כניסה בחשבון המנהל של האפליקציה (אותו אימייל וסיסמה).</div>
+      <label for="em">אימייל</label>
+      <input id="em" type="email" autocomplete="username" inputmode="email" required>
+      <label for="pw">סיסמה</label>
+      <input id="pw" type="password" autocomplete="current-password" required>
+      <div class="err" id="login-err"></div>
+      <button class="primary" type="submit" id="login-btn">כניסה</button>
+    </form>
+  </section>
+
+  <!-- אין הרשאה -->
+  <section id="denied" class="hidden">
+    <div class="notice warn" style="margin-top:16px">החשבון הזה אינו מורשה ללוח הניהול. ההרשאה נבדקת בשרת.</div>
+    <div style="margin-top:12px"><button type="button" onclick="signOut()">התנתקות</button></div>
+  </section>
+
+  <div id="loading" class="sub" style="margin-top:16px">טוען…</div>
+  <div class="err" id="load-err"></div>
+
+  <!-- הלוח -->
+  <main id="dash" class="hidden">
+    <h2>משתמשים</h2>
+    <div class="grid">
+      <div class="tile"><div class="k">סך המשתמשים הרשומים</div><div class="v" id="u-total">—</div><div class="s" id="u-login">—</div></div>
+      <div class="tile"><div class="k">מחוברים כרגע</div><div class="v" id="u-online">—</div><div class="s" id="u-online-s">פעילים בשעה האחרונה</div></div>
+      <div class="tile"><div class="k">חדשים היום</div><div class="v" id="u-today">—</div></div>
+      <div class="tile"><div class="k">חדשים השבוע</div><div class="v" id="u-week">—</div><div class="s">מיום ראשון</div></div>
+      <div class="tile"><div class="k">חדשים החודש</div><div class="v" id="u-month">—</div></div>
+      <div class="tile"><div class="k">פעילים ב-24 שעות</div><div class="v" id="u-a24">—</div></div>
+      <div class="tile"><div class="k">פעילים ב-30 יום</div><div class="v" id="u-a30">—</div></div>
+    </div>
+    <p class="note" id="u-defs"></p>
+
+    <h2>מין</h2>
+    <div class="card">
+      <div class="bar" id="g-bar" role="img"></div>
+      <div class="legend" id="g-legend"></div>
+    </div>
+
+    <h2>גיל ומין</h2>
+    <section class="card" id="ag" aria-label="פילוח לפי גיל ומין">
+      <div class="seg" role="group" aria-label="סינון לפי מין" id="ag-gender">
+        <button type="button" data-g="all" aria-pressed="true">כולם</button>
+        <button type="button" data-g="male" aria-pressed="false">גברים</button>
+        <button type="button" data-g="female" aria-pressed="false">נשים</button>
+      </div>
+      <div class="chips" role="group" aria-label="סינון לפי טווח גיל" id="ag-ages"></div>
+      <div class="ag-sum" id="ag-sum" aria-live="polite">—</div>
+      <div class="ag-chart" id="ag-chart" role="img"></div>
+      <div class="legend" id="ag-legend" style="margin-top:10px"></div>
+      <table class="ag" id="ag-table">
+        <thead><tr><th scope="col">טווח</th><th scope="col" data-c="male">גברים</th><th scope="col" data-c="female">נשים</th><th scope="col" data-c="other">אחר</th><th scope="col" data-c="total">סך הכול</th></tr></thead>
+        <tbody></tbody>
+        <tfoot><tr><td>סה״כ בבחירה</td><td data-c="male"></td><td data-c="female"></td><td data-c="other"></td><td data-c="total"></td></tr></tfoot>
+      </table>
+      <p class="note" id="ag-note" style="margin-top:10px"></p>
+    </section>
+
+    <h2>מנויים</h2>
+    <div class="grid plans" id="plans"></div>
+    <div class="grid" style="margin-top:10px">
+      <div class="tile"><div class="k">מנויים משלמים פעילים</div><div class="v" id="s-paying">—</div><div class="s">ממערכת תשלום בלבד</div></div>
+      <div class="tile"><div class="k">מסלול בתשלום שהוגדר ידנית</div><div class="v" id="s-manual">—</div><div class="s">ללא חיוב — לא הכנסה</div></div>
+      <div class="tile"><div class="k">בוטלו (עדיין בתוקף)</div><div class="v" id="s-cancel">—</div><div class="s" id="s-cancel30">—</div></div>
+      <div class="tile"><div class="k">פג תוקפם</div><div class="v" id="s-expired">—</div><div class="s" id="s-expired30">—</div></div>
+    </div>
+
+    <h2>הכנסות</h2>
+    <div class="grid">
+      <div class="tile"><div class="k">הכנסות בפועל (עסקאות מאומתות)</div><div class="v" id="r-total">—</div><div class="s" id="r-tx">—</div></div>
+      <div class="tile"><div class="k">הכנסה חודשית חוזרת (MRR)</div><div class="v" id="r-mrr">—</div><div class="s">ממנויים משלמים פעילים</div></div>
+    </div>
+    <div class="notice warn hidden" id="r-note" style="margin-top:10px"></div>
+
+    <h2>פעילות באפליקציה</h2>
+    <div class="grid">
+      <div class="tile"><div class="k">סימוני 🎯</div><div class="v" id="a-targets">—</div><div class="s" id="a-targets30">—</div></div>
+      <div class="tile"><div class="k">התאמות הדדיות</div><div class="v" id="a-mutual">—</div></div>
+      <div class="tile"><div class="k">שיחות שנפתחו</div><div class="v" id="a-chats">—</div><div class="s" id="a-chats30">—</div></div>
+      <div class="tile"><div class="k">דיווחים</div><div class="v" id="a-reports">—</div><div class="s" id="a-reports30">—</div></div>
+      <div class="tile"><div class="k">חסימות</div><div class="v" id="a-blocks">—</div></div>
+    </div>
+
+    <p class="note" style="margin-top:20px">כל המספרים מחושבים בשרת מהנתונים הקיימים. לא מוצגים שמות, אימיילים, תאריכי לידה או תוכן שיחות.</p>
+    <div style="margin-top:8px"><button type="button" onclick="signOut()">התנתקות</button></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+  // ===== הגדרות: פרויקט Staging =====
+  var SUPABASE_URL = 'https://ousepgdvzammgkxkweze.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_UXJrkbmi6h3j3Yvaey5Nvw_HIDJOy40';   // מפתח ציבורי (לא סוד)
+  var STORAGE_KEY  = 'hdm-stg-auth-session';                               // אותה התחברות כמו באפליקציה
+  var ENV_LABEL    = 'Staging';
+
+  var $ = function(id){ return document.getElementById(id); };
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: STORAGE_KEY }
+  });
+  $('env-tag').textContent = ENV_LABEL;
+  if(!ENV_LABEL) $('env-tag').classList.add('hidden');
+
+  var nf = new Intl.NumberFormat('he-IL');
+  function n(x){ return (x === null || x === undefined) ? '—' : nf.format(x); }
+  function ils(agorot){ return (agorot === null || agorot === undefined) ? '—' : '₪' + (agorot / 100).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function show(id){ ['login','denied','dash','loading'].forEach(function(s){ $(s).classList.toggle('hidden', s !== id); });
+                     $('top-actions').classList.toggle('hidden', id !== 'dash'); }
+  function setText(id, v){ $(id).textContent = v; }
+
+  async function start(){
+    var s = (await sb.auth.getSession()).data.session;
+    if(!s){ show('login'); return; }
+    await load();
+  }
+
+  async function signIn(){
+    $('login-err').textContent = ''; $('login-btn').disabled = true;
+    try{
+      var r = await sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value });
+      if(r.error){ $('login-err').textContent = /confirm/i.test(r.error.message) ? 'האימייל עדיין לא אומת.' : 'אימייל או סיסמה שגויים.'; return; }
+      $('pw').value = '';
+      await load();
+    } finally { $('login-btn').disabled = false; }
+  }
+
+  async function signOut(){ try{ await sb.auth.signOut(); }catch(e){} location.reload(); }
+
+  async function load(){
+    $('load-err').textContent = '';
+    show('loading');
+    // ההרשאה נבדקת בשרת: הפונקציה נעצרת לכל מי שאינו מנהל
+    var r = await sb.rpc('hdm_admin_dashboard');
+    if(r.error){
+      var m = (r.error.message || '') + ' ' + (r.error.code || '');
+      if(/HDM_NOT_ADMIN|42501/.test(m)){ show('denied'); return; }
+      if(/JWT|session|401/i.test(m)){ show('login'); return; }
+      ['login','denied','dash','loading'].forEach(function(x){ $(x).classList.add('hidden'); });
+      $('load-err').textContent = 'הנתונים לא נטענו. נסו לרענן.'; return;
+    }
+    render(r.data); show('dash');
+    loadAges(); loadLive();
+  }
+
+  // ===== רשומים ומחוברים כרגע (hdm_admin_live) — מתעדכן כל דקה כשהדף פתוח =====
+  async function loadLive(){
+    var r = await sb.rpc('hdm_admin_live');
+    if(r.error || !r.data){ setText('u-online', '—'); setText('u-online-s', 'לא זמין כרגע'); return; }
+    setText('u-online', n(r.data.onlineNow));
+    setText('u-online-s', 'פעילים ב-' + n(r.data.windowMinutes) + ' הדקות האחרונות');
+    if(r.data.registered !== undefined) setText('u-total', n(r.data.registered));
+  }
+  setInterval(function(){
+    if(document.visibilityState === 'visible' && !$('dash').classList.contains('hidden')) loadLive();
+  }, 60000);
+
+  // ===== גיל ומין: מספרים מצטברים מהשרת (hdm_admin_age_gender), סינון בדפדפן =====
+  var AG = { data: null, gender: 'all', ages: {} };
+  var AG_KEYS = ['18-24','25-34','35-44','45-54','55-64','65+'];
+  var AG_LABEL = { '18-24':'18–24', '25-34':'25–34', '35-44':'35–44', '45-54':'45–54', '55-64':'55–64', '65+':'65+' };
+  AG_KEYS.forEach(function(k){ AG.ages[k] = true; });
+
+  async function loadAges(){
+    var r = await sb.rpc('hdm_admin_age_gender');
+    if(r.error){
+      AG.data = null;
+      $('ag-sum').textContent = /HDM_NOT_ADMIN|42501/.test((r.error.message || '') + (r.error.code || '')) ? 'אין הרשאה.' : 'הפילוח לא זמין כרגע.';
+      ['ag-chart','ag-legend','ag-note'].forEach(function(id){ $(id).innerHTML = ''; });
+      $('ag-table').classList.add('hidden'); return;
+    }
+    AG.data = r.data; $('ag-table').classList.remove('hidden');
+    renderAges();
+  }
+
+  function agBuild(){
+    var box = $('ag-ages'); box.innerHTML = '';
+    var all = document.createElement('button'); all.type = 'button'; all.dataset.a = 'all'; all.textContent = 'כל הגילאים';
+    box.appendChild(all);
+    AG_KEYS.forEach(function(k){
+      var b = document.createElement('button'); b.type = 'button'; b.dataset.a = k;
+      b.textContent = AG_LABEL[k]; b.dir = 'ltr'; box.appendChild(b);
+    });
+    box.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if(!b) return;
+      var k = b.dataset.a;
+      if(k === 'all'){ AG_KEYS.forEach(function(x){ AG.ages[x] = true; }); }
+      else {
+        var allOn = AG_KEYS.every(function(x){ return AG.ages[x]; });
+        if(allOn){ AG_KEYS.forEach(function(x){ AG.ages[x] = (x === k); }); }   // לחיצה ראשונה: רק הטווח הזה
+        else { AG.ages[k] = !AG.ages[k]; if(!AG_KEYS.some(function(x){ return AG.ages[x]; })) AG_KEYS.forEach(function(x){ AG.ages[x] = true; }); }
+      }
+      renderAges();
+    });
+    $('ag-gender').addEventListener('click', function(e){
+      var b = e.target.closest('button'); if(!b) return;
+      AG.gender = b.dataset.g; renderAges();
+    });
+  }
+  agBuild();
+
+  function renderAges(){
+    var d = AG.data; if(!d) return;
+    var g = AG.gender;
+    Array.prototype.forEach.call($('ag-gender').children, function(b){ b.setAttribute('aria-pressed', String(b.dataset.g === g)); });
+    var allOn = AG_KEYS.every(function(x){ return AG.ages[x]; });
+    Array.prototype.forEach.call($('ag-ages').children, function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.a === 'all' ? allOn : (!allOn && AG.ages[b.dataset.a])));
+    });
+
+    var rows = (d.buckets || []).filter(function(b){ return AG.ages[b.key]; });
+    var hasOther = (d.buckets || []).some(function(b){ return b.other > 0; });
+    var val = function(b){ return g === 'all' ? b.total : b[g]; };
+    var sum = { male:0, female:0, other:0, total:0 };
+    rows.forEach(function(b){ ['male','female','other','total'].forEach(function(f){ sum[f] += b[f] || 0; }); });
+
+    // סיכום
+    var who = g === 'male' ? 'גברים' : g === 'female' ? 'נשים' : 'משתמשים';
+    var range = allOn ? 'בכל הגילאים' : 'בגילאי ' + rows.map(function(b){ return AG_LABEL[b.key]; }).join(', ');
+    var sumEl = $('ag-sum'); sumEl.innerHTML = '';
+    var bEl = document.createElement('b'); bEl.textContent = n(g === 'all' ? sum.total : sum[g]); sumEl.appendChild(bEl);
+    sumEl.appendChild(document.createTextNode(' ' + who + ' ' + range + (g === 'all' ? ' · גברים ' + n(sum.male) + ' · נשים ' + n(sum.female) + (sum.other ? ' · אחר ' + n(sum.other) : '') : '')));
+    sumEl.querySelector('b').dir = 'ltr';
+
+    // גרף: פס מוערם לכל טווח (גברים / נשים / אחר), לפי הסינון
+    var parts = g === 'all' ? [['male','var(--male)'],['female','var(--female)'],['other','var(--other)']] : [[g, g === 'male' ? 'var(--male)' : 'var(--female)']];
+    var mx = Math.max.apply(null, rows.map(val).concat([1]));
+    var ch = $('ag-chart'); ch.innerHTML = '';
+    rows.forEach(function(b){
+      var row = document.createElement('div'); row.className = 'ag-row'; row.dataset.key = b.key;
+      row.innerHTML = '<span class="lbl"></span><div class="track"></div><span class="n"></span>';
+      row.children[0].textContent = AG_LABEL[b.key];
+      parts.forEach(function(p){
+        if(!b[p[0]]) return;
+        var sp = document.createElement('span'); sp.style.width = (100 * b[p[0]] / mx) + '%'; sp.style.background = p[1];
+        row.children[1].appendChild(sp);
+      });
+      row.children[2].textContent = n(val(b));
+      ch.appendChild(row);
+    });
+    ch.setAttribute('aria-label', rows.map(function(b){ return AG_LABEL[b.key] + ': ' + val(b); }).join(', '));
+    var lg = $('ag-legend'); lg.innerHTML = '';
+    parts.forEach(function(p){
+      if(p[0] === 'other' && !hasOther) return;
+      var it = document.createElement('div'); it.innerHTML = '<span class="dot"></span>'; it.firstChild.style.background = p[1];
+      it.appendChild(document.createTextNode({ male:'גברים', female:'נשים', other:'אחר / לא צוין' }[p[0]])); lg.appendChild(it);
+    });
+
+    // טבלה
+    var cols = g === 'all' ? ['male','female'].concat(hasOther ? ['other'] : []).concat(['total']) : [g];
+    var tb = $('ag-table').tBodies[0]; tb.innerHTML = '';
+    rows.forEach(function(b){
+      var tr = document.createElement('tr'); var th = document.createElement('td'); th.textContent = AG_LABEL[b.key]; tr.appendChild(th);
+      cols.forEach(function(c){ var td = document.createElement('td'); td.dataset.c = c; td.textContent = n(b[c]); tr.appendChild(td); });
+      tb.appendChild(tr);
+    });
+    $('ag-table').querySelectorAll('thead th[data-c], tfoot td[data-c]').forEach(function(el){
+      var on = cols.indexOf(el.dataset.c) >= 0; el.classList.toggle('hidden', !on);
+      if(on && el.tagName === 'TD') el.textContent = n(sum[el.dataset.c]);
+    });
+    // סדר העמודות בכותרת/סיכום זהה לסדר בגוף הטבלה (male, female, other, total)
+
+    var notes = [];
+    var o = d.outside || {};
+    if(o.noBirthdate) notes.push(n(o.noBirthdate) + ' פרופילים בלי תאריך לידה אינם נכללים בטווחים.');
+    if(o.under18) notes.push(n(o.under18) + ' פרופילים מתחת לגיל 18.');
+    notes.push('הגיל מחושב בשרת מתאריך הלידה, לפי שעון ישראל. מוצגים מספרים בלבד.');
+    $('ag-note').textContent = notes.join(' ');
+  }
+
+  function render(d){
+    var u = d.users || {}, s = d.subscriptions || {}, a = d.activity || {};
+    var t = new Date(d.generatedAt);
+    setText('updated', 'עודכן ' + t.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', dateStyle: 'short', timeStyle: 'short' }));
+
+    setText('u-total', n(u.total));
+    setText('u-login', n(u.withLogin) + ' עם חשבון התחברות');
+    setText('u-today', n(u.newToday)); setText('u-week', n(u.newWeek)); setText('u-month', n(u.newMonth));
+    setText('u-a24', n(u.active24h)); setText('u-a30', n(u.active30d));
+    var defs = 'פעיל = כניסה או רענון התחברות בפועל בטווח הזמן.';
+    if(u.activityUnknown) defs += ' ל-' + n(u.activityUnknown) + ' פרופילים אין נתוני פעילות (בלי חשבון התחברות).';
+    if(u.joinedUnknown)   defs += ' ל-' + n(u.joinedUnknown) + ' פרופילים אין תאריך הצטרפות.';
+    setText('u-defs', defs);
+
+    // מין
+    var total = u.total || 0, parts = [
+      ['גברים', u.male, 'var(--male)'], ['נשים', u.female, 'var(--female)'],
+      ['אחר', u.other, 'var(--other)'], ['לא צוין', u.genderUnknown, 'var(--line)']];
+    var bar = $('g-bar'), lg = $('g-legend'); bar.innerHTML = ''; lg.innerHTML = '';
+    parts.forEach(function(p){
+      if(!p[1]) return;
+      var pct = total ? (100 * p[1] / total) : 0;
+      var sp = document.createElement('span'); sp.style.width = pct + '%'; sp.style.background = p[2]; bar.appendChild(sp);
+      var it = document.createElement('div');
+      it.innerHTML = '<span class="dot"></span>'; it.firstChild.style.background = p[2];
+      it.appendChild(document.createTextNode(p[0] + ': ' + n(p[1]) + ' (' + pct.toFixed(1) + '%)'));
+      lg.appendChild(it);
+    });
+    if(!total) lg.textContent = 'אין עדיין משתמשים.';
+    bar.setAttribute('aria-label', 'גברים ' + (u.malePct || 0) + '%, נשים ' + (u.femalePct || 0) + '%');
+
+    // מסלולים
+    var names = { free: 'חינם', basic: 'בסיסי', plus: 'פלוס', vip: 'VIP' };
+    var pl = $('plans'); pl.innerHTML = '';
+    ['free','basic','plus','vip'].forEach(function(k){
+      var el = document.createElement('div'); el.className = 'tile';
+      el.innerHTML = '<div class="k"></div><div class="v"></div><div class="s"></div>';
+      el.children[0].textContent = names[k];
+      el.children[1].textContent = n((s.byPlan || {})[k] || 0);
+      el.children[2].textContent = ils((s.prices || {})[k]) + ' לחודש';
+      pl.appendChild(el);
+    });
+    setText('s-paying', n(s.payingActive)); setText('s-manual', n(s.manualActive));
+    setText('s-cancel', n(s.canceledStillValid)); setText('s-cancel30', n(s.canceled30d) + ' ביטולים ב-30 יום');
+    setText('s-expired', n(s.expired)); setText('s-expired30', n(s.expired30d) + ' פקיעות ב-30 יום');
+
+    // הכנסות — רק מעסקאות מאומתות. בלי מערכת תשלום לא מוצג מספר
+    var pay = s.payments || {};
+    if(pay.connected){
+      setText('r-total', ils(pay.revenueAgorot)); setText('r-tx', n(pay.verifiedTransactions) + ' עסקאות מאומתות');
+      $('r-note').classList.add('hidden');
+    } else {
+      setText('r-total', 'אין נתונים'); setText('r-tx', 'מערכת תשלום לא מחוברת');
+      $('r-note').textContent = 'אין עדיין חיוב אמיתי: מנויים מוגדרים ידנית ואינם נספרים כהכנסה. ההכנסות וה-MRR יוצגו אחרי חיבור מערכת תשלום.';
+      $('r-note').classList.remove('hidden');
+    }
+    setText('r-mrr', pay.connected ? ils(s.mrrAgorot) : 'אין נתונים');
+
+    // פעילות
+    setText('a-targets', n(a.targets)); setText('a-targets30', n(a.targets30d) + ' ב-30 יום');
+    setText('a-mutual', n(a.mutual));
+    setText('a-chats', n(a.chats)); setText('a-chats30', n(a.chats30d) + ' ב-30 יום');
+    setText('a-reports', n(a.reports)); setText('a-reports30', n(a.reports30d) + ' ב-30 יום');
+    setText('a-blocks', n(a.blocks));
+  }
+
+  start();
+</script>
+</body>
+</html>
