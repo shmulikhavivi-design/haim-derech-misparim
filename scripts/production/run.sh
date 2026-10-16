@@ -430,7 +430,7 @@ select jsonb_build_object(
 SQL
 )
   C=$(curl -sS -m 60 -o /tmp/pp.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
-  ann notice "prod-plusplan" "HTTP $C $(jq -c '.[0].r // .' /tmp/pp.json 2>/dev/null | cut -c1-3500)"
+  ann notice "prod-plusplan" "HTTP $C $(jq -c 'if type=="array" then .[0].r else . end' /tmp/pp.json 2>/dev/null | cut -c1-3500)"
   ann notice "prod-result" "plusplan הסתיים — קריאה בלבד"
   exit 0
 fi
