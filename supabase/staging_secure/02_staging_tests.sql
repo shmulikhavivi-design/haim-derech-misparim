@@ -287,8 +287,8 @@ begin
     t_exp := t_exp || text 'ok:true'; t_got := t_got || r;
 
     r := pg_temp.as_user(uP, format($q$ select public.hdm_extended_analysis(%L)::text $q$, B));
-    t_area := t_area || text 'פלוס'; t_name := t_name || text 'ניתוח מורחב לא נפתח לפני הדדיות';
-    t_exp := t_exp || text 'err:HDM_NOT_MUTUAL'; t_got := t_got || r;
+    t_area := t_area || text 'פלוס'; t_name := t_name || text 'אין ניתוח מורחב (VIP בלבד)';
+    t_exp := t_exp || text 'err:HDM_PLAN_REQUIRED'; t_got := t_got || r;
 
     for i in 1 .. 7 loop
       perform pg_temp.as_user(uP, format($q$ select public.hdm_send_target(%L)::text $q$, Q[i]));
@@ -298,13 +298,9 @@ begin
     t_area := t_area || text 'פלוס'; t_name := t_name || text '7 שיחות חדשות בחודש — ללא הגבלה';
     t_exp := t_exp || text 'ok:7/ללא הגבלה'; t_got := t_got || r;
 
-    r := pg_temp.as_user(uP, format($q$ select (public.hdm_extended_analysis(%L) ? 'categories')::text $q$, Q[1]));
-    t_area := t_area || text 'פלוס'; t_name := t_name || text 'ניתוח מורחב נפתח אחרי 🎯 הדדי';
-    t_exp := t_exp || text 'ok:true'; t_got := t_got || r;
-
-    r := pg_temp.as_user(uP, format($q$ select (public.hdm_extended_analysis(%L)::text like '%%1979%%' or public.hdm_extended_analysis(%L)::text like '%%יוסי%%')::text $q$, Q[1], Q[1]));
-    t_area := t_area || text 'פרטיות'; t_name := t_name || text 'הניתוח המורחב לא חושף תאריך לידה או שם מלידה';
-    t_exp := t_exp || text 'ok:false'; t_got := t_got || r;
+    r := pg_temp.as_user(uP, format($q$ select public.hdm_extended_analysis(%L)::text $q$, Q[1]));
+    t_area := t_area || text 'פלוס'; t_name := t_name || text 'גם אחרי 🎯 הדדי אין ניתוח מורחב (VIP בלבד)';
+    t_exp := t_exp || text 'err:HDM_PLAN_REQUIRED'; t_got := t_got || r;
 
     -- ================= VIP =================
     r := pg_temp.as_user(uV, format($q$ select public.hdm_extended_analysis(%L)::text $q$, Q[7]));
@@ -318,6 +314,10 @@ begin
     r := pg_temp.as_user(uV, format($q$ select (public.hdm_extended_analysis(%L)->>'limorDiscountPct') $q$, F));
     t_area := t_area || text 'VIP'; t_name := t_name || text 'ניתוח מורחב מיד אחרי 🎯, עם הנחת 30% אצל לימור רון';
     t_exp := t_exp || text 'ok:30'; t_got := t_got || r;
+
+    r := pg_temp.as_user(uV, format($q$ select (public.hdm_extended_analysis(%L)::text like '%%1990-07-03%%' or public.hdm_extended_analysis(%L)::text like '%%דנה%%')::text $q$, F, F));
+    t_area := t_area || text 'פרטיות'; t_name := t_name || text 'הניתוח המורחב לא חושף תאריך לידה או שם מלידה';
+    t_exp := t_exp || text 'ok:false'; t_got := t_got || r;
 
     r := pg_temp.as_user(uV, $q$ select (public.hdm_my_entitlements()->>'limorDiscountPct') || '/' || (public.hdm_my_entitlements()->>'priceAgorot') $q$);
     t_area := t_area || text 'VIP'; t_name := t_name || text 'מסך המנוי: 30% הנחה, ₪79.90';

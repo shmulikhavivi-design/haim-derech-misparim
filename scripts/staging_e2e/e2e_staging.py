@@ -11,6 +11,7 @@
 # =====================================================================
 import base64, hashlib, hmac, json, os, random, string, subprocess, sys, time, http.server, threading, functools
 from playwright.sync_api import sync_playwright
+SHOTS = os.environ.get("HDM_SHOTS", "/tmp/hdm-shots"); os.makedirs(SHOTS, exist_ok=True)
 
 STG = 'https://ousepgdvzammgkxkweze.supabase.co'
 DB = os.environ['STAGING_DB_URL']
@@ -167,6 +168,7 @@ def card(pg, other):
       return {{ rating: d.__rating || null, pct: document.getElementById('match-pct').textContent,
                pctShown: getComputedStyle(document.getElementById('match-pct')).display,
                why: getComputedStyle(document.getElementById('match-why')).display, n: s.docs.length,
+               whyText: document.getElementById('match-why').textContent, box: document.getElementById('hdm-card-plan').innerText,
                leak: ['birthdate','birthFirstName','birthLastName','vowelNumber','expressionNumber','birthdayNumber','consonantsNumber'].filter(k => k in d) }}; }}""")
 
 def target(pg):
@@ -293,7 +295,9 @@ try:
 
         # דירוג, פרטיות, 🎯
         c = card(pg, P)
-        check('בסיסי: דירוג מהשרת בלי פירוט', c and c['pct'] in ('התאמה מצוינת', 'התאמה טובה', 'התאמה חלשה') and c['why'] == 'none' and 'categories' not in (c['rating'] or {}), c)
+        check('בסיסי: לב ורמת התאמה בלבד, בלי 3 השורות ובלי פירוט', c and c['pct'] in ('❤️ התאמה גבוהה מאוד', '🩷 התאמה טובה', '💔 התאמה מאתגרת') and c['why'] == 'none' and 'categories' not in (c['rating'] or {}), c)
+        try: pg.screenshot(path=os.path.join(SHOTS, 'card_basic.png'))
+        except Exception: pass
         check('פרופיל של אחר: בלי תאריך לידה, שם מלידה ומספרים', c and c['leak'] == [], c)
         h = target(pg)
         check('🎯 חד-צדדי: נשמר בשרת, בלי צ׳אט', 'נשמר' in h and sql(f"select count(*) from docs where collection='interests' and id='{B}__{P}'") == '1'
@@ -317,6 +321,12 @@ try:
         login(pg, 'plus')
         cp = card(pg, B)
         check('פלוס: דירוג עם פירוט קטגוריות', cp and len((cp['rating'] or {}).get('categories', [])) > 0, cp)
+        exp_why = pg.evaluate(f"() => generateWhy(overallCompatibility(myProfile, currentMatchData))")
+        check('פלוס: לב ורמת התאמה, ומתחתיהם 3 שורות הניתוח המקוצר (אותו חישוב)', cp and cp['pct'] in ('❤️ התאמה גבוהה מאוד', '🩷 התאמה טובה', '💔 התאמה מאתגרת')
+              and cp['why'] != 'none' and len(cp['whyText']) > 20 and cp['whyText'] == exp_why, cp)
+        check('פלוס: בלי כפתור ניתוח מורחב בכרטיס (VIP בלבד)', cp and 'ניתוח נומרולוגי מורחב' not in cp['box'].replace('🔒 ניתוח נומרולוגי מורחב — במסלול VIP', ''), cp and cp['box'])
+        try: pg.screenshot(path=os.path.join(SHOTS, 'card_plus.png'))
+        except Exception: pass
         who = pg.evaluate("async () => { await hdmOpenLikedMe(); await new Promise(r => setTimeout(r, 2000)); return document.getElementById('hdm-liked-body').innerText; }")
         check('פלוס: "מי סימן אותי" מציג את מי שסימן', 'בני' in who, who)
         pg.evaluate("() => { try{ hdmCloseLayer('hdm-liked-screen'); }catch(e){} }")
@@ -331,8 +341,12 @@ try:
             last = sql(f"select coalesce(data->'messages'->-1->>'text','') from docs where collection='chats' and id='{pair}'")
             if 'שלום מבדיקת e2e' in last: break
         check('הודעה נשמרת בשרת', 'שלום מבדיקת e2e' in last, last)
-        an = pg.evaluate("async () => { await hdmOpenAnalysis(); await new Promise(r=>setTimeout(r,1200)); return document.getElementById('hdm-analysis-body').innerText; }")
-        check('פלוס: ניתוח מורחב אחרי הדדיות', '+' in an and 'דרך חיים' in an, an[:100])
+        tools = pg.evaluate("() => (document.getElementById('hdm-chat-tools')||{}).innerText || ''")
+        check('פלוס: בצ׳אט אין כפתור ניתוח מורחב', 'ניתוח' not in tools, tools)
+        an = pg.evaluate("async () => { document.getElementById('hdm-analysis-body').innerHTML=''; await hdmOpenAnalysis(); await new Promise(r=>setTimeout(r,1200)); return { body: document.getElementById('hdm-analysis-body').innerText, plans: hdmLayerOpen('hdm-plans-screen'), msg: (document.getElementById('hdm-plans-body')||{}).innerText || '' }; }")
+        check('פלוס: גם אחרי הדדיות אין ניתוח מורחב — מוצג "זמין במסלול VIP"', an['body'] == '' and an['plans'] and 'במסלול VIP' in an['msg'], an)
+        srv = pg.evaluate(f"async () => {{ const r = await window.__sb.rpc('hdm_extended_analysis', {{ p_target: '{B}' }}); return r.error ? r.error.message : 'opened'; }}")
+        check('פלוס: השרת חוסם ניתוח מורחב', 'HDM_PLAN_REQUIRED' in srv, srv)
         logout(pg)
 
         # חינם
@@ -344,6 +358,8 @@ try:
               and sql(f"select count(*) from docs where collection='interests' and id like '{F}\\_\\_%'") == '0')
         plans = pg.inner_text('#hdm-plans-body')
         check('מסך המסלולים: ₪0 / ₪29.90 / ₪48.90 / ₪79.90', all(x in plans for x in ['₪0', '₪29.90', '₪48.90', '₪79.90']), plans[:150])
+        check('מסך המסלולים: בסיסי — ❤️/🩷/💔 בלי הסבר; פלוס — ניתוח מקוצר; מורחב רק ב-VIP',
+              '❤️ גבוהה מאוד, 🩷 טובה או 💔 מאתגרת' in plans and 'ניתוח נומרולוגי מקוצר (3 שורות)' in plans and 'ניתוח נומרולוגי מורחב לאחר סימון 🎯 הדדי' not in plans, plans[:400])
         peek = pg.evaluate("async () => { const r = await window.__sb.from('docs').select('id').eq('collection','chats'); return (r.data||[]).length; }")
         check('חינם: לא רואה שיחות של אחרים', peek == 0, peek)
         logout(pg)
