@@ -7,10 +7,10 @@
 RO="https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only"
 roq(){ curl -sS -m 60 -o "$2" -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')" || echo 000; }
 W="$(mktemp -d)"; chmod 755 "$W"
-C=$(roq "select string_agg(column_name||':'||data_type, ',' order by ordinal_position) as cols from information_schema.columns where table_schema='public' and table_name='docs'" "$W/cols.json")
-COLS=$(jq -r '.[0].cols' "$W/cols.json"); ann notice "sim-docs-columns" "HTTP $C $COLS"
-[ "$COLS" = "collection:text,id:text,data:jsonb" ] || stop "מבנה docs שונה מהצפוי ($COLS) — הסימולציה צריכה התאמה"
-C=$(roq "select coalesce(json_agg(json_build_object('c',collection,'i',id,'d',data)),'[]') as j from public.docs" "$W/docs.json"); [ "$C" = 201 ] || stop "קריאת docs: HTTP $C"
+C=$(roq "select string_agg(column_name||':'||data_type||':'||is_nullable||':'||coalesce(column_default,'-'), ',' order by ordinal_position) as cols, (select string_agg(a.attname, ',' order by array_position(i.indkey, a.attnum)) from pg_index i join pg_attribute a on a.attrelid=i.indrelid and a.attnum = any(i.indkey) where i.indrelid='public.docs'::regclass and i.indisprimary) as pk from information_schema.columns where table_schema='public' and table_name='docs'" "$W/cols.json")
+COLS=$(jq -r '.[0].cols' "$W/cols.json"); PK=$(jq -r '.[0].pk' "$W/cols.json"); ann notice "sim-docs-columns" "HTTP $C $COLS | pk=$PK"
+[ "$COLS" = "collection:text:NO:-,id:text:NO:-,data:jsonb:NO:'{}'::jsonb,updated_at:timestamp with time zone:YES:now()" ] && [ "$PK" = "collection,id" ] || stop "מבנה docs שונה מהצפוי ($COLS) — הסימולציה צריכה התאמה"
+C=$(roq "select coalesce(json_agg(json_build_object('c',collection,'i',id,'d',data,'u',updated_at)),'[]') as j from public.docs" "$W/docs.json"); [ "$C" = 201 ] || stop "קריאת docs: HTTP $C"
 jq -c '.[0].j' "$W/docs.json" > "$W/docs1.json"
 C=$(roq "select coalesce(json_agg(json_build_object('id',id,'aud',aud,'role',role,'email',email,'email_confirmed_at',email_confirmed_at,'last_sign_in_at',last_sign_in_at,'raw_app_meta_data',raw_app_meta_data,'raw_user_meta_data',raw_user_meta_data,'created_at',created_at,'updated_at',updated_at,'is_sso_user',is_sso_user,'is_anonymous',is_anonymous)),'[]') as j from auth.users" "$W/u.json"); [ "$C" = 201 ] || stop "קריאת auth.users: HTTP $C"
 jq -c '.[0].j' "$W/u.json" > "$W/users1.json"
@@ -26,7 +26,7 @@ trap 'sudo -u postgres "$PGBIN/pg_ctl" -D "$D" -m immediate stop >/dev/null 2>&1
 P=(psql -h "$W" -p "$PORT" -U postgres -d postgres -X -v ON_ERROR_STOP=1 -q -At -P pager=off)
 "${P[@]}" -f "$ROOT/scripts/release/local_supabase_mock.sql" >/dev/null
 sed -e "s#__DOCS__#$W/docs1.json#" -e "s#__USERS__#$W/users1.json#" -e "s#__IDS__#$W/ids1.json#" <<'SQL' | "${P[@]}" >/dev/null
-create table public.docs (collection text not null, id text not null, data jsonb not null default '{}'::jsonb, primary key (collection,id));
+create table public.docs (collection text not null, id text not null, data jsonb not null default '{}'::jsonb, updated_at timestamptz default now(), primary key (collection,id));
 alter table public.docs enable row level security;
 create policy "Allow public read" on public.docs for select using (true);
 create policy "Allow public insert" on public.docs for insert with check (true);
@@ -34,7 +34,7 @@ create policy "Allow public update" on public.docs for update using (true);
 create policy "Allow public delete" on public.docs for delete using (true);
 grant all on public.docs to anon, authenticated;
 \set content `cat __DOCS__`
-insert into public.docs select x->>'c', x->>'i', x->'d' from jsonb_array_elements(:'content'::jsonb) x;
+insert into public.docs select x->>'c', x->>'i', x->'d', (x->>'u')::timestamptz from jsonb_array_elements(:'content'::jsonb) x;
 \set content `cat __USERS__`
 insert into auth.users (id,aud,role,email,email_confirmed_at,last_sign_in_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at,is_sso_user,is_anonymous)
   select (x->>'id')::uuid, x->>'aud', x->>'role', x->>'email', (x->>'email_confirmed_at')::timestamptz, (x->>'last_sign_in_at')::timestamptz,
