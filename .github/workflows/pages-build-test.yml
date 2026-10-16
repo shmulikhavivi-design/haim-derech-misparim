@@ -1,0 +1,26 @@
+# בדיקה בלבד: בונה את האתר בדיוק כמו GitHub Pages (jekyll-build-pages) ובודק מה יתפרסם. לא מפרסם כלום, בלי סודות.
+name: Pages build test (no deploy)
+on: { push: { branches: [ 'launch-tests/pages-build' ] } }
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - uses: actions/jekyll-build-pages@v1
+        with: { source: ./, destination: ./_site }
+      - name: Check published files
+        run: |
+          set -e; s=_site; fail=0
+          chk(){ if eval "$2"; then echo "::notice title=pages-$1::✅ $1"; else echo "::error title=pages-$1::❌ $1"; fail=1; fi; }
+          chk index_present "[ -f $s/index.html ]"
+          chk index_identical "cmp -s index.html $s/index.html"
+          chk manifest_present "[ -f $s/manifest.webmanifest ]"
+          chk icons_present "[ -n \"\$(ls -A $s/icons 2>/dev/null)\" ] && [ \$(ls icons | wc -l) = \$(ls $s/icons | wc -l) ]"
+          chk images_present "[ \$(ls images | wc -l) = \$(ls $s/images | wc -l) ]"
+          chk staging_hidden "[ ! -e $s/staging.html ]"
+          chk internal_hidden "[ ! -e $s/scripts ] && [ ! -e $s/supabase ] && [ ! -e $s/docs ]"
+          echo "::notice title=pages-files::$(cd $s && find . -maxdepth 1 | sort | tr '\n' ' ')"
+          exit $fail
