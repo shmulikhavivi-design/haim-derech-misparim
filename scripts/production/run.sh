@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in e2echeck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -403,6 +403,26 @@ if [ "$MODE" = "smoke" ]; then
   set +e; OUT=$(python3 "$HERE/smoke.py" 2>&1); RC=$?; set -e
   ann notice "prod-smoke" "$(printf '%s' "$OUT" | tail -c 3500)"
   [ $RC = 0 ] && ann notice "prod-result" "✅ smoke: כל הבדיקות עברו (לא נוצר חשבון, לא נכתבו נתונים)" || stop "smoke: בדיקה אחת או יותר נכשלה (לא נוצר חשבון)"
+  exit 0
+fi
+
+# ---- e2echeck: קריאה בלבד — מה נשאר מחשבונות בדיקת הקצה (דומיין זמני), והאם תאריך לידה חשוף בפרופיל ציבורי
+if [ "$MODE" = "e2echeck" ]; then
+  Q=$(cat <<'SQL'
+select jsonb_build_object(
+ 'auth_users_total', (select count(*) from auth.users),
+ 'test_auth_users', (select coalesce(jsonb_agg(jsonb_build_object('domain', split_part(email,'@',2), 'confirmed', email_confirmed_at is not null, 'created', created_at, 'profile', raw_app_meta_data->>'profile_id', 'meta_profile', raw_user_meta_data->>'profileId')), '[]') from auth.users where email like 'hdmtest%'),
+ 'test_profiles', (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', data->>'currentName', 'public_keys', (select jsonb_agg(k) from jsonb_object_keys(data) k))), '[]') from public.docs where collection='profiles' and data->>'currentName'='בדיקת מערכת'),
+ 'test_private', (select count(*) from public.hdm_profile_private p join public.docs d on d.id=p.profile_id and d.collection='profiles' where d.data->>'currentName'='בדיקת מערכת'),
+ 'any_public_profile_with_birth', (select count(*) from public.docs where collection='profiles' and data ?| array['birthdate','birthFirstName','birthLastName']),
+ 'profiles_total', (select count(*) from public.docs where collection='profiles'),
+ 'subs_total', (select count(*) from public.hdm_subscriptions)
+) as r
+SQL
+)
+  C=$(curl -sS -m 60 -o /tmp/e2.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+  ann notice "prod-e2echeck" "HTTP $C $(jq -c 'if type=="array" then .[0].r else . end' /tmp/e2.json 2>/dev/null | cut -c1-3500)"
+  ann notice "prod-result" "e2echeck הסתיים — קריאה בלבד"
   exit 0
 fi
 
