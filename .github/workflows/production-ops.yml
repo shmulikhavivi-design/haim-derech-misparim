@@ -58,6 +58,7 @@ jobs:
         env:
           PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
           PRODUCTION_SUPABASE_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
         run: bash scripts/production/run.sh "${{ steps.mode.outputs.mode }}"
       - name: Upload encrypted backup

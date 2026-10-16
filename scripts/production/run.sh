@@ -27,10 +27,12 @@ ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | 
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
 case "$MODE" in check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
-DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
-unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
+DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
+# הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
+if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then TOK="$SUPABASE_ACCESS_TOKEN"; TOKSRC=SUPABASE_ACCESS_TOKEN; else TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; TOKSRC=PRODUCTION_SUPABASE_TOKEN; fi
+unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN SUPABASE_ACCESS_TOKEN BREVO_SMTP_KEY
 for v in "$DB" "$TOK" "$KEY"; do [ -n "$v" ] && echo "::add-mask::$v"; done
-ann notice "prod-secrets" "PRODUCTION_DB_URL: $([ -n "$DB" ] && echo מוגדר || echo חסר) | PRODUCTION_SUPABASE_TOKEN: $([ -n "$TOK" ] && echo מוגדר || echo חסר) | BREVO_SMTP_KEY: $([ -n "$KEY" ] && echo מוגדר || echo חסר)"
+ann notice "prod-secrets" "PRODUCTION_DB_URL: $([ -n "$DB" ] && echo מוגדר || echo חסר) | טוקן בשימוש: $([ -n "$TOK" ] && echo "$TOKSRC" || echo חסר) | BREVO_SMTP_KEY: $([ -n "$KEY" ] && echo מוגדר || echo חסר)"
 
 # ---- keycheck: קריאה בלבד. מבנה המפתח (בלי ערך) + התחברות לשרת ה-SMTP של Brevo בלי לשלוח מייל. לא נוגע ב-Supabase. ----
 if [ "$MODE" = "keycheck" ]; then
