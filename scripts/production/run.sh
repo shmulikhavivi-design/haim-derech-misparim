@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|keycheck|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|keycheck|rehearse|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
@@ -192,10 +192,59 @@ if [ "$MODE" = "authcfg" ]; then
   exit 0
 fi
 
+# ---- rehearse: חזרה גנרלית על הנתונים האמיתיים — כל קובץ המעבר רץ בטרנזקציה אחת, ובסוף נזרקת שגיאה מכוונת
+#      שמבטלת הכול (במקום commit). שום דבר לא נשמר. הדוח מוחזר בהודעת השגיאה.
+if [ "$MODE" = "rehearse" ]; then
+  [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
+  Q=$(python3 -I - "$ROOT/supabase/production/01_production_migration.sql" <<'PY'
+import sys
+src=open(sys.argv[1],encoding='utf-8').read()
+head,sep,_=src.partition('\ncommit;\n')
+assert sep, 'no commit'
+print(head + r"""
+do $hdm$ begin
+  raise exception 'HDM_REHEARSAL_OK profiles=% private=% no_birthdate=% legacy=% review=% legacy_chats=% subs=% policies=% backup_rows=%',
+    (select count(*) from public.docs where collection='profiles'),
+    (select count(*) from public.hdm_profile_private),
+    (select count(*) from public.hdm_profile_private where birthdate is null),
+    (select count(*) from public.hdm_legacy_accounts),
+    (select count(distinct profile_id) from public.hdm_legacy_review),
+    (select count(*) from public.hdm_chat_openings where plan='legacy'),
+    (select count(*) from public.hdm_subscriptions),
+    (select count(*) from pg_policies where schemaname='public'),
+    (select count(*) from hdm_backup.docs_before_migration);
+end $hdm$;
+rollback;
+""")
+PY
+) || stop "בניית החזרה נכשלה"
+  C=$(curl -sS -m 120 -o /tmp/rh.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+      "https://api.supabase.com/v1/projects/$PROD_REF/database/query" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+  MSG=$(jq -r '.message // tostring' /tmp/rh.json 2>/dev/null | cut -c1-1500)
+  case "$MSG" in *HDM_REHEARSAL_OK*) ann notice "prod-rehearse" "✅ החזרה הצליחה (בוטלה, לא נשמר כלום): $(printf '%s' "$MSG" | grep -o 'HDM_REHEARSAL_OK[^"]*' | head -1)";;
+                 *) ann error "prod-rehearse" "❌ החזרה נעצרה לפני הסוף (לא נשמר כלום): HTTP $C $MSG";; esac
+  C=$(curl -sS -m 30 -o /tmp/mk.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+      "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
+      -d '{"query":"select (to_regclass('"'"'public.hdm_release_marker'"'"') is null) as not_migrated, (to_regclass('"'"'hdm_backup.docs_before_migration'"'"') is null) as no_new_backup, (select count(*) from public.docs) as docs_rows, (select count(*) from auth.users) as auth_users"}' || echo 000)
+  ann notice "prod-rehearse-after" "אימות שלא נשמר כלום: HTTP $C $(jq -c '.[0] // .' /tmp/mk.json 2>/dev/null)"
+  ann notice "prod-result" "rehearse הסתיים — שום שינוי לא נשמר"
+  exit 0
+fi
+
 if [ "$MODE" = "migrate" ]; then
-  [ ${#PSQL[@]} -gt 0 ] || stop "חסר PRODUCTION_DB_URL"
-  OUT=$("${PSQL[@]}" -f "$ROOT/supabase/production/01_production_migration.sql" 2>&1) || { ann error "prod-migrate" "$(printf '%s' "$OUT" | tail -20)"; stop "המעבר נכשל — שום דבר לא נשמר (הכול או כלום)."; }
-  ann notice "prod-migrate" "$(printf '%s' "$OUT" | tail -40)"
+  if [ ${#PSQL[@]} -gt 0 ]; then
+    OUT=$("${PSQL[@]}" -f "$ROOT/supabase/production/01_production_migration.sql" 2>&1) || { ann error "prod-migrate" "$(printf '%s' "$OUT" | tail -20)"; stop "המעבר נכשל — שום דבר לא נשמר (הכול או כלום)."; }
+    ann notice "prod-migrate" "$(printf '%s' "$OUT" | tail -40)"
+  else
+    [ -n "$TOK" ] || stop "חסר PRODUCTION_DB_URL וגם PRODUCTION_SUPABASE_TOKEN"
+    Q=$(cat "$ROOT/supabase/production/01_production_migration.sql")
+    C=$(curl -sS -m 180 -o /tmp/mg.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+        "https://api.supabase.com/v1/projects/$PROD_REF/database/query" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+    ann notice "prod-migrate" "HTTP $C $(jq -c '.' /tmp/mg.json 2>/dev/null | cut -c1-1500)"
+    C2=$(curl -sS -m 30 -o /tmp/mk.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+        "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d '{"query":"select (to_regclass(\u0027public.hdm_release_marker\u0027) is not null) as migrated"}' || echo 000)
+    [ "$(jq -r '.[0].migrated // empty' /tmp/mk.json 2>/dev/null)" = "true" ] || stop "המעבר לא הושלם — שום דבר לא נשמר (הכול או כלום). HTTP $C"
+  fi
   ann notice "prod-result" "✅ migrate: המעבר הושלם. השלב הבא: מיזוג PR #21 (באישור)."
   exit 0
 fi
