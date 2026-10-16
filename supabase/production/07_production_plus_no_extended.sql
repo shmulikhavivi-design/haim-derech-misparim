@@ -1,13 +1,15 @@
 -- =====================================================================
--- חיים דרך מספרים — Production: מסלול פלוס בלי ניתוח נומרולוגי מורחב (VIP בלבד). להרצה רק באישור הבעלים.
--- נבדק ב-Staging (16_staging_plus_no_extended.sql): 74/74 בדיקות שרת, 71/71 בדיקת דפדפן.
+-- חיים דרך מספרים — מסלול פלוס בלי ניתוח נומרולוגי מורחב (VIP בלבד). אושר על ידי הבעלים 17.10.2026.
+-- אותו קובץ בדיוק רץ ב-Staging ואחר כך ב-Production (בלי הבדל של אף תו).
 -- פלוס ממשיך לקבל דירוג עם פירוט — האפליקציה מציגה לב + רמת התאמה + 3 שורות הניתוח המקוצר.
--- לא משנה מחירים, מכסות, הטבות אחרות, משתמשים או מנויים. "הכול או כלום"; הרצה חוזרת לא עושה כלום.
+-- לא משנה מחירים, מכסות, הטבות אחרות, משתמשים, פרופילים, שיחות או מנויים. "הכול או כלום"; הרצה חוזרת לא עושה כלום.
 -- =====================================================================
 begin;
 do $$ begin
-  if to_regclass('public.hdm_staging_marker') is not null then raise exception 'עצירה: זה Staging — הקובץ ל-Production בלבד.'; end if;
-  if to_regclass('public.hdm_release_marker') is null then raise exception 'עצירה: המעבר עוד לא בוצע. שום דבר לא שונה.'; end if;
+  if to_regclass('public.hdm_plans') is null
+     or (to_regclass('public.hdm_release_marker') is null and to_regclass('public.hdm_staging_marker') is null) then
+    raise exception 'עצירה: זה לא מסד מאובטח של האפליקציה (לא Production אחרי המעבר ולא Staging). שום דבר לא שונה.';
+  end if;
 end $$;
 update public.hdm_plans set extended_analysis = 'none' where plan = 'plus' and extended_analysis <> 'none';
 do $$ begin
