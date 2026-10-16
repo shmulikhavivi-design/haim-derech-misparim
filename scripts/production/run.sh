@@ -141,6 +141,14 @@ if [ "$MODE" = "check" ]; then
   if [ -n "$TOK" ]; then
     C=$(authget); [ "$C" = 200 ] && ann notice "prod-auth" "$(authsummary)" || ann error "prod-auth" "קריאת הגדרות Auth: HTTP $C $(jq -r '.message // empty' /tmp/cfg.json 2>/dev/null)"
   else ann warning "prod-auth" "לא נקרא: חסר PRODUCTION_SUPABASE_TOKEN"; fi
+  if [ -n "$TOK" ]; then
+    # בדיקת הרשאות בלי כתיבה: select 1 דרך נקודת הקצה הרגילה (דורשת הרשאת כתיבה למסד), בלי שום שינוי
+    C=$(curl -sS -m 30 -o /tmp/pq.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+        "https://api.supabase.com/v1/projects/$PROD_REF/database/query" -d '{"query":"select 1 as ok"}' || echo 000)
+    ann notice "prod-perm-dbquery" "database/query (select 1 בלבד): HTTP $C $(jq -c '.message // .' /tmp/pq.json 2>/dev/null | cut -c1-300)"
+    C=$(curl -sS -m 30 -o /tmp/tk.json -w '%{http_code}' -H "Authorization: Bearer $TOK" "https://api.supabase.com/v1/projects/$PROD_REF/database/backups" || echo 000)
+    ann notice "prod-perm-backups" "database/backups (קריאה): HTTP $C $(jq -c '{pitr_enabled, walg_enabled, n:(.backups|length? // null), last:(.backups[-1].inserted_at? // null), msg:.message}' /tmp/tk.json 2>/dev/null | cut -c1-300)"
+  fi
   ann notice "prod-result" "check הסתיים — קריאה בלבד, לא שונה כלום"
   exit 0
 fi
