@@ -8,7 +8,7 @@ permissions: { contents: read }
 concurrency: { group: production-ops, cancel-in-progress: false }
 jobs:
   prod:
-    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run'
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && !contains(github.event.head_commit.message, '[prod:cleanup]')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: production
@@ -86,6 +86,19 @@ jobs:
           git add backup.tgz.enc key.enc && git commit -q -m "encrypted backup transfer $RUN (temporary)"
           git push -q "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "tmp:refs/heads/backup-transfer/$RUN"
           echo "::notice title=transfer::backup-transfer/$RUN"
+  cleanup:
+    # מוחק ענפי העברה זמניים (backup-transfer/*). בלי סודות.
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && contains(github.event.head_commit.message, '[prod:cleanup]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions: { contents: write }
+    steps:
+      - name: Delete temporary transfer branches
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          for r in $(gh api "repos/${{ github.repository }}/git/matching-refs/heads/backup-transfer/" --jq '.[].ref'); do
+            gh api -X DELETE "repos/${{ github.repository }}/git/$r" && echo "::notice title=cleanup::deleted $r"
+          done
   repo-secrets:
     # בלי environment — רק סודות ברמת הריפו
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && contains(github.event.head_commit.message, '[prod:secrets]')
