@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -392,6 +392,32 @@ PY
       -d '{"query":"select (to_regclass('"'"'public.hdm_release_marker'"'"') is null) as not_migrated, (to_regclass('"'"'hdm_backup.docs_before_migration'"'"') is null) as no_new_backup, (select count(*) from public.docs) as docs_rows, (select count(*) from auth.users) as auth_users, (to_regclass(\u0027public.hdm_profile_private\u0027) is null) as no_new_tables, (select count(*) from pg_policies where schemaname=\u0027public\u0027 and tablename=\u0027docs\u0027) as docs_policies, (select md5(string_agg(collection||\u0027|\u0027||id||\u0027|\u0027||data::text, \u0027,\u0027 order by collection, id)) from public.docs) as docs_md5"}' || echo 000)
   ann notice "prod-rehearse-after" "אימות שלא נשמר כלום: HTTP $C $(jq -c '.[0] // .' /tmp/mk.json 2>/dev/null)"
   ann notice "prod-result" "rehearse הסתיים — שום שינוי לא נשמר"
+  exit 0
+fi
+
+# ---- postcheck: קריאה בלבד — אימות אחרי המעבר מול הגיבוי הפנימי (hdm_backup.docs_before_migration)
+if [ "$MODE" = "postcheck" ]; then
+  [ -n "$TOK" ] || stop "חסר טוקן"
+  Q=$(cat <<'SQL'
+select
+ (to_regclass('public.hdm_release_marker') is not null) as migrated,
+ (select jsonb_object_agg(collection, n) from (select collection, count(*) n from public.docs group by 1) x) as by_collection_now,
+ (select jsonb_object_agg(collection, n) from (select collection, count(*) n from hdm_backup.docs_before_migration group by 1) x) as by_collection_before,
+ (select count(*) from hdm_backup.docs_before_migration b where not exists (select 1 from public.docs d where d.collection=b.collection and d.id=b.id)) as missing_rows,
+ (select count(*) from hdm_backup.docs_before_migration b join public.docs d using (collection, id) where b.collection in ('chats','matches','chatReads','reports') and d.data is distinct from b.data) as changed_chats_matches,
+ (select count(*) from auth.users) as auth_users,
+ (select md5(string_agg(id::text, ',' order by id::text collate "C")) from auth.users) as auth_ids_md5,
+ (select md5(string_agg(collection||'|'||id, ',' order by (collection||'|'||id) collate "C")) from public.docs where collection <> 'interests') as ids_md5_non_interests,
+ (select count(*) from public.hdm_profile_private) as private_rows,
+ (select count(*) from public.hdm_profile_private where birthdate is null) as private_no_birthdate,
+ (select count(*) from public.hdm_legacy_accounts) as legacy_accounts,
+ (select count(*) from pg_policies where schemaname='public') as policies,
+ (select count(*) from public.docs where collection='profiles' and data ?| array['birthdate','birthFirstName','birthLastName']) as visible_birth_data
+SQL
+)
+  C=$(curl -sS -m 60 -o /tmp/pc.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+  ann notice "prod-postcheck" "HTTP $C $(jq -c '.[0] // .' /tmp/pc.json 2>/dev/null | cut -c1-3000)"
+  ann notice "prod-result" "postcheck הסתיים — קריאה בלבד"
   exit 0
 fi
 
