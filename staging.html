@@ -377,7 +377,8 @@
   .su-consent-field.bad .su-consent input[type="checkbox"]{ border-color:#F0A396; }
   .su-consent a{ color:#E2B769; text-decoration:underline; }
   .su-consent-field.bad .su-consent{ border-color:#F0A396; }
-  .signup.terms-gate{ z-index:140; }
+  .signup.terms-gate{ z-index:230; }   /* מעל מסך איפוס הסיסמה (220): אחרי איפוס, משתמש קיים מאשר את המסמכים */
+  #terms-gate.open + #legal-screen{ z-index:240; }   /* המסמכים נפתחים מעל מסך האישור */
   .tg-docs{ display:flex; flex-direction:column; gap:10px; margin:18px 0; }
   .tg-doc{ display:flex; justify-content:space-between; align-items:center; width:100%; padding:14px 16px; border-radius:14px; cursor:pointer;
     background:rgba(255,255,255,.04); border:1px solid rgba(226,183,105,.35); color:#F2EADF; font-family:'Heebo',sans-serif; font-size:15.5px; }

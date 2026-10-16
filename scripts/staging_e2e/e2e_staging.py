@@ -48,6 +48,7 @@ for i in range(6): PEOPLE[f'q{i}'] = (f'שותפה {i}', f'198{i}-0{i+1}-1{i}', 
 # אישור תנאים (14): 'gate' — משתמש קיים שעוד לא אישר; 'meta' — סימן את התיבה בהרשמה אבל עוד לא נכנס
 PEOPLE['gate'] = ('גל מסך-אישור', '1987-04-04', 'גל', 'שמש', 'אישה', 'גברים', 'plus')
 PEOPLE['meta'] = ('מאיר הרשמה', '1989-05-05', 'מאיר', 'טל', 'גבר', 'נשים', 'plus')
+PEOPLE['reset'] = ('רון איפוס', '1986-06-06', 'רון', 'דגן', 'גבר', 'נשים', 'plus')   # משתמש קיים שנכנס דרך "שכחתי סיסמה" ועוד לא אישר
 IDS = {k: PFX + k for k in PEOPLE}
 CONSENT = None   # הגרסה הנדרשת, אם מנגנון האישור מותקן
 RECONSENT_V = '2099-12-31'
@@ -78,7 +79,7 @@ def create_people():
     if sql("select to_regclass('public.hdm_consents') is not null") == 't':
         CONSENT = sql("select public.hdm_required_terms_version()")
     for k, (name, birth, first, last, gender, looking, plan) in PEOPLE.items():
-        if k in ('gate', 'meta') and not CONSENT: continue
+        if k in ('gate', 'meta', 'reset') and not CONSENT: continue
         pid, email = IDS[k], f'{MAIL}{k}@example.invalid'
         meta = json.dumps({'hdm_terms': CONSENT}) if (k == 'meta' and CONSENT) else '{}'
         profile = json.dumps({'currentName': name, 'birthdate': birth, 'birthFirstName': first, 'birthLastName': last,
@@ -98,7 +99,7 @@ def create_people():
           insert into public.docs (collection, id, data) values ('profiles', '{pid}', $j${profile}$j$::jsonb);
           commit;""")
         if plan: sql(f"select public.hdm_admin_set_plan('{pid}', '{plan}', 30, 'e2e')")
-        if CONSENT and k not in ('gate', 'meta'):   # שאר משתמשי הבדיקה אישרו כבר (כמו בהרשמה)
+        if CONSENT and k not in ('gate', 'meta', 'reset'):   # שאר משתמשי הבדיקה אישרו כבר (כמו בהרשמה)
             sql(f"insert into public.hdm_consents (user_id, profile_id, version, source) select id, '{pid}', '{CONSENT}', 'signup' from auth.users where email = '{email}'")
 
 # ---------------- הדפדפן ----------------
@@ -123,6 +124,23 @@ def route_local(route):   # רק בבדיקה מקומית: מנתב לשרתי�
 
 def track(req):
     seen_hosts.add(req.url.split('/')[2])
+
+def recovery_tokens(k):
+    import urllib.request
+    th = ''.join(random.choice('0123456789abcdef') for _ in range(56)); email = f'{MAIL}{k}@example.invalid'
+    sql(f"""begin; update auth.users set recovery_token = '{th}', recovery_sent_at = now() where email = '{email}';
+             insert into auth.one_time_tokens (id, user_id, token_type, token_hash, relates_to)
+             select gen_random_uuid(), id, 'recovery_token', '{th}', '{email}' from auth.users where email = '{email}'; commit;""")
+    rq = urllib.request.Request(STG + '/auth/v1/verify', data=json.dumps({'type': 'recovery', 'token_hash': th}).encode(),
+                                headers={'apikey': KEY, 'Content-Type': 'application/json'}, method='POST')
+    return json.loads(urllib.request.urlopen(rq, timeout=30).read())
+
+def token_login(k, pw):
+    import urllib.request, urllib.error
+    rq = urllib.request.Request(STG + '/auth/v1/token?grant_type=password', data=json.dumps({'email': f'{MAIL}{k}@example.invalid', 'password': pw}).encode(),
+                                headers={'apikey': KEY, 'Content-Type': 'application/json'}, method='POST')
+    try: return urllib.request.urlopen(rq, timeout=30).status
+    except urllib.error.HTTPError as e: return e.code
 
 def login(pg, k, pw=None):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
@@ -233,6 +251,33 @@ try:
             check('הפרופיל הקיים לא השתנה', sql(f"select data->>'currentName' from docs where collection='profiles' and id='{IDS['gate']}'") == PEOPLE['gate'][0])
             pg.reload(); pg.wait_for_timeout(5000)
             check('אחרי רענון: לא מבקשים לאשר שוב', pg.evaluate("() => myId") == IDS['gate'] and not pg.evaluate("() => document.getElementById('terms-gate').classList.contains('open')"))
+            logout(pg)
+
+            # --- איפוס סיסמה: קישור פג תוקף / קישור אמיתי → מסך סיסמה חדשה → מסך אישור (מעל מסך האיפוס) → כניסה ---
+            pg.goto(APP + '?hdm_reset=1#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired'); pg.wait_for_timeout(2500)
+            ex = pg.evaluate("() => ({ open: document.getElementById('reset-screen').classList.contains('open'), txt: document.getElementById('reset-screen').innerText })")
+            check('איפוס: קישור שפג תוקפו מציג הודעה ואפשרות לקישור חדש', ex['open'] and 'פג' in ex['txt'], ex['txt'][:120])
+            tk = recovery_tokens('reset')
+            pg.goto(APP + '?hdm_reset=1#access_token=' + tk['access_token'] + '&refresh_token=' + tk['refresh_token'] + '&expires_in=3600&token_type=bearer&type=recovery')
+            try: pg.wait_for_function("() => { const i = document.getElementById('rp-pass'); return i && i.offsetParent !== null; }", timeout=15000)
+            except Exception: pass
+            check('איפוס: הקישור פותח את מסך הסיסמה החדשה', pg.evaluate("() => { const i = document.getElementById('rp-pass'); return !!(i && i.offsetParent !== null); }"))
+            NEWPW = 'Reset-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(14))
+            pg.fill('#rp-pass', 'short'); pg.fill('#rp-pass2', 'short'); pg.click('#rp-submit'); pg.wait_for_timeout(400)
+            check('איפוס: סיסמה קצרה נדחית עם הודעה', '8' in pg.inner_text('#rp-f-pass'), pg.inner_text('#rp-f-pass'))
+            pg.fill('#rp-pass', NEWPW); pg.fill('#rp-pass2', NEWPW); pg.click('#rp-submit')
+            try: pg.wait_for_function("() => document.getElementById('terms-gate').classList.contains('open') || myId", timeout=20000)
+            except Exception: pass
+            pg.wait_for_timeout(500)
+            top = pg.evaluate("() => { const e = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2); return !!(e && e.closest('#terms-gate')); }")
+            check('איפוס של משתמש קיים בלי אישור: מסך האישור מופיע מעל הכול', pg.evaluate("() => document.getElementById('terms-gate').classList.contains('open')") and top and not pg.evaluate("() => myId"), top)
+            pg.check('#tg-consent'); pg.click('#tg-accept')
+            try: pg.wait_for_function(f"() => myId === '{IDS['reset']}'", timeout=20000)
+            except Exception: pass
+            pg.wait_for_timeout(800)
+            check('איפוס: אחרי האישור נכנסים לפרופיל הקיים', pg.evaluate("() => myId") == IDS['reset'] and not pg.evaluate("() => document.getElementById('reset-screen').classList.contains('open')"), pg.evaluate("() => myId"))
+            check('איפוס: הסיסמה החדשה עובדת והישנה לא', token_login('reset', NEWPW) == 200 and token_login('reset', PW) == 400, [token_login('reset', NEWPW), token_login('reset', PW)])
+            check('איפוס: האישור נשמר (מסך אישור)', sql(f"select source from public.hdm_consents c join auth.users u on u.id=c.user_id where u.email='{MAIL}reset@example.invalid'") == 'gate')
             logout(pg)
 
         # התחברות
