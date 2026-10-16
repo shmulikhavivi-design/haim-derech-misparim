@@ -35,7 +35,8 @@ begin
   if to_regclass('public.docs') is null then
     raise exception 'עצירה: אין טבלת docs. זה לא הפרויקט של האפליקציה. שום דבר לא שונה.';
   end if;
-  if to_regclass('public.hdm_release_marker') is not null or to_regnamespace('hdm_backup') is not null then
+  -- סכימת hdm_backup שכבר קיימת (למשל הגיבוי הידני docs_20261009) לא חוסמת ולא משתנה; עוצרים רק אם המעבר עצמו כבר רץ
+  if to_regclass('public.hdm_release_marker') is not null or to_regclass('hdm_backup.docs_before_migration') is not null then
     raise exception 'עצירה: המעבר כבר בוצע (או שקיים גיבוי קודם). שום דבר לא שונה.';
   end if;
 end $$;
@@ -43,7 +44,7 @@ end $$;
 -- ---------------------------------------------------------------------
 -- 0א. גיבוי מלא (באותו מסד, סכימה סגורה)
 -- ---------------------------------------------------------------------
-create schema hdm_backup;
+create schema if not exists hdm_backup;
 revoke all on schema hdm_backup from public, anon, authenticated;
 create table hdm_backup.docs_before_migration as table public.docs;
 create table hdm_backup.counts_before_migration as

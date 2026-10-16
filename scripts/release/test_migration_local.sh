@@ -53,6 +53,9 @@ insert into public.docs values
  ('matches','alice1__bobby2','{}');
 SQL
 "${P[@]}" -d prod -f "$ROOT/supabase/age_gate.sql" >/dev/null 2>&1
+# כמו ב-Production: גיבוי ידני קיים מ-9.10 בסכימה hdm_backup — המעבר והביטול לא אמורים לגעת בו
+"${P[@]}" -d prod -q -c "create schema hdm_backup; create table hdm_backup.docs_20261009 as table public.docs;"
+MANUAL=$(q prod "select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) from hdm_backup.docs_20261009")
 "${P[@]}" -c 'create database prod_before template prod'
 SNAP="select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) from public.docs"
 BEFORE=$(q prod "$SNAP")
@@ -61,12 +64,14 @@ BEFORE=$(q prod "$SNAP")
 PRE=$("${P[@]}" -d prod -At -F'|' -f "$ROOT/supabase/production/00_production_preflight_readonly.sql")
 check "בדיקה מקדימה: שורה 7 מסמנת ⚠️ פרופיל עם כמה אימיילים" "2|⚠️" "$(echo "$PRE" | awk -F'|' '$1==7{print $3"|"$4}')"
 check "בדיקה מקדימה: לא שינתה כלום" "$BEFORE" "$(q prod "$SNAP")"
+check "בדיקה מקדימה: גיבוי ידני קיים לא חוסם (שורה 2 ✅)" "✅" "$(echo "$PRE" | awk -F'|' '$1==2{print $4}')"
 
 # ---------- 2. מעבר ----------
 if "${P[@]}" -d prod -f "$ROOT/supabase/production/01_production_migration.sql" >"$WORK/mig.out" 2>&1; then ok "המעבר עבר"; else bad "המעבר עבר" "$(tail -3 "$WORK/mig.out")"; fi
 check "כל הרשומות הקיימות ב-docs נשמרו (לפי מפתח)" "$(q prod_before 'select count(*) from public.docs')" "$(q prod 'select count(*) from public.docs d join hdm_backup.docs_before_migration b using (collection, id)')"
 check "likes ישנים הפכו ל-🎯 (interests)" "2" "$(q prod "select count(*) from public.docs where collection='interests'")"
 check "גיבוי מלא קיים" "$BEFORE" "$(q prod "select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) from hdm_backup.docs_before_migration")"
+check "הגיבוי הידני מ-9.10 לא השתנה במעבר" "$MANUAL" "$(q prod "select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) from hdm_backup.docs_20261009")"
 check "תאריך לידה עבר לטבלה הסגורה" "0" "$(q prod "select count(*) from public.docs where collection='profiles' and data ? 'birthdate'")"
 check "השיחה הישנה שלמה" '[{"from": "alice1", "text": "hi"}]' "$(q prod "select data->'messages' from public.docs where collection='chats' and id='alice1__bobby2'")"
 check "פרופיל עם כמה אימיילים לא קושר אוטומטית (alice1, carol3)" "0" "$(q prod "select count(*) from public.hdm_legacy_accounts where profile_id in ('alice1','carol3')")"
@@ -107,6 +112,7 @@ OUT=$("${P[@]}" -d prod -f "$WORK/tmp_bad.sql" 2>&1) || true; check "פתרון 
 if "${P[@]}" -d prod -f "$ROOT/supabase/production/99_production_rollback.sql" >"$WORK/rb.out" 2>&1; then ok "הביטול עבר"; else bad "הביטול עבר" "$(tail -3 "$WORK/rb.out")"; fi
 check "אחרי הביטול docs זהה בדיוק למצב שלפני" "$BEFORE" "$(q prod "$SNAP")"
 check "אחרי הביטול נמחקו משתמשי ההתחברות שנוצרו במעבר" "0" "$(q prod 'select count(*) from auth.users')"
+check "הגיבוי הידני מ-9.10 לא השתנה בביטול" "$MANUAL" "$(q prod "select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) from hdm_backup.docs_20261009")"
 check "אחרי הביטול אין טבלאות hdm_ חדשות" "0" "$(q prod "select count(*) from pg_class where relnamespace='public'::regnamespace and relname like 'hdm\_%'")"
 
 # ---------- 6. בדיקות השרת של Staging (אותו קוד שרת) ----------

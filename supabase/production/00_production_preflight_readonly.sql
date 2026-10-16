@@ -11,8 +11,10 @@ with
     select 1 as n, 'זה הפרויקט הפעיל (אין סימון Staging)' as "בדיקה",
            (to_regclass('public.hdm_staging_marker') is null)::text as "ערך",
            to_regclass('public.hdm_staging_marker') is null as ok
-    union all select 2, 'המעבר עוד לא בוצע', (to_regclass('public.hdm_release_marker') is null and to_regnamespace('hdm_backup') is null)::text,
-           to_regclass('public.hdm_release_marker') is null and to_regnamespace('hdm_backup') is null
+    union all select 2, 'המעבר עוד לא בוצע', (to_regclass('public.hdm_release_marker') is null and to_regclass('hdm_backup.docs_before_migration') is null)::text,
+           to_regclass('public.hdm_release_marker') is null and to_regclass('hdm_backup.docs_before_migration') is null
+    union all select 2.5, 'גיבויים ידניים קיימים ב-hdm_backup (נשמרים, המעבר לא נוגע בהם)',
+           coalesce((select string_agg(relname, ', ' order by relname) from pg_class where to_regnamespace('hdm_backup') is not null and relnamespace = to_regnamespace('hdm_backup') and relkind = 'r'), '—'), true
     union all select 3, 'פרופילים', (select count(*) from prof)::text, true
     union all select 4, 'פרופילים בלי תאריך לידה תקין (יתבקשו להשלים בכניסה)',
            (select count(*) from prof where coalesce(data->>'birthdate', '') !~ '^\d{4}-\d{2}-\d{2}$')::text, true
