@@ -1,0 +1,23 @@
+# חיים דרך מספרים — בדיקת קצה לקצה של משתמש חדש באתר החי.
+# בלי סודות ובלי environment: עובד רק דרך האתר הציבורי, כמו משתמש רגיל. חשבון הבדיקה נמחק בסוף דרך האפליקציה.
+name: Launch E2E (new user, no secrets)
+on: { push: { branches: [ 'launch-tests/e2e' ] } }
+permissions: { contents: read }
+concurrency: { group: launch-e2e, cancel-in-progress: false }
+jobs:
+  e2e:
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - name: Browser
+        run: python3 -m pip install -q playwright && python3 -m playwright install --with-deps chromium >/dev/null 2>&1
+      - name: New user end-to-end
+        env: { E2E_OUT: '${{ runner.temp }}/e2e' }
+        run: python3 scripts/launch_e2e/e2e_new_user.py
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: launch-e2e, path: '${{ runner.temp }}/e2e/', retention-days: 2, if-no-files-found: ignore }
