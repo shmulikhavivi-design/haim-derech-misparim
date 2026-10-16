@@ -1750,7 +1750,7 @@
   }
 
   function matchCategoryLabel(result){
-    return result.goodCount >= 2 ? 'התאמה מצוינת' : result.goodCount === 1 ? 'התאמה טובה' : 'התאמה חלשה';
+    return result.goodCount >= 2 ? '❤️ התאמה גבוהה מאוד' : result.goodCount === 1 ? '🩷 התאמה טובה' : '💔 התאמה מאתגרת';
   }
   function fullNameOf(p){ return (p.birthFirstName||'')+(p.birthLastName||''); }
 
@@ -5541,9 +5541,9 @@
     free:  { name: 'חינם',  price: '₪0',     per: '',
              items: ['צפייה בפרופילים ובתמונות בלבד', 'ללא שליחת 🎯', 'ללא צ׳אטים', 'ללא הצגת דירוגי התאמה'] },
     basic: { name: 'בסיסי', price: '₪29.90', per: 'לחודש',
-             items: ['הצגת רמת התאמה: מצוינת, טובה או חלשה (ללא הסבר)', 'שליחת 🎯 ופתיחת צ׳אט רק לאחר סימון הדדי', 'עד 5 שיחות חדשות בכל חודש חיוב', 'הודעות ללא הגבלה בשיחות קיימות כל עוד המנוי פעיל'] },
+             items: ['הצגת רמת התאמה: ❤️ גבוהה מאוד, 🩷 טובה או 💔 מאתגרת (ללא הסבר)', 'שליחת 🎯 ופתיחת צ׳אט רק לאחר סימון הדדי', 'עד 5 שיחות חדשות בכל חודש חיוב', 'הודעות ללא הגבלה בשיחות קיימות כל עוד המנוי פעיל'] },
     plus:  { name: 'פלוס',  price: '₪48.90', per: 'לחודש',
-             items: ['התאמות ושיחות ללא הגבלה', 'אפשרות לראות מי סימן אותי ב־🎯', 'ניתוח נומרולוגי מורחב לאחר סימון 🎯 הדדי'] },
+             items: ['התאמות ושיחות ללא הגבלה', 'אפשרות לראות מי סימן אותי ב־🎯', 'רמת התאמה וניתוח נומרולוגי מקוצר (3 שורות)'] },
     vip:   { name: 'VIP',   price: '₪79.90', per: 'לחודש',
              items: ['כל הטבות פלוס', 'ניתוח נומרולוגי מורחב מיד לאחר סימון 🎯, גם ללא הדדיות', 'פתיחת צ׳אט עדיין מחייבת סימון הדדי', '30% הנחה על שירותים נומרולוגיים זכאים של לימור רון', 'הזמנת השירותים דרך WhatsApp או אימייל'] }
   };
@@ -5551,7 +5551,7 @@
   var HDM_PLAN_FEATURES = {
     free:  { target: false, chat: false, chatLimit: 0,    score: 'none',  whoLiked: false, analysis: 'none',   vip: false },
     basic: { target: true,  chat: true,  chatLimit: 5,    score: 'label', whoLiked: false, analysis: 'none',   vip: false },
-    plus:  { target: true,  chat: true,  chatLimit: null, score: 'full',  whoLiked: true,  analysis: 'mutual', vip: false },
+    plus:  { target: true,  chat: true,  chatLimit: null, score: 'full',  whoLiked: true,  analysis: 'none',   vip: false },
     vip:   { target: true,  chat: true,  chatLimit: null, score: 'full',  whoLiked: true,  analysis: 'own',    vip: true }
   };
   // מערכת המנויים עוד לא הותקנה במסד: האפליקציה עובדת בדיוק כמו היום
@@ -5633,7 +5633,7 @@
     var msg = kind === 'target' ? 'שליחת 🎯 זמינה מהמסלול הבסיסי ומעלה'
       : kind === 'chat' ? 'שליחת הודעות זמינה למנויים פעילים. השיחות שלך שמורות'
       : kind === 'liked' ? 'אפשרות לראות מי סימן אותי ב־🎯 זמינה במסלולי פלוס ו־VIP'
-      : kind === 'analysis' ? 'הניתוח הנומרולוגי המורחב זמין במסלולי פלוס ו־VIP'
+      : kind === 'analysis' ? 'הניתוח הנומרולוגי המורחב זמין במסלול VIP'
       : '';
     hdmOpenPlans(msg);
   }
@@ -5674,7 +5674,8 @@
     var plan = hdmPlanId();
     if(!plan){ box.innerHTML = ''; return; }
     if(plan === 'free'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 דירוג התאמה, 🎯 ושיחות — מהמסלול הבסיסי</span>'; return; }
-    if(plan === 'basic'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 הסבר וניתוח מורחב — במסלולי פלוס ו־VIP</span>'; return; }
+    if(plan === 'basic'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 ניתוח מקוצר — בפלוס · ניתוח מורחב — ב־VIP</span>'; return; }
+    if(plan === 'plus'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 ניתוח נומרולוגי מורחב — במסלול VIP</span>'; return; }
     box.innerHTML = '';
     hdmPairStatus(id).then(function(st){
       if(currentMatchId !== id || hdmPlanId() !== plan) return;
@@ -5790,7 +5791,7 @@
     catch(e){
       var em = String(e && e.message || '');
       try{ hdmToast(/HDM_NOT_MUTUAL/.test(em) ? 'הניתוח המורחב ייפתח אחרי 🎯 הדדי' : /HDM_TARGET_FIRST/.test(em) ? 'לחצו 🎯 כדי לפתוח את הניתוח המורחב'
-                    : /HDM_PLAN_REQUIRED/.test(em) ? 'הניתוח הנומרולוגי המורחב זמין במסלולי פלוס ו־VIP' : 'לא הצלחנו לטעון את הניתוח כרגע'); }catch(x){}
+                    : /HDM_PLAN_REQUIRED/.test(em) ? 'הניתוח הנומרולוגי המורחב זמין במסלול VIP' : 'לא הצלחנו לטעון את הניתוח כרגע'); }catch(x){}
       return;
     }
     var anCats = ((an && an.categories) || []).map(function(c){
