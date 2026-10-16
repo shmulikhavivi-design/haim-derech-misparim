@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|keycheck|smtptest|supamail|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|keycheck|smtptest|supamail|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
@@ -262,6 +262,11 @@ if [ "$MODE" = "supamail" ]; then
   else ann error "prod-supamail" "❌ שליחה דרך Supabase: HTTP $RC $RM | נרשם עכשיו: $JS"; fi
   ann notice "prod-result" "supamail הסתיים — לא שונו סיסמאות, נתונים או הגדרות"
   exit 0
+fi
+
+if [ "$MODE" = "export" ]; then
+  [ -n "$TOK" ] || stop "חסר PRODUCTION_SUPABASE_TOKEN"
+  source "$HERE/export.sh"; exit 0
 fi
 
 if [ "$MODE" = "simulate" ]; then

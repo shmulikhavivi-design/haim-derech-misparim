@@ -20,7 +20,7 @@ jobs:
         env: { COMMIT_MSG: '${{ github.event.head_commit.message }}' }
         run: |
           mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[prod:\([a-z]*\)\].*/\1/p'); mode="${mode:-check}"
-          case "$mode" in check|authplan|keycheck|smtptest|supamail|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
+          case "$mode" in check|authplan|keycheck|smtptest|supamail|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
       - name: Secret names (presence only)
         if: steps.mode.outputs.mode == 'secrets'
@@ -60,6 +60,14 @@ jobs:
           PRODUCTION_SUPABASE_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_TOKEN }}
           BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
         run: bash scripts/production/run.sh "${{ steps.mode.outputs.mode }}"
+      - name: Upload encrypted backup
+        if: steps.mode.outputs.mode == 'export'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hdm-backup-encrypted
+          path: ${{ runner.temp }}/hdm-export/out/
+          retention-days: 1
+          if-no-files-found: error
   repo-secrets:
     # בלי environment — רק סודות ברמת הריפו
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && contains(github.event.head_commit.message, '[prod:secrets]')
