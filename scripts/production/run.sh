@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -405,6 +405,17 @@ if [ "$MODE" = "smoke" ]; then
   exit 0
 fi
 
+# ---- plusapply: Plus ללא הגבלה ל-4 החשבונות הקיימים בלבד (03b). משנה את Production — רק באישור הבעלים.
+if [ "$MODE" = "plusapply" ]; then
+  [ -n "$TOK" ] || stop "חסר טוקן"
+  Q=$(cat "$ROOT/supabase/production/03b_existing_accounts_plus_unlimited.sql")
+  C=$(curl -sS -m 60 -o /tmp/pa.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+  ann notice "prod-plusapply" "HTTP $C $(jq -c '.' /tmp/pa.json 2>/dev/null | cut -c1-1500)"
+  { [ "$C" = 200 ] || [ "$C" = 201 ]; } || stop "plusapply נכשל — שום דבר לא נשמר (הכול או כלום). HTTP $C"
+  ann notice "prod-result" "✅ plusapply הסתיים"
+  exit 0
+fi
+
 # ---- plusplan: קריאה בלבד — מצב 4 החשבונות הקיימים ומה ש-03_existing_accounts_plus.sql היה עושה. לא משנה כלום.
 if [ "$MODE" = "plusplan" ]; then
   [ -n "$TOK" ] || stop "חסר טוקן"
@@ -422,6 +433,8 @@ select jsonb_build_object(
     'linked_at', a.linked_at,
     'current_plan', coalesce((select s.plan||' ('||s.status||')' from public.hdm_subscriptions s where s.profile_id=a.profile_id), 'free (no subscription row)'),
     'has_subscription_row', exists(select 1 from public.hdm_subscriptions s where s.profile_id=a.profile_id),
+    'expires', (select coalesce(s.current_period_end::text,'never') from public.hdm_subscriptions s where s.profile_id=a.profile_id),
+    'source', (select s.source from public.hdm_subscriptions s where s.profile_id=a.profile_id),
     'consent_given', exists(select 1 from public.hdm_consents c join auth.users u on u.id=c.user_id where lower(u.email)=lower(a.email)),
     'would_get_plus', (d.id is not null and not exists(select 1 from public.hdm_subscriptions s where s.profile_id=a.profile_id))
    ) order by d.data->>'currentName') from public.hdm_legacy_accounts a left join public.docs d on d.collection='profiles' and d.id=a.profile_id),
