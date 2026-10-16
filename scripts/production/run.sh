@@ -399,7 +399,7 @@ fi
 if [ "$MODE" = "smoke" ]; then
   python3 -m pip install -q playwright >/dev/null && python3 -m playwright install --with-deps chromium >/dev/null 2>&1 || stop "התקנת הדפדפן נכשלה"
   export SMOKE_OUT="${RUNNER_TEMP:-/tmp}/smoke"
-  set +e; OUT=$(python3 -I "$HERE/smoke.py" 2>&1); RC=$?; set -e
+  set +e; OUT=$(python3 "$HERE/smoke.py" 2>&1); RC=$?; set -e
   ann notice "prod-smoke" "$(printf '%s' "$OUT" | tail -c 3500)"
   [ $RC = 0 ] && ann notice "prod-result" "✅ smoke: כל הבדיקות עברו (לא נוצר חשבון, לא נכתבו נתונים)" || stop "smoke: בדיקה אחת או יותר נכשלה (לא נוצר חשבון)"
   exit 0
