@@ -412,7 +412,7 @@ if [ "$MODE" = "advisors" ]; then
     for kind in security performance; do
       C=$(curl -sS -m 60 -o /tmp/adv.json -w '%{http_code}' -H "Authorization: Bearer $t" "https://api.supabase.com/v1/projects/$PROD_REF/advisors/$kind" || echo 000)
       if [ "$C" = 200 ]; then
-        ann notice "prod-advisors-$kind" "($nm) $(jq -c '[.lints[]? | {level, name, title, detail: (.detail|tostring|.[0:160])}] | group_by(.level) | map({(.[0].level): (map({name, title, detail}))}) | add // "none"' /tmp/adv.json | cut -c1-5000)"
+        ann notice "prod-advisors-$kind" "($nm) $(jq -c '[.lints[]? | {level, name}] | group_by(.level+"|"+.name) | map({level: .[0].level, name: .[0].name, count: length})' /tmp/adv.json | cut -c1-3000) || WARN/ERROR non-function details: $(jq -c '[.lints[]? | select(.level!="INFO" and .name!="authenticated_security_definer_function_executable") | {level, name, detail: (.detail|tostring|.[0:220])}]' /tmp/adv.json | cut -c1-3000)"
         break 2
       else ann notice "prod-advisors-$kind-$nm" "HTTP $C $(jq -r '.message // empty' /tmp/adv.json 2>/dev/null | cut -c1-200)"; fi
     done
