@@ -76,6 +76,12 @@ if [ "$MODE" = "check" ]; then
         "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" \
         -d '{"query":"select (select count(*) from auth.users) as auth_users, (select count(*) from auth.users where email_confirmed_at is not null) as confirmed, (select count(*) from public.docs) as docs_rows"}' || echo 000)
     ann notice "prod-counts" "HTTP $C $(jq -c '.[0] // .' /tmp/ct.json 2>/dev/null || true)"
+    Q2=$(cat "$ROOT/supabase/production/00b_production_security_readonly.sql")
+    C=$(curl -sS -m 60 -o /tmp/sec.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+        "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q2" '{query:$q}')" || echo 000)
+    ann notice "prod-security" "HTTP $C $(jq -c '.[0].report // .' /tmp/sec.json 2>/dev/null | cut -c1-6000 || true)"
+    # האם הטוקן יכול לכתוב? בדיקה בלי שינוי: שאילתת קריאה דרך נקודת הקצה הרגילה מחזירה את אותו מידע, אבל לא נשלחת שום כתיבה.
+    # (לא שולחים PATCH, גם לא ריק.)
   else ann warning "prod-preflight" "לא הורצה: חסר PRODUCTION_SUPABASE_TOKEN"; fi
   if [ -n "$TOK" ]; then
     C=$(authget); [ "$C" = 200 ] && ann notice "prod-auth" "$(authsummary)" || ann error "prod-auth" "קריאת הגדרות Auth: HTTP $C $(jq -r '.message // empty' /tmp/cfg.json 2>/dev/null)"
