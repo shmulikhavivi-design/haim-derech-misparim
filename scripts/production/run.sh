@@ -25,12 +25,45 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in check|authplan|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|authplan|keycheck|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; TOK="${PRODUCTION_SUPABASE_TOKEN:-}"; KEY="${BREVO_SMTP_KEY:-}"
 unset PRODUCTION_DB_URL PRODUCTION_SUPABASE_TOKEN BREVO_SMTP_KEY
 for v in "$DB" "$TOK" "$KEY"; do [ -n "$v" ] && echo "::add-mask::$v"; done
 ann notice "prod-secrets" "PRODUCTION_DB_URL: $([ -n "$DB" ] && echo מוגדר || echo חסר) | PRODUCTION_SUPABASE_TOKEN: $([ -n "$TOK" ] && echo מוגדר || echo חסר) | BREVO_SMTP_KEY: $([ -n "$KEY" ] && echo מוגדר || echo חסר)"
+
+# ---- keycheck: קריאה בלבד. מבנה המפתח (בלי ערך) + התחברות לשרת ה-SMTP של Brevo בלי לשלוח מייל. לא נוגע ב-Supabase. ----
+if [ "$MODE" = "keycheck" ]; then
+  [ -n "$KEY" ] || stop "BREVO_SMTP_KEY חסר"
+  SHAPE=$(BK="$KEY" python3 -I - <<'PY'
+import os,re
+k=os.environ["BK"]; s=k.strip().strip('"').strip("'").strip()
+out=[f"אורך: {len(k)}", f"רווחים/שורה חדשה בקצוות: {'כן' if k!=k.strip() else 'לא'}",
+     "מרכאות סביב הערך: " + ("כן" if k.strip()[:1] in ("'", '"') else "לא"),
+     f"רווח באמצע: {'כן' if re.search(r'\s', s) else 'לא'}"]
+if s.startswith("xsmtpsib-"): t="מפתח SMTP של Brevo (xsmtpsib-)"
+elif s.startswith("xkeysib-"): t="מפתח API של Brevo (xkeysib-) — לא מתאים ל-SMTP"
+elif re.fullmatch(r"[A-Za-z0-9]{16}", s): t="16 תווים אותיות/ספרות (נראה כמו סיסמת SMTP ישנה של Brevo)"
+else: t="מבנה אחר (לא xsmtpsib-/xkeysib-)"
+out.append("סוג: "+t)
+print(" | ".join(out))
+PY
+)
+  ann notice "prod-keycheck-shape" "$SHAPE"
+  LOGIN=$(BK="$KEY" python3 -I - <<'PY'
+import os,smtplib,ssl
+k=os.environ["BK"].strip().strip('"').strip("'").strip()
+try:
+    s=smtplib.SMTP("smtp-relay.brevo.com",587,timeout=20); s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo()
+    s.login("be5ab9001@smtp-brevo.com",k); s.quit(); print("✅ ההתחברות ל-Brevo SMTP הצליחה (לא נשלח מייל)")
+except smtplib.SMTPAuthenticationError as e: print(f"❌ Brevo דחה את ההתחברות: {e.smtp_code}")
+except Exception as e: print(f"❌ שגיאת חיבור: {type(e).__name__}")
+PY
+)
+  ann notice "prod-keycheck-login" "$LOGIN"
+  ann notice "prod-result" "keycheck הסתיים — קריאה בלבד, לא שונה כלום ב-Supabase ולא נשלח מייל"
+  exit 0
+fi
 
 API="https://api.supabase.com/v1/projects/$PROD_REF/config/auth"
 authget(){ curl -sS -m 30 -o /tmp/cfg.json -w '%{http_code}' -H "Authorization: Bearer $TOK" "$API" || echo 000; }
