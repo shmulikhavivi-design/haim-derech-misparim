@@ -5759,10 +5759,10 @@
       html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
       html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
       if(k === 'vip' && cur) html += hdmVipBookingHtml();
-      html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'שדרוג — יופעל בקרוב')) + '</button>';
+      html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'בקרוב')) + '</button>';
       html += '</div>';
     });
-    html += '<p class="hdm-note">התשלום באפליקציה עדיין לא פעיל, ולא מתבצע שום חיוב. בינתיים צוות האפליקציה מגדיר את המסלולים ידנית. לפרטים: life.through.numbers333@gmail.com</p>';
+    html += '<p class="hdm-note">המסלולים בתשלום יופעלו בקרוב. כרגע אי אפשר לרכוש מסלול, ולא מתבצע שום חיוב. לשאלות: life.through.numbers333@gmail.com</p>';
     body.innerHTML = html;
   }
   function hdmOpenPlans(msg){
