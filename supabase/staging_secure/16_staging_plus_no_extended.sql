@@ -1,11 +1,15 @@
 -- =====================================================================
--- חיים דרך מספרים — Staging בלבד: מסלול פלוס בלי ניתוח נומרולוגי מורחב (VIP בלבד). אושר על ידי הבעלים 16.10.2026.
--- פלוס ממשיך לקבל דירוג התאמה עם פירוט (rating_details) — ממנו האפליקציה מציגה את רמת ההתאמה ואת 3 שורות הניתוח המקוצר.
--- לא משנה מחירים, מכסות או הטבות אחרות. "הכול או כלום"; הרצה חוזרת לא עושה כלום.
+-- חיים דרך מספרים — מסלול פלוס בלי ניתוח נומרולוגי מורחב (VIP בלבד). אושר על ידי הבעלים 17.10.2026.
+-- אותו קובץ בדיוק רץ ב-Staging ואחר כך ב-Production (בלי הבדל של אף תו).
+-- פלוס ממשיך לקבל דירוג עם פירוט — האפליקציה מציגה לב + רמת התאמה + 3 שורות הניתוח המקוצר.
+-- לא משנה מחירים, מכסות, הטבות אחרות, משתמשים, פרופילים, שיחות או מנויים. "הכול או כלום"; הרצה חוזרת לא עושה כלום.
 -- =====================================================================
 begin;
 do $$ begin
-  if to_regclass('public.hdm_staging_marker') is null then raise exception 'עצירה: זה לא פרויקט Staging. שום דבר לא שונה.'; end if;
+  if to_regclass('public.hdm_plans') is null
+     or (to_regclass('public.hdm_release_marker') is null and to_regclass('public.hdm_staging_marker') is null) then
+    raise exception 'עצירה: זה לא מסד מאובטח של האפליקציה (לא Production אחרי המעבר ולא Staging). שום דבר לא שונה.';
+  end if;
 end $$;
 update public.hdm_plans set extended_analysis = 'none' where plan = 'plus' and extended_analysis <> 'none';
 do $$ begin
@@ -16,6 +20,4 @@ do $$ begin
     raise exception 'עצירה: מחיר או הטבה אחרת השתנו. שום דבר לא נשמר.';
   end if;
 end $$;
-insert into public.hdm_staging_marker(version) select 'staging_plus_no_extended_v1' where not exists (select 1 from public.hdm_staging_marker where version = 'staging_plus_no_extended_v1');
 commit;
-select plan, extended_analysis, rating_details, price_agorot from public.hdm_plans order by sort_order;
