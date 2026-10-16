@@ -5545,7 +5545,7 @@
     plus:  { name: 'פלוס',  price: '₪48.90', per: 'לחודש',
              items: ['התאמות ושיחות ללא הגבלה', 'אפשרות לראות מי סימן אותי ב־🎯', 'רמת התאמה וניתוח נומרולוגי מקוצר (3 שורות)'] },
     vip:   { name: 'VIP',   price: '₪79.90', per: 'לחודש',
-             items: ['כל הטבות פלוס', 'ניתוח נומרולוגי מורחב מיד לאחר סימון 🎯, גם ללא הדדיות', 'פתיחת צ׳אט עדיין מחייבת סימון הדדי', '30% הנחה על שירותים נומרולוגיים זכאים של לימור רון', 'הזמנת השירותים דרך WhatsApp או אימייל'] }
+             items: ['כל הטבות פלוס', 'ניתוח נומרולוגי מורחב מיד לאחר סימון 🎯, גם ללא הדדיות', 'פתיחת צ׳אט עדיין מחייבת סימון הדדי', '30% הנחה על שירותי נומרולוגיה אצל נומרולוגית', 'הזמנת השירותים דרך WhatsApp או אימייל'] }
   };
   var HDM_PLAN_ORDER = ['free', 'basic', 'plus', 'vip'];
   var HDM_PLAN_FEATURES = {
@@ -5728,7 +5728,7 @@
   function hdmVipBookingHtml(){
     var name = hdmName(myProfile);
     var subject = 'הזמנת שירות נומרולוגי — הטבת VIP (30% הנחה)';
-    var body = 'שלום לימור,\nאני מנוי/ה VIP באפליקציית חיים דרך מספרים ואשמח להזמין שירות נומרולוגי עם הנחת 30%.\n\nשם: ' + name + '\nמזהה משתמש: ' + (myId || '') + '\n';
+    var body = 'שלום,\nאני מנוי/ה VIP באפליקציית חיים דרך מספרים ואשמח להזמין שירות נומרולוגי עם הנחת 30%.\n\nשם: ' + name + '\nמזהה משתמש: ' + (myId || '') + '\n';
     var html = '<div class="hdm-vip-book">';
     if(HDM_LIMOR_WHATSAPP) html += '<a href="https://wa.me/' + encodeURIComponent(HDM_LIMOR_WHATSAPP) + '?text=' + encodeURIComponent(body) + '" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>';
     html += '<a href="mailto:' + HDM_LIMOR_EMAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body) + '">✉️ אימייל</a>';
@@ -5823,7 +5823,7 @@
       html += '<p>' + hdmEsc(p) + '</p></div>';
     });
     html += '<p class="hdm-note" style="margin-top:14px">הניתוח מבוסס על עקרונות הנומרולוגיה ומשמש כלי להכוונה אישית, ולא לקביעה ודאית של התאמה זוגית.</p>';
-    if(hdmPlanId() === 'vip') html += '<div class="hdm-current">כמנוי/ה VIP מגיעה לך הנחה של 30% על שירותים נומרולוגיים זכאים של לימור רון.' + hdmVipBookingHtml() + '</div>';
+    if(hdmPlanId() === 'vip') html += '<div class="hdm-current">כמנוי/ה VIP מגיעה לך 30% הנחה על שירותי נומרולוגיה אצל נומרולוגית.' + hdmVipBookingHtml() + '</div>';
     document.getElementById('hdm-analysis-body').innerHTML = html;
     hdmOpenLayer('hdm-analysis-screen');
   }
