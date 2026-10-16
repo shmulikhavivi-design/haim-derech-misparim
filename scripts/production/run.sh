@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in e2echeck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -406,8 +406,8 @@ if [ "$MODE" = "smoke" ]; then
   exit 0
 fi
 
-# ---- e2echeck: קריאה בלבד — מה נשאר מחשבונות בדיקת הקצה (דומיין זמני), והאם תאריך לידה חשוף בפרופיל ציבורי
-if [ "$MODE" = "e2echeck" ]; then
+# ---- testcheck: קריאה בלבד — מה נשאר מחשבונות בדיקת הקצה (דומיין זמני), והאם תאריך לידה חשוף בפרופיל ציבורי
+if [ "$MODE" = "testcheck" ]; then
   Q=$(cat <<'SQL'
 select jsonb_build_object(
  'auth_users_total', (select count(*) from auth.users),
@@ -421,8 +421,8 @@ select jsonb_build_object(
 SQL
 )
   C=$(curl -sS -m 60 -o /tmp/e2.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
-  ann notice "prod-e2echeck" "HTTP $C $(jq -c 'if type=="array" then .[0].r else . end' /tmp/e2.json 2>/dev/null | cut -c1-3500)"
-  ann notice "prod-result" "e2echeck הסתיים — קריאה בלבד"
+  ann notice "prod-testcheck" "HTTP $C $(jq -c 'if type=="array" then .[0].r else . end' /tmp/e2.json 2>/dev/null | cut -c1-3500)"
+  ann notice "prod-result" "testcheck הסתיים — קריאה בלבד"
   exit 0
 fi
 
