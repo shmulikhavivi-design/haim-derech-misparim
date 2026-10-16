@@ -100,7 +100,7 @@ if [ "$MODE" = "authcfg" ]; then
   BODY=$(jq -nc --arg s "$SITE" --arg k "$KEY" --argjson t "$TPL" '{
       site_url:$s, uri_allow_list:($s + "**"), external_email_enabled:true,
       smtp_host:"smtp-relay.brevo.com", smtp_port:"587", smtp_user:"be5ab9001@smtp-brevo.com", smtp_pass:$k,
-      smtp_admin_email:"life.through.numbers333@gmail.com", smtp_sender_name:"חיים דרך מספרים", smtp_max_frequency:60 } + $t')
+      smtp_admin_email:"life.through.numbers333@gmail.com", smtp_sender_name:"חיים דרך מספרים", smtp_max_frequency:60, rate_limit_email_sent:30 } + $t')
   PC=$(curl -sS -m 30 -o /tmp/patch.json -w '%{http_code}' -X PATCH -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$API" -d "$BODY" || echo 000)
   unset BODY KEY
   [ "$PC" = 200 ] || stop "עדכון Auth נכשל: HTTP $PC $(jq -r '.message // empty' /tmp/patch.json 2>/dev/null | cut -c1-300)"
