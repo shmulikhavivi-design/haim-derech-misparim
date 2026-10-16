@@ -420,7 +420,7 @@ select jsonb_build_object(
     'profile_exists', d.id is not null,
     'auth_user_exists', exists(select 1 from auth.users u where lower(u.email)=lower(a.email)),
     'linked_at', a.linked_at,
-    'current_plan', public.hdm_plan_of(a.profile_id),
+    'current_plan', coalesce((select s.plan||' ('||s.status||')' from public.hdm_subscriptions s where s.profile_id=a.profile_id), 'free (no subscription row)'),
     'has_subscription_row', exists(select 1 from public.hdm_subscriptions s where s.profile_id=a.profile_id),
     'consent_given', exists(select 1 from public.hdm_consents c join auth.users u on u.id=c.user_id where lower(u.email)=lower(a.email)),
     'would_get_plus', (d.id is not null and not exists(select 1 from public.hdm_subscriptions s where s.profile_id=a.profile_id))
