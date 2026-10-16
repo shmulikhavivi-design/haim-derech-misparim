@@ -14,9 +14,9 @@ jobs:
         with: { persist-credentials: false }
       - name: Browser
         run: python3 -m pip install -q playwright && python3 -m playwright install --with-deps chromium >/dev/null 2>&1
-      - name: New user end-to-end
+      - name: Live site check (no account)
         env: { E2E_OUT: '${{ runner.temp }}/e2e' }
-        run: python3 scripts/launch_e2e/e2e_new_user.py
+        run: python3 scripts/launch_e2e/live_check.py
       - name: Screenshots
         if: always()
         uses: actions/upload-artifact@v4
