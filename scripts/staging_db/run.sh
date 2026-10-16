@@ -387,6 +387,7 @@ if [ "$MODE" = "e2e" ]; then
   OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_staging.py" 2>&1) && RC=0 || RC=$?
   echo "$OUT"; { echo '```'; echo "$OUT"; echo '```'; } >> "$SUMMARY"
   ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY)|ניקוי' | tail -n 60)"
+  ann notice "staging-e2e-fails" "$(echo "$OUT" | grep -E '^(FAIL|SUMMARY)|ניקוי|Traceback|Error' | tail -n 30)"
   [ $RC -eq 0 ] || stop "בדיקת הדפדפן נכשלה (ראו פלט)."
   say "✅ בדיקת הדפדפן עברה, ונתוני הבדיקה נמחקו."; ann notice "staging-result" "✅ e2e: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"
   exit 0
