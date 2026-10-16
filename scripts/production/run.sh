@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -403,6 +403,21 @@ if [ "$MODE" = "smoke" ]; then
   set +e; OUT=$(python3 "$HERE/smoke.py" 2>&1); RC=$?; set -e
   ann notice "prod-smoke" "$(printf '%s' "$OUT" | tail -c 3500)"
   [ $RC = 0 ] && ann notice "prod-result" "✅ smoke: כל הבדיקות עברו (לא נוצר חשבון, לא נכתבו נתונים)" || stop "smoke: בדיקה אחת או יותר נכשלה (לא נוצר חשבון)"
+  exit 0
+fi
+
+# ---- plusext: מריץ את 07 (פלוס בלי ניתוח מורחב) — אותו קובץ שרץ ב-Staging. משנה את Production — רק באישור הבעלים.
+if [ "$MODE" = "plusext" ]; then
+  F07="$ROOT/supabase/production/07_production_plus_no_extended.sql"
+  ann notice "prod-plusext-file" "sha256 $(sha256sum "$F07" | cut -c1-16)"
+  Q=$(cat "$F07")
+  C=$(curl -sS -m 60 -o /tmp/px.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
+  ann notice "prod-plusext" "HTTP $C $(jq -c '.' /tmp/px.json 2>/dev/null | cut -c1-600)"
+  { [ "$C" = 200 ] || [ "$C" = 201 ]; } || stop "07 נכשל — שום דבר לא נשמר (הכול או כלום). HTTP $C"
+  V="select jsonb_build_object('plans', (select jsonb_agg(jsonb_build_object('plan',plan,'price',price_agorot,'rate',can_rate,'details',rating_details,'chats',monthly_new_chats,'extended',extended_analysis,'discount',limor_discount_pct) order by sort_order) from public.hdm_plans)) as r"
+  C=$(curl -sS -m 60 -o /tmp/pv.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$V" '{query:$q}')" || echo 000)
+  ann notice "prod-plusext-verify" "HTTP $C $(jq -c 'if type=="array" then .[0].r else . end' /tmp/pv.json 2>/dev/null)"
+  ann notice "prod-result" "✅ plusext הסתיים"
   exit 0
 fi
 
