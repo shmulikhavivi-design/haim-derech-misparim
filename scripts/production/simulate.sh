@@ -68,6 +68,10 @@ chk "אין פרופילים לבדיקה ידנית" "0" "$("${P[@]}" -c "selec
 chk "הגיבוי הידני מ-9.10 לא השתנה" "$MAN" "$("${P[@]}" -c "select md5(string_agg(collection||'|'||id, ',' order by collection,id)) from hdm_backup.docs_20261009")"
 chk "משתמשי Auth לא נמחקו" "$(jq length "$W/users1.json")" "$("${P[@]}" -c "select count(*) from auth.users where id in (select (x->>'id')::uuid from jsonb_array_elements('$(cat "$W/users1.json" | jq -c '[.[]|{id}]')'::jsonb) x)")"
 chk "anon לא יכול לקרוא תאריכי לידה" "f" "$("${P[@]}" -c "select has_table_privilege('anon','public.hdm_profile_private','select')")"
+chk "אישור מסמכים: גרסה נדרשת 2026-10-16" "2026-10-16" "$("${P[@]}" -c "select public.hdm_required_terms_version()")"
+chk "אישור מסמכים: המעבר לא אישר בשם אף משתמש" "0" "$("${P[@]}" -c "select count(*) from public.hdm_consents")"
+T15=$("${P[@]}" -F'|' -f "$ROOT/supabase/staging_secure/15_staging_consent_tests.sql" 2>&1 || true)
+chk "בדיקות האישור (15) על העותק אחרי המעבר" "1" "$(printf '%s\n' "$T15" | grep -cE 'עברו ([0-9]+) מתוך \1$' || true)"
 if PL=$("${P[@]}" -f "$ROOT/supabase/production/03_existing_accounts_plus.sql" 2>&1); then chk "Plus לחשבונות הקיימים רץ" ok ok; else chk "Plus לחשבונות הקיימים רץ" ok "שגיאה"; ann error "sim-plus-error" "$(printf '%s' "$PL" | tail -5)"; fi
 chk "4 מנויי Plus פעילים" "4" "$("${P[@]}" -c "select count(*) from public.hdm_subscriptions where plan='plus' and status='active'")"
 "${P[@]}" -f "$ROOT/supabase/production/03_existing_accounts_plus.sql" >/dev/null 2>&1 || true
