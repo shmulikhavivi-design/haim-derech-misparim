@@ -111,7 +111,7 @@ if [ "$MODE" = "authplan" ]; then
      ["מגבלת מיילים לשעה", .rate_limit_email_sent, 30],
      ["נושא איפוס", .mailer_subjects_recovery, $t.mailer_subjects_recovery],
      ["נושא אישור הרשמה", .mailer_subjects_confirmation, $t.mailer_subjects_confirmation]
-   ] | map({שדה: .[0], עכשיו: .[1], יהיה: .[2], משתנה: (.[1] != .[2])})' /tmp/cfg.json)
+   ] | map({"שדה": .[0], "עכשיו": .[1], "יהיה": .[2], "משתנה": (.[1] != .[2])})' /tmp/cfg.json)
   ann notice "prod-authplan" "מפתח Brevo בסוד: $KS | Confirm email: לא משתנה בשלב הזה | $PLAN"
   ann notice "prod-result" "authplan הסתיים — קריאה בלבד, לא שונה כלום"
   exit 0
