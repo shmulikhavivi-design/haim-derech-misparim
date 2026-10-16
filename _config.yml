@@ -1,0 +1,8 @@
+# GitHub Pages (Jekyll): קבצים פנימיים לא מתפרסמים באתר הציבורי.
+# הקבצים נשארים בריפו כמו שהם (staging.html הוא המקור לבניית index.html), רק לא מוגשים מהאתר.
+exclude:
+  - staging.html
+  - scripts/
+  - supabase/
+  - docs/
+  - README.md
