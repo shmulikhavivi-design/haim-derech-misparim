@@ -4124,7 +4124,25 @@
 </script>
 <script>
   // טופס הרשמה חדש — שלב ראשון: מסך ובדיקת שדות בלבד. עדיין לא נוצר חשבון ושום דבר לא נשמר.
+  // השלמת פרופיל לחשבון שכבר קיים ב-Supabase Auth אבל אין לו עדיין פרופיל (למשל אישור מייל במכשיר אחר)
+  window.__hdmComplete = null;
+  function hdmSignupMode(complete){
+    var t = document.querySelector('#signup-screen .signup-title'), l = document.querySelector('#signup-screen .signup-lead');
+    var em = document.getElementById('su-email');
+    ['su-f-pass', 'su-f-consent'].forEach(function(id){ var el = document.getElementById(id); if(el) el.style.display = complete ? 'none' : ''; });
+    if(t) t.textContent = complete ? 'השלמת הפרופיל' : 'יצירת חשבון';
+    if(l) l.textContent = complete ? 'החשבון שלך כבר נוצר. נשלים עכשיו את הפרופיל — בלי להירשם מחדש.' : 'כמה פרטים, ונחשב את המספר שלכם';
+    if(em){ em.readOnly = !!complete; if(complete) em.value = complete.email || ''; }
+  }
+  function hdmOpenCompleteProfile(pid, email){
+    window.__hdmComplete = { pid: pid, email: email };
+    try{ closeLogin(); }catch(e){}
+    var choice = document.getElementById('auth-choice-screen');
+    if(choice){ choice.style.display = ''; choice.classList.remove('auth-hide'); }
+    openSignup();
+  }
   function openSignup(){
+    hdmSignupMode(window.__hdmComplete);
     var f = document.getElementById('signup-screen');
     f.classList.add('open'); f.setAttribute('aria-hidden','false'); f.scrollTop = 0;
     var b = document.getElementById('su-birth');
@@ -4133,6 +4151,10 @@
   function closeSignup(){
     var f = document.getElementById('signup-screen');
     f.classList.remove('open'); f.setAttribute('aria-hidden','true');
+    if(window.__hdmComplete){   // יציאה מהשלמת הפרופיל: מתנתקים (שום דבר לא נמחק), אפשר להתחבר שוב מתי שרוצים
+      window.__hdmComplete = null; hdmSignupMode(null);
+      try{ if(window.authClearSession) window.authClearSession(); }catch(e){}
+    }
   }
   function toggleSignupPass(btn){
     var i = document.getElementById('su-pass');
@@ -4167,9 +4189,11 @@
     check('su-f-birth', birthMsg);
     check('su-f-gender', gender ? '' : 'נא לבחור');
     check('su-f-city', city ? '' : 'נא למלא עיר');
-    check('su-f-email', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? '' : 'נא להזין אימייל תקין');
-    check('su-f-pass', pass.length >= 8 ? '' : 'הסיסמה צריכה לכלול לפחות 8 תווים');
-    check('su-f-consent', document.getElementById('su-consent').checked ? '' : 'כדי להירשם יש לאשר את תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות');
+    if(!window.__hdmComplete){
+      check('su-f-email', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? '' : 'נא להזין אימייל תקין');
+      check('su-f-pass', pass.length >= 8 ? '' : 'הסיסמה צריכה לכלול לפחות 8 תווים');
+      check('su-f-consent', document.getElementById('su-consent').checked ? '' : 'כדי להירשם יש לאשר את תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות');
+    }
 
     var status = document.getElementById('su-status');
     if(!ok){
@@ -4330,6 +4354,13 @@
         if(d.photoFile && typeof assetsCap !== 'undefined' && assetsCap){
           try{ var up = await assetsCap.upload(d.photoFile); profile.photoAssetId = up.id; profile.photoUrl = up.url; }catch(e){}
         }
+        if(window.__hdmComplete){
+          newId = await window.hdmStagingClaim();          // החשבון המחובר עכשיו (נבדק שוב בשרת)
+          if(!newId) throw new Error('not-signed-in');
+          await dbCap.doc('profiles/' + newId).set(profile);
+          window.__hdmComplete = null; hdmSignupMode(null);
+          try{ await window.hdmClearPendingMeta(); }catch(e){}
+        }else{
         var su = await window.hdmStagingSignUp(d.email, d.pass, newId, profile);
         if(signupDraft) signupDraft.pass = null;          // לא משאירים את הסיסמה בזיכרון
         if(su && su.needsConfirm){
@@ -4341,6 +4372,7 @@
         }
         newId = su.profileId;
         await dbCap.doc('profiles/' + newId).set(profile);
+        }
       }
     }catch(e){
       signupSaving = false;
@@ -5982,6 +6014,20 @@
     try{ var raw = localStorage.getItem(hdmPendingKey(email)); if(!raw) return null; localStorage.removeItem(hdmPendingKey(email)); return JSON.parse(raw); }catch(e){ return null; }
   }
 
+  // הפרופיל שממתין לאישור המייל נשמר גם בחשבון ב-Supabase Auth, ולכן זמין גם בהתחברות ממכשיר / דפדפן אחר.
+  // אחרי שהפרופיל נשמר במסד — מוחקים אותו משם.
+  function hdmPendingFromUser(user){
+    var m = (user && user.user_metadata) || {};
+    var p = m.hdm_pending_profile;
+    return (p && typeof p === 'object' && p.birthdate) ? { id: m.hdm_pending_id || null, profile: p } : null;
+  }
+  window.hdmClearPendingMeta = async function(){
+    var a = hdmStgAuth(); if(!a) return;
+    var s = (await a.auth.getSession()).data.session;
+    var m = (s && s.user && s.user.user_metadata) || {};
+    if(m.hdm_pending_profile || m.hdm_pending_id) await a.auth.updateUser({ data: { hdm_pending_profile: null, hdm_pending_id: null } });
+  };
+
   window.hdmStagingSignUp = async function(email, pass, proposedId, profile){
     var a = hdmStgAuth();
     if(!a) throw new Error('no-db');
@@ -5989,7 +6035,8 @@
     var cb = document.getElementById('su-consent');
     if(!cb || !cb.checked) throw new Error('HDM_TERMS_REQUIRED');
     var r = await a.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname,
-      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString() } } });
+      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString(),
+              hdm_pending_id: proposedId || null, hdm_pending_profile: profile || null } } });
     if(r.error){
       var m = hdmStgMsg(r.error);
       if(/already registered|already exists/i.test(m)) throw new Error('HDM_EMAIL_EXISTS');
@@ -6057,7 +6104,7 @@
         status.textContent = /confirm/i.test(hdmStgMsg(r.error)) ? 'צריך קודם לאשר את כתובת האימייל (בדקו בתיבת הדואר ובספאם).' : 'האימייל או הסיסמה שגויים.';
         return;
       }
-      var pending = hdmPendingTake(email);
+      var pending = hdmPendingTake(email) || hdmPendingFromUser(r.data && r.data.user);
       var pid;
       try{ pid = await window.hdmStagingClaim(pending && pending.id); }
       catch(ce){
@@ -6072,14 +6119,19 @@
       }
       var snap = await dbCap.doc('profiles/' + pid).get();
       if(!snap.exists && pending && pending.profile){
-        try{ await dbCap.doc('profiles/' + pid).set(pending.profile); }
+        try{ await dbCap.doc('profiles/' + pid).set(pending.profile); snap = { exists: true }; }
         catch(e){ try{ localStorage.setItem(hdmPendingKey(email), JSON.stringify(pending)); }catch(x){} throw e; }
+      }
+      if(snap.exists){ try{ await window.hdmClearPendingMeta(); }catch(e){} }
+      if(!snap.exists){   // אין פרופיל ואין פרטים שמורים: משלימים את הפרופיל לחשבון הקיים, בלי להירשם מחדש
+        hdmOpenCompleteProfile(pid, authNormEmail(email));
+        return;
       }
       window.__hdmAgeGateOnPass = function(){};
       var entered = await authEnterProfile(pid);
       window.__hdmAgeGateOnPass = null;
       if(!entered && !window.__hdmAgeGateOpen){
-        status.textContent = 'לחשבון הזה עדיין אין פרופיל. נא להירשם מחדש עם אותו אימייל במכשיר שבו התחלתם, או לפנות לצוות.';
+        status.textContent = 'לא הצלחנו לפתוח את הפרופיל. נסו שוב, או כתבו לנו: life.through.numbers333@gmail.com';
       }
     }catch(e){
       var ageErr = hdmDbAgeError(e);
