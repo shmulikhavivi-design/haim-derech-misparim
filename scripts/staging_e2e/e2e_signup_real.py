@@ -43,11 +43,19 @@ def cleanup():
       commit;""")
     return sql("select count(*) from auth.users where email like 'life.through.numbers333+hdm-real-%'")
 
-def verify(token_hash):
-    rq = urllib.request.Request(STG + '/auth/v1/verify', data=json.dumps({'type': 'signup', 'token_hash': token_hash}).encode(),
+def verify(token_hash, typ='signup', want_body=False):
+    rq = urllib.request.Request(STG + '/auth/v1/verify', data=json.dumps({'type': typ, 'token_hash': token_hash}).encode(),
+                                headers={'apikey': KEY, 'Content-Type': 'application/json'}, method='POST')
+    try:
+        r = urllib.request.urlopen(rq, timeout=30)
+        return json.loads(r.read()) if want_body else r.status
+    except urllib.error.HTTPError as e: return f'{e.code} {e.read()[:200]!r}'
+
+def token_login(pw):
+    rq = urllib.request.Request(STG + '/auth/v1/token?grant_type=password', data=json.dumps({'email': EMAIL, 'password': pw}).encode(),
                                 headers={'apikey': KEY, 'Content-Type': 'application/json'}, method='POST')
     try: return urllib.request.urlopen(rq, timeout=30).status
-    except urllib.error.HTTPError as e: return f'{e.code} {e.read()[:200]!r}'
+    except urllib.error.HTTPError as e: return e.code
 
 html_dir = os.path.dirname(os.path.abspath(PAGE))
 srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=html_dir))
@@ -63,9 +71,9 @@ def new_page(br):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; }catch(e){} }")
     return c, pg
 
-def login(pg):
+def login(pg, pw=None):
     pg.evaluate("() => openLogin()")
-    pg.fill('#li-email', EMAIL); pg.fill('#li-pass', PW); pg.click('#li-submit')
+    pg.fill('#li-email', EMAIL); pg.fill('#li-pass', pw or PW); pg.click('#li-submit')
     try: pg.wait_for_function("() => (myId && (document.querySelector('.screen.active')||{}).id === 'screen-match') || document.getElementById('li-status').textContent.trim() || window.__hdmComplete", timeout=25000)
     except Exception: pass
     pg.wait_for_timeout(800)
@@ -124,13 +132,59 @@ try:
         check('במסד: פרופיל נשמר עם מה שמולא במכשיר A', len(parts) == 4 and parts[0] == r['myId'] and parts[1] == 'נגה ברק' and parts[2] == 'נתניה', row)
         check('במסד: הפרטים הממתינים נמחקו מהחשבון', len(parts) == 4 and parts[3] == 'false', row)
         check('האישור לתנאים נרשם מההרשמה', sql(f"select count(*) from public.hdm_consents c join auth.users u on u.id=c.user_id where u.email={lit(EMAIL)}") == '1')
+        PID = r['myId']
+
+        # ---- אבטחה: מה נשמר ואיפה ----
+        check('אבטחה: תאריך הלידה והשם מלידה לא בפרופיל הגלוי', sql(f"select (data ?| array['birthdate','birthFirstName','birthLastName'])::text from public.docs where collection='profiles' and id={lit(PID)}") == 'false')
+        check('אבטחה: הפרטים האישיים נמחקו מנתוני החשבון אחרי יצירת הפרופיל', sql(f"select coalesce(raw_user_meta_data->'hdm_pending_profile','null'::jsonb)::text from auth.users where email={lit(EMAIL)}") == 'null')
+        check('אבטחה: נשמר רק מזהה הפרופיל שהשרת קבע (לא מזהה שהדפדפן בחר בשם משתמש אחר)', sql(f"select count(*) from public.hdm_accounts where profile_id={lit(PID)}") == '1')
+
+        # ---- התנתקות והתחברות חוזרת ----
+        pgB.evaluate("() => logoutToAuthChoice()"); pgB.wait_for_timeout(800)
+        out = pgB.evaluate("() => ({ myId: myId, choice: getComputedStyle(document.getElementById('auth-choice-screen')).display })")
+        check('התנתקות: יוצא מהחשבון ומוצג מסך ההרשמה/התחברות', not out['myId'] and out['choice'] != 'none', out)
+        pgB.reload(); pgB.wait_for_timeout(3000)
+        check('אחרי התנתקות ורענון: לא מתחבר אוטומטית', not pgB.evaluate("() => myId"))
+        pgB.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; }catch(e){} }")
+        r3 = login(pgB)
+        check('התחברות חוזרת: אותו פרופיל', r3['screen'] == 'screen-match' and r3['myId'] == PID, r3)
+        pgB.reload(); pgB.wait_for_timeout(5000)
+        check('אחרי רענון: נשאר מחובר', pgB.evaluate("() => myId") == PID, pgB.evaluate("() => myId"))
+
+        # ---- שכחתי סיסמה: בקשה אמיתית, Supabase שולח מייל ----
+        pgB.evaluate("() => logoutToAuthChoice()"); pgB.wait_for_timeout(600)
+        pgB.evaluate("() => { openLogin(); hdmOpenForgot(); }"); pgB.wait_for_timeout(300)
+        pgB.fill('#fp-email', EMAIL); pgB.click('#fp-submit')
+        try: pgB.wait_for_function("() => document.getElementById('fp-status').textContent.trim()", timeout=20000)
+        except Exception: pass
+        fs = pgB.inner_text('#fp-status')
+        rs = sql(f"select (recovery_sent_at > now() - interval '5 minutes')::text || '|' || (coalesce(recovery_token,'') <> '')::text from auth.users where email={lit(EMAIL)}")
+        check('שכחתי סיסמה: Supabase שלח מייל איפוס (נרשם במסד)', rs == 'true|true', [fs, rs])
+        check('שכחתי סיסמה: הודעה למשתמש', bool(fs.strip()) and 'נכשל' not in fs, fs)
         cB.close()
 
-        # ---- התחברות שלישית ממכשיר נוסף ----
-        cC, pgC = new_page(br)
-        r2 = login(pgC)
-        check('מכשיר נוסף: אותו פרופיל', r2['screen'] == 'screen-match' and r2['myId'] == r['myId'], r2)
-        cC.close()
+        # ---- הקישור מהמייל: אימות אמיתי → מסך סיסמה חדשה → כניסה ----
+        tk = verify(sql(f"select recovery_token from auth.users where email={lit(EMAIL)}"), 'recovery', True)
+        check('קישור האיפוס: אימות דרך Supabase', isinstance(tk, dict) and tk.get('access_token'), tk)
+        cR, pgR = new_page(br)
+        pgR.goto(APP + '?hdm_reset=1#access_token=' + tk['access_token'] + '&refresh_token=' + tk['refresh_token'] + '&expires_in=3600&token_type=bearer&type=recovery')
+        try: pgR.wait_for_function("() => { const i = document.getElementById('rp-pass'); return i && i.offsetParent !== null; }", timeout=15000)
+        except Exception: pass
+        check('קישור האיפוס פותח את מסך הסיסמה החדשה', pgR.evaluate("() => { const i = document.getElementById('rp-pass'); return !!(i && i.offsetParent !== null); }"))
+        NEWPW = 'New-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(16))
+        pgR.fill('#rp-pass', NEWPW); pgR.fill('#rp-pass2', NEWPW); pgR.click('#rp-submit')
+        try: pgR.wait_for_function(f"() => myId === '{PID}'", timeout=20000)
+        except Exception: pass
+        pgR.wait_for_timeout(800)
+        check('אחרי הסיסמה החדשה: נכנס לאותו פרופיל', pgR.evaluate("() => myId") == PID, pgR.evaluate("() => myId"))
+        check('הסיסמה החדשה עובדת והישנה לא', token_login(NEWPW) == 200 and token_login(PW) == 400, [token_login(NEWPW), token_login(PW)])
+        cR.close()
+        cN, pgN = new_page(br)
+        r4 = login(pgN, NEWPW)
+        check('התחברות ממכשיר נוסף עם הסיסמה החדשה: אותו פרופיל, הנתונים נשמרו', r4['myId'] == PID and sql(f"select (data->>'currentName') || '|' || (data->>'location') from public.docs where collection='profiles' and id={lit(PID)}") == 'נגה ברק|נתניה', r4)
+        cN.close()
+        check('סיסמה שגויה נדחית', token_login('Wrong-password-123') == 400)
+
 
         check('אין שגיאות JavaScript בדף', not errors, errors[:3])
         check('הדף פנה רק ל-Staging (לא לפרויקט הפעיל)', not any('qtspzigjlbtckqfyaubp' in h for h in seen_hosts), sorted(seen_hosts))
