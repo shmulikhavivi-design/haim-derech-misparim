@@ -4992,6 +4992,17 @@
       ['מחיקת חשבון',
         'אפשר למחוק את החשבון בכל עת מתוך האפליקציה: הגדרות ← מחיקת חשבון. המחיקה סופית. מה נמחק ומה נשמר מפורט במדיניות הפרטיות.',
         'אם אין לך גישה לחשבון, אפשר לבקש את מחיקתו באימייל לכתובת ' + HDM_CONTACT_EMAIL + '.'],
+      ['מנויים, חיובים, שדרוגים, חידושים וביטולים',
+        'מסלולים: חינם (₪0), בסיסי (₪29.90 לחודש), פלוס (₪48.90 לחודש) ו-VIP (₪79.90 לחודש). ההטבות של כל מסלול מפורטות במסך המסלולים באפליקציה.',
+        'הסכמה לפני תשלום: לפני כל תשלום יוצגו לך הסכום, תאריך החיוב הבא ותנאי החידוש, והתשלום יתבצע רק לאחר אישורך.',
+        'חיוב וחידוש אוטומטי: החיוב הראשון מתבצע ביום ההצטרפות. המנוי מתחדש אוטומטית מדי חודש באותו תאריך, במחיר המסלול, עד לביטולו. בחודש שאין בו תאריך כזה, החיוב יתבצע ביום האחרון של החודש. החיובים מתבצעים באמצעי התשלום ששמרת אצל ספק הסליקה (Grow), בלי צורך להזין שוב את פרטי האשראי. אנחנו לא שומרים את פרטי כרטיס האשראי שלך.',
+        'שדרוג: אפשר לשדרג למסלול גבוה יותר בכל שלב. בעת שדרוג תחויב/י רק בהפרש היחסי בין המסלולים עבור יתרת תקופת החיוב הנוכחית, והסכום יוצג לך לפני האישור. המסלול החדש יופעל מיד לאחר אישור התשלום, ותאריך החיוב החודשי לא ישתנה. מהחידוש הבא תחויב/י במחיר המסלול החדש. אם ההפרש היחסי נמוך מ-₪1, השדרוג יופעל בלי חיוב נוסף.',
+        'מעבר למסלול נמוך יותר אינו זמין באמצע תקופת חיוב. אפשר לבטל את המנוי ולהצטרף למסלול אחר בתום התקופה ששולמה.',
+        'חיוב שנכשל: אם חיוב חידוש לא אושר, המנוי לא יוארך, והגישה למסלול תימשך רק עד סוף התקופה ששולמה. ננסה לחייב שוב עד 3 פעמים בסך הכול, בהפרש של יומיים לפחות בין ניסיון לניסיון. אם החיוב לא יאושר, החידוש האוטומטי ייעצר והחשבון יעבור למסלול החינם.',
+        'ביטול: אפשר לבטל את המנוי בכל עת מתוך מסך "המנוי שלי" באפליקציה, או באימייל לכתובת ' + HDM_CONTACT_EMAIL + '. הביטול עוצר את החיובים הבאים, והגישה למסלול תימשך עד סוף התקופה ששולמה. מחיקת החשבון מבטלת גם את המנוי.',
+        'החזרים: ביטול עסקה והחזר כספי יתבצעו בהתאם להוראות חוק הגנת הצרכן, התשמ"א-1981, והתקנות שלפיו. חיוב שבוצע בטעות או בכפילות יוחזר במלואו.',
+        'קבלה תישלח אליך באימייל עבור כל חיוב.',
+        'כל האמור בסעיף זה כפוף לדין החל.'],
       ['השעיה וסיום שימוש',
         'אנחנו רשאים להגביל, להשעות או למחוק חשבון, עם או בלי הודעה מוקדמת, אם הופרו התנאים, אם התקבלו דיווחים מבוססים, אם יש חשש לפגיעה במשתמשים, או אם הדין מחייב זאת.',
         'את/ה רשאי/ת להפסיק להשתמש באפליקציה בכל עת.',
@@ -5802,13 +5813,16 @@
     html += '</div>';
     html += hdmBillingHtml(e, plan);
     var bl = e && !e.error && e.billing, canBuy = !!(bl && (HDM_BILLING_LIVE || HDM_BILLING_PREVIEW) && !bl.paid && !bl.pendingCheckout);
+    var canUp = !!(bl && (HDM_BILLING_LIVE || HDM_BILLING_PREVIEW) && bl.paid && bl.autoRenew && bl.status === 'active' && !bl.pendingCheckout);
     HDM_PLAN_ORDER.forEach(function(k){
       var info = HDM_PLAN_INFO[k], cur = plan === k;
       html += '<div class="hdm-plan' + (cur ? ' is-current' : '') + '">';
       html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
       html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
       if(k === 'vip' && cur) html += hdmVipBookingHtml();
-      if(k !== 'free' && canBuy && !(cur && bl.paid))
+      if(canUp && HDM_PLAN_ORDER.indexOf(k) > HDM_PLAN_ORDER.indexOf(plan))
+        html += '<button type="button" class="hdm-plan-btn buy" onclick="hdmBillOpenUpgrade(\'' + k + '\')">שדרוג ל' + info.name + '</button>';
+      else if(k !== 'free' && canBuy && !(cur && bl.paid))
         html += '<button type="button" class="hdm-plan-btn buy" onclick="hdmBillOpenBuy(\'' + k + '\')">הצטרפות למסלול ' + info.name + '</button>';
       else
         html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'בקרוב')) + '</button>';
@@ -5826,6 +5840,22 @@
     if(b.paid){
       html += '<div class="hdm-bill" id="hdm-bill-box"><b>המנוי שלי</b><br>';
       if(b.paymentFailed) html += '<span class="hdm-bill-warn">החיוב האחרון לא עבר. המנוי בתוקף עד ' + hdmFmtBillDate(b.activeUntil) + ' ולא יוארך בלי תשלום.</span><br>';
+      if(hdmBillUI && hdmBillUI.mode === 'upgrade' && HDM_PLAN_INFO[hdmBillUI.plan]){
+        var ui = HDM_PLAN_INFO[hdmBillUI.plan], uq = hdmBillUI.quote;
+        html += '<div class="hdm-bill-terms"><b>שדרוג ל' + ui.name + '</b><br>';
+        if(!uq) html += 'מחשבים את הסכום…';
+        else html += 'חיוב עכשיו: <b>' + hdmMoney(uq.chargeNowAgorot) + '</b> — ההפרש היחסי עבור יתרת התקופה עד ' + hdmFmtBillDate(uq.periodEnd) + '.<br>'
+                  + 'המסלול החדש יופעל מיד לאחר אישור התשלום. תאריך החיוב החודשי לא משתנה: החל מ־' + hdmFmtBillDate(uq.nextChargeAt)
+                  + ' תחויב/י ' + hdmMoney(uq.nextChargeAgorot) + ' לחודש, עד לביטול. החיוב מתבצע בכרטיס השמור.';
+        html += '</div>';
+        if(uq){
+          html += '<label class="hdm-bill-check"><input type="checkbox" id="hdm-bill-accept" onchange="hdmBillSync()"><span>קראתי ואני מסכים/ה לתנאי השדרוג והחידוש האוטומטי ול<a href="#" onclick="openLegal(\'terms\');return false;">תנאי השימוש</a></span></label>';
+          html += '<div class="hdm-bill-row"><button type="button" class="primary" id="hdm-bill-pay" disabled onclick="hdmBillUpgrade()">אישור ושדרוג</button>'
+                + '<button type="button" onclick="hdmBillClose()">ביטול</button></div>';
+        }
+        if(hdmBillUI.msg) html += '<p class="hdm-note" style="margin:10px 0 0">' + hdmEsc(hdmBillUI.msg) + '</p>';
+        html += '<hr style="border:none;border-top:1px solid rgba(226,183,105,.25);margin:12px 0">';
+      }
       if(b.autoRenew){
         html += 'החיוב הבא: <b>' + hdmFmtBillDate(b.nextChargeAt) + '</b> · ' + hdmMoney(b.nextChargeAgorot) + '<br>המנוי מתחדש אוטומטית מדי חודש עד לביטול.';
         if(hdmBillUI && hdmBillUI.mode === 'cancel'){
@@ -5857,6 +5887,34 @@
   function hdmBillClose(){ hdmBillUI = null; hdmRenderPlans(); }
   function hdmBillOpenCancel(){ hdmBillUI = { mode: 'cancel' }; hdmBillRender(); }
   function hdmBillOpenBuy(plan){ hdmBillUI = { mode: 'buy', plan: plan }; hdmBillRender(); }
+  async function hdmBillOpenUpgrade(plan, msg){
+    hdmBillUI = { mode: 'upgrade', plan: plan, quote: null, msg: msg || '' }; hdmBillRender();
+    try{
+      var r = await window.__sb.rpc('hdm_billing_upgrade_quote', { p_plan: plan });
+      if(r && r.error) throw r.error;
+      if(hdmBillUI && hdmBillUI.plan === plan) hdmBillUI.quote = r.data;
+    }catch(e){ if(hdmBillUI) hdmBillUI.msg = (e && e.hint) ? e.hint : 'לא הצלחנו לחשב את הסכום. נסו שוב בעוד רגע.'; }
+    hdmBillRender();
+  }
+  async function hdmBillUpgrade(){
+    var c = document.getElementById('hdm-bill-accept');
+    if(!c || !c.checked || hdmBillBusy || !hdmBillUI || !hdmBillUI.quote) return;
+    hdmBillBusy = true; hdmBillSync();
+    try{
+      var q = hdmBillUI.quote;
+      var r = await window.__sb.rpc('hdm_billing_start_upgrade', { p_plan: hdmBillUI.plan, p_terms_version: q.termsVersion, p_accept: true, p_quoted_agorot: q.chargeNowAgorot });
+      if(r && r.error) throw r.error;
+      if(r.data && r.data.upgraded){ hdmBillUI = null; hdmToast('המסלול שודרג.'); }
+      // אחרי חיבור Grow: פונקציית שרת מחייבת את הכרטיס השמור בסכום הזה, והמסלול מתעדכן רק לפי אישור מ-Grow
+      else hdmBillUI.msg = HDM_BILLING_LIVE ? 'מבצעים את החיוב…' : 'ההסכמה נשמרה. החיוב בכרטיס השמור עדיין לא הופעל (ממתין לאישור Grow) — לא בוצע שום חיוב.';
+    }catch(e){
+      if(hdmBillUI) hdmBillUI.msg = (e && e.hint) ? e.hint : 'לא הצלחנו להתחיל את השדרוג. נסו שוב בעוד רגע.';
+      if(e && /QUOTE_CHANGED/.test(String(e.message || '')) && hdmBillUI){ hdmBillBusy = false; return hdmBillOpenUpgrade(hdmBillUI.plan, 'הסכום התעדכן לפי הזמן שעבר. יש לבדוק ולאשר שוב.'); }
+    }
+    hdmBillBusy = false;
+    await hdmRefreshPlan(true).catch(function(){});
+    hdmRenderPlans();
+  }
   function hdmBillSync(){ var c = document.getElementById('hdm-bill-accept'), b = document.getElementById('hdm-bill-pay'); if(b) b.disabled = !(c && c.checked) || hdmBillBusy; }
   async function hdmBillCancel(){
     if(hdmBillBusy) return; hdmBillBusy = true; hdmRenderPlans();
