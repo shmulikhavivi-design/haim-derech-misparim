@@ -654,6 +654,17 @@
   .hdm-plan .hdm-plan-btn{ width:100%; margin-top:12px; border-radius:12px; padding:11px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:500;
     border:1px solid rgba(226,183,105,.5); background:transparent; color:#A99E90; }
   .hdm-plan.is-current .hdm-plan-btn{ background:#E2B769; color:#1a1526; border-color:#E2B769; font-weight:700; }
+  .hdm-bill{ border:1px solid rgba(226,183,105,.55); border-radius:16px; padding:14px 16px; margin:0 0 18px; background:rgba(255,255,255,.04); color:#F2EADF; font-size:14.5px; line-height:1.7; }
+  .hdm-bill b{ color:#F2D59A; }
+  .hdm-bill .hdm-bill-warn{ color:#F4B6A6; }
+  .hdm-bill-terms{ background:rgba(255,255,255,.05); border-radius:12px; padding:10px 12px; margin:10px 0; font-size:13.5px; color:#E3D9CC; }
+  .hdm-bill-check{ display:flex; gap:10px; align-items:flex-start; font-size:13.5px; margin:10px 0; }
+  .hdm-bill-check input{ width:22px; height:22px; flex:0 0 auto; margin-top:2px; accent-color:#E2B769; }
+  .hdm-bill-row{ display:flex; gap:10px; margin-top:12px; }
+  .hdm-bill-row button{ flex:1; border-radius:12px; padding:11px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; border:1px solid #E2B769; background:transparent; color:#F2D59A; }
+  .hdm-bill-row button.primary{ background:#E2B769; color:#1a1526; }
+  .hdm-bill-row button:disabled{ opacity:.45; }
+  .hdm-plan .hdm-plan-btn.buy{ color:#F2D59A; border-color:#E2B769; }
   .hdm-badge{ display:inline-block; font-size:11.5px; color:#1a1526; background:#E2B769; border-radius:999px; padding:1px 9px; margin-inline-start:6px; vertical-align:middle; font-weight:600; }
   .hdm-vip-book{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
   .hdm-vip-book a{ flex:1; min-width:120px; text-align:center; text-decoration:none; border:1px solid #E2B769; color:#F2D59A; border-radius:12px; padding:10px; font-size:14px; }
@@ -5588,6 +5599,13 @@
   var HDM_LIMOR_EMAIL = 'life.through.numbers333@gmail.com';
 
   var hdmEnt = null, hdmEntLoading = null, hdmPlansMsg = '';
+  // מנויים מתחדשים. רכישה תיפתח רק אחרי חיבור Grow (HDM_BILLING_LIVE). עד אז אפשר לבדוק את מסך ההסכמה
+  // ב-Staging בלבד עם ?billing=preview — נפתח ניסיון תשלום במסד, בלי מעבר לתשלום ובלי שום חיוב.
+  var HDM_BILLING_LIVE = false;
+  var HDM_BILLING_PREVIEW = /[?&]billing=preview\b/.test(location.search);
+  var hdmBillUI = null, hdmBillBusy = false;
+  function hdmFmtBillDate(iso){ try{ return new Date(iso).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' }); }catch(e){ return ''; } }
+  function hdmMoney(agorot){ return '₪' + (Number(agorot || 0) / 100).toFixed(2); }
 
   function hdmPlanKnown(){ return !!(myId && hdmEnt && hdmEnt.forId === myId); }
   function hdmFeatures(){
@@ -5614,6 +5632,10 @@
         if(r && r.error) throw r.error;
         if(!r || !r.data || typeof r.data !== 'object' || r.data.profileId !== id) throw new Error('entitlements-mismatch');
         ent = Object.assign({ installed: true }, r.data);
+        try{   // מצב החיוב (אם מנגנון המנויים המתחדשים מותקן). כישלון כאן לא משפיע על שאר האפליקציה
+          var b = await sb.rpc('hdm_billing_status');
+          if(b && !b.error && b.data && typeof b.data === 'object') ent.billing = b.data;
+        }catch(x){}
       }catch(e){
         if(hdmEnt && hdmEnt.forId === id && !hdmEnt.error) return hdmEnt;   // משאירים את מה שכבר ידוע
         ent = { error: true };
@@ -5778,20 +5800,95 @@
       if(e.periodEnd) html += '<br>בתוקף עד ' + hdmFmtDate(e.periodEnd);
     }
     html += '</div>';
+    html += hdmBillingHtml(e, plan);
+    var bl = e && !e.error && e.billing, canBuy = !!(bl && (HDM_BILLING_LIVE || HDM_BILLING_PREVIEW) && !bl.paid && !bl.pendingCheckout);
     HDM_PLAN_ORDER.forEach(function(k){
       var info = HDM_PLAN_INFO[k], cur = plan === k;
       html += '<div class="hdm-plan' + (cur ? ' is-current' : '') + '">';
       html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
       html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
       if(k === 'vip' && cur) html += hdmVipBookingHtml();
-      html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'בקרוב')) + '</button>';
+      if(k !== 'free' && canBuy && !(cur && bl.paid))
+        html += '<button type="button" class="hdm-plan-btn buy" onclick="hdmBillOpenBuy(\'' + k + '\')">הצטרפות למסלול ' + info.name + '</button>';
+      else
+        html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'בקרוב')) + '</button>';
       html += '</div>';
     });
-    html += '<p class="hdm-note">המסלולים בתשלום יופעלו בקרוב. כרגע אי אפשר לרכוש מסלול, ולא מתבצע שום חיוב. לשאלות: life.through.numbers333@gmail.com</p>';
+    if(HDM_BILLING_LIVE) html += '<p class="hdm-note">המנויים מתחדשים אוטומטית מדי חודש עד לביטול. אפשר לבטל בכל עת מהמסך הזה. לשאלות: life.through.numbers333@gmail.com</p>';
+    else html += '<p class="hdm-note">המסלולים בתשלום יופעלו בקרוב. כרגע אי אפשר לרכוש מסלול, ולא מתבצע שום חיוב. לשאלות: life.through.numbers333@gmail.com</p>';
     body.innerHTML = html;
   }
+  // ---- המנוי שלי: תאריך החיוב הבא, ביטול, הסכמה לתנאי החידוש ----
+  function hdmBillingHtml(e, plan){
+    var b = e && !e.error && e.billing;
+    if(!b) return '';
+    var html = '';
+    if(b.paid){
+      html += '<div class="hdm-bill" id="hdm-bill-box"><b>המנוי שלי</b><br>';
+      if(b.paymentFailed) html += '<span class="hdm-bill-warn">החיוב האחרון לא עבר. המנוי בתוקף עד ' + hdmFmtBillDate(b.activeUntil) + ' ולא יוארך בלי תשלום.</span><br>';
+      if(b.autoRenew){
+        html += 'החיוב הבא: <b>' + hdmFmtBillDate(b.nextChargeAt) + '</b> · ' + hdmMoney(b.nextChargeAgorot) + '<br>המנוי מתחדש אוטומטית מדי חודש עד לביטול.';
+        if(hdmBillUI && hdmBillUI.mode === 'cancel'){
+          html += '<div class="hdm-bill-terms">לבטל את המנוי? החיובים הבאים ייעצרו, והמסלול יישאר פעיל עד <b>' + hdmFmtBillDate(b.activeUntil) + '</b>. אחרי זה החשבון יעבור למסלול החינם.</div>';
+          html += '<div class="hdm-bill-row"><button type="button" class="primary" id="hdm-bill-cancel-yes" onclick="hdmBillCancel()"' + (hdmBillBusy ? ' disabled' : '') + '>כן, לבטל את המנוי</button>'
+                + '<button type="button" onclick="hdmBillClose()">חזרה</button></div>';
+        }else{
+          html += '<div class="hdm-bill-row"><button type="button" id="hdm-bill-cancel" onclick="hdmBillOpenCancel()">ביטול מנוי</button></div>';
+        }
+      }else{
+        html += 'המנוי בוטל ולא יתחדש. המסלול פעיל עד <b>' + hdmFmtBillDate(b.activeUntil) + '</b>, ולא יתבצעו חיובים נוספים.';
+      }
+      html += '</div>';
+    }else if(hdmBillUI && hdmBillUI.mode === 'buy' && HDM_PLAN_INFO[hdmBillUI.plan]){
+      var info = HDM_PLAN_INFO[hdmBillUI.plan];
+      html += '<div class="hdm-bill" id="hdm-bill-box"><b>הצטרפות למסלול ' + info.name + ' · ' + info.price + ' לחודש</b>';
+      html += '<div class="hdm-bill-terms">' + hdmEsc(b.termsText || '') + '<br>החיוב הראשון היום, והבאים בכל חודש באותו תאריך.</div>';
+      html += '<label class="hdm-bill-check"><input type="checkbox" id="hdm-bill-accept" onchange="hdmBillSync()"><span>קראתי ואני מסכים/ה לתנאי החידוש האוטומטי ול<a href="#" onclick="openLegal(\'terms\');return false;">תנאי השימוש</a></span></label>';
+      html += '<div class="hdm-bill-row"><button type="button" class="primary" id="hdm-bill-pay" disabled onclick="hdmBillStart()">המשך לתשלום</button>'
+            + '<button type="button" onclick="hdmBillClose()">ביטול</button></div>';
+      if(hdmBillUI.msg) html += '<p class="hdm-note" style="margin:10px 0 0">' + hdmEsc(hdmBillUI.msg) + '</p>';
+      html += '</div>';
+    }else if(b.pendingCheckout){
+      html += '<div class="hdm-bill">יש תשלום שנמצא בתהליך. אם לא השלמת אותו, אפשר לנסות שוב בעוד כחצי שעה.</div>';
+    }
+    return html;
+  }
+  function hdmBillRender(){ hdmRenderPlans(); var el = document.getElementById('hdm-bill-box'); if(el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }
+  function hdmBillClose(){ hdmBillUI = null; hdmRenderPlans(); }
+  function hdmBillOpenCancel(){ hdmBillUI = { mode: 'cancel' }; hdmBillRender(); }
+  function hdmBillOpenBuy(plan){ hdmBillUI = { mode: 'buy', plan: plan }; hdmBillRender(); }
+  function hdmBillSync(){ var c = document.getElementById('hdm-bill-accept'), b = document.getElementById('hdm-bill-pay'); if(b) b.disabled = !(c && c.checked) || hdmBillBusy; }
+  async function hdmBillCancel(){
+    if(hdmBillBusy) return; hdmBillBusy = true; hdmRenderPlans();
+    try{
+      var r = await window.__sb.rpc('hdm_billing_cancel');
+      if(r && r.error) throw r.error;
+      hdmBillUI = null;
+      hdmToast('המנוי בוטל. המסלול פעיל עד ' + hdmFmtBillDate(r.data && r.data.activeUntil) + ', ולא יתבצעו חיובים נוספים.');
+    }catch(e){ hdmToast('הביטול לא הצליח. נסו שוב, או כתבו לנו: life.through.numbers333@gmail.com'); }
+    hdmBillBusy = false;
+    await hdmRefreshPlan(true).catch(function(){});
+    hdmRenderPlans();
+  }
+  async function hdmBillStart(){
+    var c = document.getElementById('hdm-bill-accept');
+    if(!c || !c.checked || hdmBillBusy || !hdmBillUI) return;
+    var b = hdmEnt && hdmEnt.billing; if(!b) return;
+    hdmBillBusy = true; hdmBillSync();
+    try{
+      var r = await window.__sb.rpc('hdm_billing_start_checkout', { p_plan: hdmBillUI.plan, p_terms_version: b.termsVersion, p_accept: true });
+      if(r && r.error) throw r.error;
+      // כאן, אחרי חיבור Grow: פונקציית שרת יוצרת דף תשלום ב-Grow לניסיון הזה ומעבירה אליו. המנוי מופעל רק לפי אישור מ-Grow.
+      hdmBillUI.msg = HDM_BILLING_LIVE ? 'מעבירים לתשלום מאובטח…' : 'ההסכמה נשמרה. חיבור התשלום (Grow) עדיין לא הופעל — לא בוצע שום חיוב.';
+    }catch(e){
+      hdmBillUI.msg = (e && e.hint) ? e.hint : 'לא הצלחנו להתחיל את התשלום. נסו שוב בעוד רגע.';
+    }
+    hdmBillBusy = false;
+    hdmRenderPlans();
+  }
+
   function hdmOpenPlans(msg){
-    hdmPlansMsg = msg || '';
+    hdmPlansMsg = msg || ''; hdmBillUI = null;
     hdmRenderPlans();
     hdmOpenLayer('hdm-plans-screen');
     hdmRefreshPlan(true).then(function(){ if(hdmLayerOpen('hdm-plans-screen')) hdmRenderPlans(); }).catch(function(){});
