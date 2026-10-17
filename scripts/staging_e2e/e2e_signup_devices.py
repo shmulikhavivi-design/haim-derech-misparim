@@ -151,7 +151,7 @@ try:
         a = acct(emA).split('|')
         check('במסד: החשבון מקושר לפרופיל, והפרופיל נשמר', len(a) == 3 and a[0] == e['myId'] and a[1] == '1', a)
         check('במסד: הפרטים הממתינים נמחקו מהחשבון', len(a) == 3 and a[2] == 'false', a)
-        row = sql(f"select data->>'currentName' || '|' || data->>'location' || '|' || coalesce(data->>'lookingFor','') from public.docs where collection='profiles' and id={lit(e['myId'])}")
+        row = sql(f"select (data->>'currentName') || '|' || (data->>'location') || '|' || coalesce(data->>'lookingFor','') from public.docs where collection='profiles' and id={lit(e['myId'])}")
         check('הפרופיל זהה למה שמולא במכשיר A', row == 'דנה כהן|חיפה|גברים', row)
         check('תאריך הלידה נשמר בטבלה הפרטית (לא בפרופיל הגלוי)', sql(f"select (select birthdate::text from public.hdm_profile_private where profile_id={lit(e['myId'])}) || '|' || (select (data ? 'birthdate')::text from public.docs where collection='profiles' and id={lit(e['myId'])})") == '1992-04-12|false')
         check('האישור לתנאים נרשם (מתיבת הסימון בהרשמה)', sql(f"select count(*) from public.hdm_consents c join auth.users u on u.id=c.user_id where u.email={lit(emA)} and c.source='signup'") == '1')
