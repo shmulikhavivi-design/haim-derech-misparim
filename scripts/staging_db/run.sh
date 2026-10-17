@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|e2esignup) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|e2esignup|e2esignupreal) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -376,18 +376,19 @@ if [ "$MODE" = "e2eadmin" ]; then
 fi
 
 # ---- בדיקת דפדפן: הרשמה ואישור מייל במכשיר אחר + השלמת פרופיל לחשבון קיים ----
-if [ "$MODE" = "e2esignup" ]; then
+if [ "$MODE" = "e2esignup" ] || [ "$MODE" = "e2esignupreal" ]; then
   if [ -z "${STAGING_PUBLISHABLE_KEY:-}" ]; then
     STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)
     export STAGING_PUBLISHABLE_KEY
   fi
   case "${STAGING_PUBLISHABLE_KEY:-}" in sb_publishable_*) ;; *) stop "חסר מפתח ציבורי של Staging.";; esac
   say ""; say "### בדיקת דפדפן — הרשמה בין מכשירים"
-  OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_signup_devices.py" 2>&1) && RC=0 || RC=$?
+  SCRIPT=e2e_signup_devices.py; [ "$MODE" = "e2esignupreal" ] && SCRIPT=e2e_signup_real.py
+  OUT=$(STAGING_DB_URL="$URL" STAGING_PUBLISHABLE_KEY="$STAGING_PUBLISHABLE_KEY" PAGE="$ROOT/staging.html" python3 "$ROOT/scripts/staging_e2e/$SCRIPT" 2>&1) && RC=0 || RC=$?
   echo "$OUT"; { echo '```'; echo "$OUT"; echo '```'; } >> "$SUMMARY"
   ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY)|ניקוי' | tail -n 60)"
   [ $RC -eq 0 ] || stop "בדיקת ההרשמה בין מכשירים נכשלה (ראו פלט)."
-  ann notice "staging-result" "✅ e2esignup: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
+  ann notice "staging-result" "✅ $MODE: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
   exit 0
 fi
 
