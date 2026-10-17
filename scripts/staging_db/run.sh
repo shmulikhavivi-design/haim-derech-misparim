@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -511,6 +511,8 @@ case "$MODE" in
   install14) FILE="$SQLDIR/14_staging_consent.sql" ;;
   tests15)   FILE="$SQLDIR/15_staging_consent_tests.sql" ;;
   install16) FILE="$SQLDIR/16_staging_plus_no_extended.sql" ;;
+  install17) FILE="$SQLDIR/17_staging_billing.sql" ;;
+  tests18)   FILE="$SQLDIR/18_staging_billing_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."
 say ""; say "### הרצת $(basename "$FILE")"
@@ -519,6 +521,15 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests18" ]; then
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
+  N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+  [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות המנויים עברו ($SUMM)."
+  LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c "select (select count(*) from auth.users where email like 'bl%@example.invalid') + (select count(*) from public.hdm_payments) + (select count(*) from public.hdm_checkouts) + (select count(*) from public.hdm_grow_outbox)")
+  [ "$LEFT" = "0" ] || stop "נשארו נתוני בדיקה במסד ($LEFT)."
+  say "✅ tests18: $SUMM (אירועי Grow מדומים, הכול בוטל — לא נשמר כלום)."; ann notice "staging-result" "✅ tests18: $SUMM (אירועי Grow מדומים, הכול בוטל — לא נשמר כלום)"
+  exit 0
+fi
 if [ "$MODE" = "tests15" ]; then
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
   N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
