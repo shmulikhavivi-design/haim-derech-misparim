@@ -29,7 +29,7 @@ def check(name, ok, got=''):
 
 CRYPT = 'extensions.crypt' if sql("select count(*) from pg_proc where proname='crypt' and pronamespace='extensions'::regnamespace") != '0' else 'crypt'
 SALT = CRYPT.replace('crypt', 'gen_salt')
-PEOPLE = {'paid': 'פזית משלמת', 'manual': 'מני ותיק', 'buyer': 'בתיה קונה'}
+PEOPLE = {'paid': 'פזית משלמת', 'manual': 'מני ותיק', 'buyer': 'בתיה קונה', 'upg': 'אורית משדרגת'}
 IDS = {k: PFX + k for k in PEOPLE}
 IDS_SQL = "array[" + ",".join(f"'{v}'" for v in IDS.values()) + "]"
 DD = f'{PFX}DD'
@@ -40,6 +40,8 @@ def cleanup():
       delete from public.hdm_checkouts where profile_id = any({IDS_SQL});
       delete from public.hdm_subscription_events where profile_id = any({IDS_SQL});
       delete from public.hdm_subscriptions where profile_id = any({IDS_SQL});
+      delete from public.hdm_renewal_charges where profile_id = any({IDS_SQL});
+      delete from public.hdm_billing_tokens where profile_id = any({IDS_SQL});
       delete from public.hdm_grow_outbox where profile_id = any({IDS_SQL}) or grow_direct_debit_id like '{PFX}%';
       delete from public.docs where collection = 'profiles' and id = any({IDS_SQL});
       delete from public.hdm_accounts where profile_id = any({IDS_SQL});
@@ -77,6 +79,14 @@ def create_people():
             select '{ck}', auth_user_id, profile_id, 'plus', 4890, public.hdm_billing_current_terms() from public.hdm_accounts where profile_id = '{IDS['paid']}'""")
     r = sql(f"""select public.hdm_billing_apply_grow_event('{json.dumps({'transactionId': PFX + 'T1', 'kind': 'initial', 'outcome': 'approved', 'amountAgorot': 4890, 'checkoutId': ck, 'directDebitId': DD})}'::jsonb)->>'result'""")
     if r != 'started': raise RuntimeError('simulated payment: ' + r)
+    # משדרגת: בסיסי בתשלום, באמצע התקופה (15 ימים מתוך ~31)
+    ck2 = str(uuid.uuid4())
+    sql(f"""insert into public.hdm_checkouts (id, user_id, profile_id, plan, amount_agorot, terms_version)
+            select '{ck2}', auth_user_id, profile_id, 'basic', 2990, public.hdm_billing_current_terms() from public.hdm_accounts where profile_id = '{IDS['upg']}'""")
+    r = sql(f"""select public.hdm_billing_apply_grow_event('{json.dumps({'transactionId': PFX + 'T2', 'kind': 'initial', 'outcome': 'approved', 'amountAgorot': 2990, 'checkoutId': ck2, 'directDebitId': DD + '2'})}'::jsonb)->>'result'""")
+    if r != 'started': raise RuntimeError('simulated payment 2: ' + r)
+    sql(f"""update public.hdm_subscriptions set period_anchor = now() - interval '15 days',
+             current_period_end = public.hdm_billing_add_months(now() - interval '15 days', 1) where profile_id = '{IDS['upg']}'""")
 
 html_dir = os.path.dirname(os.path.abspath(PAGE))
 srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=html_dir))
@@ -172,6 +182,39 @@ try:
         row = sql(f"select plan || '|' || amount_agorot || '|' || status || '|' || terms_version from public.hdm_checkouts where profile_id='{IDS['buyer']}'")
         check('במסד: ניסיון תשלום עם ההסכמה (מסלול, סכום, גרסת תנאים)', row == 'basic|2990|pending|' + sql("select public.hdm_billing_current_terms()"), row)
         check('במסד: הלקוח נשאר בחינם (אין הרשאות בלי אישור תשלום)', sql(f"select public.hdm_plan_of('{IDS['buyer']}')") == 'free')
+        c.close()
+
+        # --- שדרוג באמצע החודש (preview בלבד; בלי חיוב) ---
+        c = ctx_new(); pg = new_page(c, APP + '?billing=preview')
+        check('משדרגת: התחברות', login(pg, 'upg') == IDS['upg'])
+        t = open_plans(pg)
+        check('preview: כפתורי שדרוג לפלוס ול-VIP בלבד', pg.locator('.hdm-plan-btn.buy').count() == 2 and 'שדרוג לפלוס' in t and 'שדרוג לVIP' in t, t[-400:])
+        pe_txt = sql(f"select to_char(current_period_end at time zone 'Asia/Jerusalem', 'FMDD.FMMM.YYYY') from public.hdm_subscriptions where profile_id = '{IDS['upg']}'")
+        pg.locator('.hdm-plan-btn.buy').first.click()
+        try: pg.wait_for_function("() => document.getElementById('hdm-bill-accept')", timeout=15000)
+        except Exception: pass
+        t = pg.inner_text('#hdm-plans-body')
+        exp = int(sql(f"select public.hdm_billing_proration('basic', 'plus', period_anchor, current_period_end) from public.hdm_subscriptions where profile_id = '{IDS['upg']}'"))
+        shown = f'₪{exp/100:.2f}'; shown2 = f'₪{(exp-1)/100:.2f}'
+        check('שדרוג: מוצג החיוב היחסי לפי יתרת התקופה', ('חיוב עכשיו' in t) and (shown in t or shown2 in t) and 800 <= exp <= 1100, [shown, t[:500]])
+        check('שדרוג: מוצג שתאריך החיוב לא משתנה ומחיר פלוס מהחיוב הבא', 'לא משתנה' in t and pe_txt in t and '₪48.90' in t, t[:500])
+        check('שדרוג: תיבת הסכמה לא מסומנת, הכפתור חסום', pg.evaluate("() => !document.getElementById('hdm-bill-accept').checked && document.getElementById('hdm-bill-pay').disabled"))
+        pg.check('#hdm-bill-accept'); pg.click('#hdm-bill-pay')
+        try: pg.wait_for_function("() => /לא בוצע שום חיוב|לא הצלחנו|הסכום התעדכן/.test(document.getElementById('hdm-plans-body').innerText)", timeout=15000)
+        except Exception: pass
+        t = pg.inner_text('#hdm-plans-body')
+        check('שדרוג: ההסכמה נשמרה, לא בוצע חיוב', 'לא בוצע שום חיוב' in t, t[:500])
+        row = sql(f"select kind || '|' || plan || '|' || from_plan || '|' || status from public.hdm_checkouts where profile_id='{IDS['upg']}' and kind='upgrade'")
+        check('במסד: ניסיון תשלום שדרוג בסכום היחסי', row == 'upgrade|plus|basic|pending' and sql(f"select amount_agorot between 800 and 1100 from public.hdm_checkouts where profile_id='{IDS['upg']}' and kind='upgrade'") == 't', row)
+        check('במסד: עדיין בסיסי עד אישור תשלום', sql(f"select public.hdm_plan_of('{IDS['upg']}')") == 'basic')
+        # אישור תשלום מדומה (כמו פונקציית השרת אחרי Grow) → פלוס מיד, אותו תאריך
+        cku, amtu = sql(f"select id || '|' || amount_agorot from public.hdm_checkouts where profile_id='{IDS['upg']}' and kind='upgrade'").split('|')
+        r = sql(f"""select public.hdm_billing_apply_grow_event('{json.dumps({'transactionId': PFX + 'U1', 'kind': 'upgrade', 'outcome': 'approved', 'amountAgorot': int(amtu), 'checkoutId': cku})}'::jsonb)->>'result'""")
+        t = open_plans(pg)
+        check('אחרי אישור: פלוס, החיוב הבא ₪48.90 באותו תאריך', r == 'upgraded' and 'פלוס' in t and '₪48.90' in t and pe_txt in t, [r, t[:300]])
+        pg.evaluate("() => openLegal('terms')"); pg.wait_for_timeout(300)
+        lt = pg.inner_text('#legal-body')
+        check('תנאי השימוש: סעיף מנויים, חיובים, שדרוגים, חידושים וביטולים', all(w in lt for w in ['מנויים, חיובים, שדרוגים, חידושים וביטולים', 'ההפרש היחסי', 'מתחדש אוטומטית', 'הביטול עוצר את החיובים הבאים']), lt[:200])
         c.close()
 
         check('אין שגיאות JavaScript בדף', not errors, errors[:2])
