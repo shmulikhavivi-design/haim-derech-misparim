@@ -402,7 +402,7 @@ if [ "$MODE" = "e2ecancellive" ]; then
   say ""; say "### בדיקת דפדפן — ביטול מנוי ומדיניות ביטול (גרסת האוויר)"
   OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_cancel_policy.py" 2>&1) && RC=0 || RC=$?
   echo "$OUT"; { echo '```'; echo "$OUT"; echo '```'; } >> "$SUMMARY"
-  ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY)|ניקוי' | tail -n 60)"
+  ann notice "staging-e2e-fail" "$(echo "$OUT" | grep -E '^(FAIL|SUMMARY)|ניקוי|Traceback|Error' | tail -n 40)"
   [ $RC -eq 0 ] || stop "בדיקת הדפדפן של ביטול המנוי נכשלה (ראו פלט)."
   ann notice "staging-result" "✅ e2ecancellive: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
   exit 0
