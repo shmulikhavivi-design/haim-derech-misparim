@@ -101,6 +101,7 @@ NOT_DONE = ['המנוי בוטל', 'בקשת הביטול התקבלה ב', 'ב�
 def tap(pg, sel):
     # באייפון (מסך מגע) — הקשה אמיתית; בדסקטופ — לחיצה
     loc = pg.locator(sel).first
+    loc.wait_for(state='visible', timeout=15000)
     loc.scroll_into_view_if_needed()
     if TOUCH[0]: loc.tap()
     else: loc.click()
@@ -109,6 +110,7 @@ def tap(pg, sel):
 def touch_ok(pg, sel, label, min_h=44):
     # הכפתור קיים, גלוי, בגובה מגע של 44px לפחות, ונכנס ברוחב המסך (אין גלילה אופקית)
     loc = pg.locator(sel).first
+    loc.wait_for(state='visible', timeout=15000)   # מסכים נטענים באסינכרוניות (בעיקר בספארי)
     loc.scroll_into_view_if_needed(); pg.wait_for_timeout(150)
     bb = loc.bounding_box() or {}
     vw = pg.evaluate("() => window.innerWidth")
@@ -180,7 +182,10 @@ def run_browser(pw, name, launcher, ctx_opts):
     check(P + 'חינם: התחברות', login(pg, 'free') == IDS['free'])
     check(P + 'מסך ראשי: קישור "ניהול מנוי"', 'ניהול מנוי' in pg.inner_text('#hdm-plans-link'))
     # האזור האישי ("הפרופיל שלי"): כפתור "ביטול מנוי" בולט
-    pg.evaluate("() => openMyProfile()"); pg.wait_for_timeout(800)
+    pg.evaluate("() => openMyProfile()")
+    try: pg.wait_for_selector('#screen-profile.active #profile-cancel-sub, #profile-cancel-sub:visible', timeout=15000)
+    except Exception: pass
+    pg.wait_for_timeout(300)
     check(P + 'הפרופיל שלי: יש "ניהול מנוי" ו"ביטול מנוי"', pg.locator('#profile-manage-sub').count() == 1 and pg.locator('#profile-cancel-sub').count() == 1)
     touch_ok(pg, '#profile-cancel-sub', P + 'כפתור "ביטול מנוי" בפרופיל', 48)
     tap(pg, '#profile-cancel-sub'); wait_plan(pg)
