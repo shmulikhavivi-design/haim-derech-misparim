@@ -6080,10 +6080,15 @@
   function hdmCancelEntry(){
     if(!myId){ openLegal('cancel'); return; }
     hdmOpenPlans();
+    // נפתח מיד לפי המצב הידוע; אם השרת מחזיר מנוי בתשלום שאפשר לבטל — עוברים לאישור הביטול האמיתי
+    var b0 = hdmEnt && hdmEnt.forId === myId && hdmEnt.billing;
+    if(b0 && b0.canCancel){ hdmBillUI = { mode: 'cancel' }; hdmBillRender(); }
+    else if(!(b0 && b0.paid)) hdmOpenCancelInfo();
     hdmRefreshPlan(true).then(function(){
+      if(!hdmLayerOpen('hdm-plans-screen')) return;
       var b = hdmEnt && hdmEnt.billing;
-      if(b && b.canCancel && hdmLayerOpen('hdm-plans-screen')){ hdmBillUI = { mode: 'cancel' }; hdmBillRender(); }
-      else if(hdmLayerOpen('hdm-plans-screen') && !(b && b.paid)){ hdmOpenCancelInfo(); }
+      if(b && b.canCancel){ if(!(hdmBillUI && hdmBillUI.mode === 'cancel')){ hdmCancelStep = 0; hdmBillUI = { mode: 'cancel' }; hdmBillRender(); } }
+      else if(!(b && b.paid) && hdmCancelStep === 0) hdmOpenCancelInfo();
     }).catch(function(){});
   }
   function hdmBillRender(){ hdmRenderPlans(); var el = document.getElementById('hdm-bill-box'); if(el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }

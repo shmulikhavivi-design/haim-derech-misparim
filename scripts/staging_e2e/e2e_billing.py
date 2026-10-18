@@ -175,7 +175,12 @@ try:
         c = ctx_new(); pg = new_page(c, APP)
         check('ותיק: התחברות', login(pg, 'manual') == IDS['manual'])
         t = open_plans(pg)
-        check('ותיק: בלי "המנוי שלי", בלי תאריך חיוב ובלי ביטול', 'החיוב הבא' not in t and pg.locator('#hdm-bill-cancel').count() == 0 and 'פלוס' in t, t[:300])
+        # דרישת Grow: כפתור "ביטול מנוי" גלוי לכולם. לוותיק (בלי תשלום) הוא מסביר שאין מנוי בתשלום — בלי ביטול בשרת
+        check('ותיק: בלי תאריך חיוב, יש "ביטול מנוי" (מסך "אין מנוי בתשלום")', 'החיוב הבא' not in t and pg.locator('#hdm-manage-box #hdm-bill-cancel').count() == 1 and 'פלוס' in t, t[:300])
+        pg.click('#hdm-manage-box #hdm-bill-cancel'); pg.wait_for_timeout(400)
+        t2 = pg.inner_text('#hdm-plans-body')
+        check('ותיק: "ביטול מנוי" — הוגדר ללא תשלום, אין מה לבטל', 'הוגדר לך ללא תשלום' in t2 and 'כן, לבטל את המנוי' not in t2, t2[:300])
+        check('ותיק: לא נרשמה בקשת ביטול במסד', sql(f"select count(*) from public.hdm_cancel_requests where profile_id='{IDS['manual']}'") == '0')
         check('ותיק: אין כפתור הצטרפות (רכישה עוד לא פתוחה)', pg.locator('.hdm-plan-btn.buy').count() == 0)
         c.close()
 
