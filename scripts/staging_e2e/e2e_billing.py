@@ -1,7 +1,8 @@
 # =====================================================================
-# חיים דרך מספרים — בדיקת דפדפן של מסך "המנוי שלי" (staging.html) מול Staging בלבד
+# חיים דרך מספרים — בדיקת דפדפן של מסך "ניהול מנוי" וביטול מנוי (staging.html) מול Staging בלבד
 #
 # * בלי Grow ובלי חיובים: תשלום מאושר מדומה נקלט דרך hdm_billing_apply_grow_event (כמו שפונקציית השרת תעשה).
+# * תשובות Grow לביטול (כשל / אישור) מדומות דרך hdm_billing_outbox_done. שום מייל לא נשלח (רק נכנס לתור ונמחק בסוף).
 # * משתמשי בדיקה: hdm-bill-<ריצה>-*@example.invalid, מזהי פרופיל bill<ריצה>_*. בסוף — ובכל כישלון — הכול נמחק.
 # משתני סביבה: STAGING_DB_URL (סוד), STAGING_PUBLISHABLE_KEY (מפתח ציבורי), PAGE (נתיב ל-staging.html)
 # =====================================================================
@@ -42,6 +43,8 @@ def cleanup():
       delete from public.hdm_subscriptions where profile_id = any({IDS_SQL});
       delete from public.hdm_renewal_charges where profile_id = any({IDS_SQL});
       delete from public.hdm_billing_tokens where profile_id = any({IDS_SQL});
+      delete from public.hdm_email_outbox where profile_id = any({IDS_SQL});
+      delete from public.hdm_cancel_requests where profile_id = any({IDS_SQL});
       delete from public.hdm_grow_outbox where profile_id = any({IDS_SQL}) or grow_direct_debit_id like '{PFX}%';
       delete from public.docs where collection = 'profiles' and id = any({IDS_SQL});
       delete from public.hdm_accounts where profile_id = any({IDS_SQL});
@@ -49,7 +52,8 @@ def cleanup():
       commit;""")
     return sql(f"""select (select count(*) from auth.users where email like '{MAIL}%') + (select count(*) from public.hdm_accounts where profile_id like '{PFX}%')
                  + (select count(*) from public.hdm_checkouts where profile_id like '{PFX}%') + (select count(*) from public.hdm_payments where profile_id like '{PFX}%')
-                 + (select count(*) from public.hdm_grow_outbox where profile_id like '{PFX}%') + (select count(*) from public.hdm_subscriptions where profile_id like '{PFX}%')""")
+                 + (select count(*) from public.hdm_grow_outbox where profile_id like '{PFX}%') + (select count(*) from public.hdm_subscriptions where profile_id like '{PFX}%')
+                 + (select count(*) from public.hdm_cancel_requests where profile_id like '{PFX}%') + (select count(*) from public.hdm_email_outbox where profile_id like '{PFX}%')""")
 
 def create_people():
     consent = sql("select public.hdm_required_terms_version()")
@@ -131,20 +135,40 @@ try:
         nxt = sql(f"select to_char(current_period_end at time zone 'Asia/Jerusalem', 'FMDD.FMMM.YYYY') from public.hdm_subscriptions where profile_id = '{IDS['paid']}'")
         check('מוצג "החיוב הבא" עם התאריך והסכום', 'החיוב הבא' in t and nxt in t and '₪48.90' in t, [nxt, t[:300]])
         check('מוצג שהמנוי מתחדש אוטומטית עד ביטול', 'מתחדש אוטומטית' in t, t[:300])
+        check('כותרת המסך: "ניהול מנוי"', pg.inner_text('#hdm-plans-screen .about-title').strip() == 'ניהול מנוי')
         check('יש כפתור "ביטול מנוי"', pg.locator('#hdm-bill-cancel').count() == 1)
         pg.click('#hdm-bill-cancel'); pg.wait_for_timeout(300)
         t = pg.inner_text('#hdm-plans-body')
-        check('אישור ביטול: מוסבר שהמסלול פעיל עד סוף התקופה', 'החיובים הבאים ייעצרו' in t and nxt in t, t[:400])
+        check('בקשת אישור: מוצג מועד סיום המנוי', 'לבטל את המנוי?' in t and 'לא יתבצעו חיובים נוספים' in t and nxt in t, t[:400])
+        check('בקשת אישור: מוסבר שהחשבון והפרופיל לא נמחקים', 'לא מוחק את החשבון' in t, t[:400])
+        check('הצטרפות היום: מוצגת אפשרות לבקש החזר (14 יום)', pg.locator('#hdm-cancel-refund').count() == 1)
+        check('תיבת ההחזר לא מסומנת מראש', pg.locator('#hdm-cancel-refund').count() == 1 and not pg.is_checked('#hdm-cancel-refund'))
         check('לפני האישור — עדיין מתחדש', sql(f"select auto_renew from public.hdm_subscriptions where profile_id='{IDS['paid']}'") == 't')
+        pg.check('#hdm-cancel-refund')
         pg.click('#hdm-bill-cancel-yes')
         try: pg.wait_for_function("() => !document.getElementById('hdm-bill-cancel-yes') && hdmEnt && hdmEnt.billing && !hdmEnt.billing.autoRenew", timeout=15000)
         except Exception: pass
         pg.wait_for_timeout(400)
         t = pg.inner_text('#hdm-plans-body')
-        check('אחרי ביטול: "המנוי בוטל ולא יתחדש" + פעיל עד', 'המנוי בוטל ולא יתחדש' in t and nxt in t and 'החיוב הבא' not in t, t[:300])
+        check('אחרי האישור: "בקשת הביטול בטיפול", לא "בוטל"', 'בקשת הביטול בטיפול' in t and 'המנוי בוטל' not in t and 'החיוב הבא' not in t, t[:400])
+        check('מוצג תאריך סיום המנוי ושלא יתבצעו חיובים', nxt in t and 'לא יתבצעו חיובים נוספים' in t, t[:400])
+        check('מוצג שבקשת ההחזר התקבלה', 'בקשת ההחזר הכספי התקבלה' in t, t[:500])
         row = sql(f"select auto_renew::text || '|' || status from public.hdm_subscriptions where profile_id='{IDS['paid']}'")
         check('במסד: החידוש נעצר, המסלול עדיין פלוס', row == 'false|canceled' and sql(f"select public.hdm_plan_of('{IDS['paid']}')") == 'plus', row)
-        check('במסד: נרשם ביטול הוראת הקבע מול Grow', sql(f"select count(*) from public.hdm_grow_outbox where grow_direct_debit_id='{DD}' and reason='customer' and done_at is null") == '1')
+        check('במסד: נרשם ביטול מול Grow, ממתין', sql(f"select count(*) from public.hdm_grow_outbox where grow_direct_debit_id='{DD}' and reason='customer' and done_at is null") == '1')
+        check('במסד: בקשת ביטול "בטיפול" עם בקשת החזר', sql(f"select state || '|' || refund_requested || '|' || refund_state from public.hdm_cancel_requests where profile_id='{IDS['paid']}'") == 'pending|true|open')
+        check('במסד: מייל "הבקשה התקבלה" בתור (לא נשלח)', sql(f"select string_agg(kind, ',') from public.hdm_email_outbox where profile_id='{IDS['paid']}' and sent_at is null") == 'cancel_received')
+        # כשל מדומה מול Grow (3 פעמים) → הלקוח רואה עיכוב, עדיין לא "בוטל"
+        ob = sql(f"select outbox_id from public.hdm_cancel_requests where profile_id='{IDS['paid']}'")
+        for _ in range(3): sql(f"select public.hdm_billing_outbox_done({ob}, false, 'e2e: simulated failure')")
+        t = open_plans(pg)
+        check('כשל מול Grow: מוצג עיכוב, עדיין לא "בוטל"', 'מתעכב' in t and 'בקשת הביטול בטיפול' in t and 'המנוי בוטל' not in t, t[:500])
+        # אישור מדומה מ-Grow → רק עכשיו "המנוי בוטל"
+        sql(f"select public.hdm_billing_outbox_done({ob}, true)")
+        t = open_plans(pg)
+        check('אחרי אישור Grow: "סטטוס: המנוי בוטל" + תאריך סיום', 'סטטוס: המנוי בוטל' in t and nxt in t and 'בטיפול' not in t, t[:400])
+        check('במסד: מייל "הביטול אושר" בתור', sql(f"select count(*) from public.hdm_email_outbox where profile_id='{IDS['paid']}' and kind='cancel_confirmed'") == '1')
+        check('יש קישור למדיניות ביטול מנוי במסך', 'מדיניות ביטול מנוי' in t)
         c.close()
 
         # --- ותיק עם פלוס ידני: אין חיוב ואין ביטול ---
@@ -212,9 +236,33 @@ try:
         r = sql(f"""select public.hdm_billing_apply_grow_event('{json.dumps({'transactionId': PFX + 'U1', 'kind': 'upgrade', 'outcome': 'approved', 'amountAgorot': int(amtu), 'checkoutId': cku})}'::jsonb)->>'result'""")
         t = open_plans(pg)
         check('אחרי אישור: פלוס, החיוב הבא ₪48.90 באותו תאריך', r == 'upgraded' and 'פלוס' in t and '₪48.90' in t and pe_txt in t, [r, t[:300]])
+        # קיצור "ביטול מנוי" בהגדרות: פותח ישר את בקשת האישור; 15 יום אחרי ההצטרפות — אין אפשרות החזר
+        pg.evaluate("() => hdmCancelEntry()")
+        try: pg.wait_for_function("() => document.getElementById('hdm-cancel-confirm')", timeout=15000)
+        except Exception: pass
+        t = pg.inner_text('#hdm-plans-body')
+        check('"ביטול מנוי" בהגדרות: נפתחת בקשת אישור עם תאריך הסיום', pg.locator('#hdm-cancel-confirm').count() == 1 and pe_txt in t, t[:400])
+        check('אחרי 14 יום: אין אפשרות החזר', pg.locator('#hdm-cancel-refund').count() == 0)
+        check('בהגדרות יש "ניהול מנוי" ו"ביטול מנוי"', pg.locator('#set-cancel-sub').count() == 1 and 'ניהול מנוי' in (pg.text_content('#screen-settings') or ''))
+        pg.click('#hdm-bill-cancel-yes')
+        try: pg.wait_for_function("() => document.getElementById('hdm-cancel-state')", timeout=15000)
+        except Exception: pass
+        t = pg.inner_text('#hdm-plans-body')
+        check('ביטול בלי החזר: "בטיפול", בלי בקשת החזר', 'בקשת הביטול בטיפול' in t and 'בקשת ההחזר' not in t, t[:400])
+        pg.evaluate("() => openLegal('cancel')"); pg.wait_for_timeout(300)
+        lt = pg.inner_text('#legal-body')
+        check('עמוד "מדיניות ביטול מנוי"', pg.inner_text('#legal-title') == 'מדיניות ביטול מנוי' and all(w in lt for w in ['מתחדש אוטומטית', 'איך מבטלים', 'ביטול בתוך 14 יום', 'אינו מחיקת חשבון', '3 ימי עסקים', 'תאריך סיום המנוי']), lt[:300])
+        pg.evaluate("() => closeLegal()")
         pg.evaluate("() => openLegal('terms')"); pg.wait_for_timeout(300)
         lt = pg.inner_text('#legal-body')
-        check('תנאי השימוש: סעיף מנויים, חיובים, שדרוגים, חידושים וביטולים', all(w in lt for w in ['מנויים, חיובים, שדרוגים, חידושים וביטולים', 'ההפרש היחסי', 'מתחדש אוטומטית', 'הביטול עוצר את החיובים הבאים']), lt[:200])
+        check('תנאי השימוש: סעיף מנויים, חיובים, שדרוגים, חידושים וביטולים', all(w in lt for w in ['מנויים, חיובים, שדרוגים, חידושים וביטולים', 'ההפרש היחסי', 'מתחדש אוטומטית', 'הביטול עוצר את החיובים הבאים', 'אינו מוחק את החשבון', 'מדיניות ביטול מנוי']), lt[:200])
+        c.close()
+
+        # --- לא מחובר: קישור "ביטול מנוי" במסך הפתיחה מוביל להסבר איך מבטלים ---
+        c = ctx_new(); pg = new_page(c, APP)
+        check('מסך הפתיחה: יש קישור "ביטול מנוי"', pg.locator('#auth-cancel-link').count() == 1)
+        pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; }catch(e){} hdmCancelEntry(); }"); pg.wait_for_timeout(300)
+        check('לא מחובר: הקישור פותח את מדיניות הביטול', pg.inner_text('#legal-title') == 'מדיניות ביטול מנוי' and 'איך מבטלים' in pg.inner_text('#legal-body'))
         c.close()
 
         check('אין שגיאות JavaScript בדף', not errors, errors[:2])
