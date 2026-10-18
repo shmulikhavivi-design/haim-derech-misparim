@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|e2ecancellive|e2esignup|e2esignupreal) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -393,6 +393,23 @@ if [ "$MODE" = "e2esignup" ] || [ "$MODE" = "e2esignupreal" ]; then
 fi
 
 # ---- בדיקת דפדפן: כפתור ביטול מנוי + מדיניות ביטול בגרסה שעולה לאוויר (בלי סליקה) ----
+if [ "$MODE" = "e2edesign" ]; then
+  if [ -z "${STAGING_PUBLISHABLE_KEY:-}" ]; then
+    STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)
+    export STAGING_PUBLISHABLE_KEY
+  fi
+  case "${STAGING_PUBLISHABLE_KEY:-}" in sb_publishable_*) ;; *) stop "חסר מפתח ציבורי של Staging.";; esac
+  say ""; say "### עיצוב חדש — צילומי מסך ובדיקות (iPhone Safari)"
+  python3 "$ROOT/scripts/design/check_intro_unchanged.py" "$ROOT/design/main_staging.html" "$ROOT/staging.html" > /tmp/intro_check.txt 2>&1 && IRC=0 || IRC=$?
+  OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/staging.html" MAIN_PAGE="$ROOT/design/main_staging.html" python3 "$ROOT/scripts/design/e2e_design_screens.py" 2>&1) && RC=0 || RC=$?
+  OUT="$(cat /tmp/intro_check.txt)"$'\n'"$OUT"
+  echo "$OUT"; { echo '```'; echo "$OUT"; echo '```'; } >> "$SUMMARY"
+  ann notice "staging-e2e-fail" "$(echo "$OUT" | grep -E '^(FAIL|SUMMARY)|PASS מסך|ניקוי|Traceback|Error' | tail -n 40)"
+  [ $RC -eq 0 ] && [ $IRC -eq 0 ] || stop "בדיקת העיצוב נכשלה (ראו פלט)."
+  ann notice "staging-result" "✅ e2edesign: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
+  exit 0
+fi
+
 if [ "$MODE" = "e2ecancellive" ]; then
   if [ -z "${STAGING_PUBLISHABLE_KEY:-}" ]; then
     STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)

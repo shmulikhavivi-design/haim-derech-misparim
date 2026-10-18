@@ -23,7 +23,7 @@ on:
         required: true
         default: 'check'
         type: choice
-        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, install08, tests09, install10, tests11, e2eadmin, audit, install12, tests13, mailnet, hookwire, authcfg, perms, install14, tests15, install16, install17, tests18, e2ebilling, install19, tests20, install21, tests22, e2ecancellive, e2esignup, e2esignupreal ]
+        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, install08, tests09, install10, tests11, e2eadmin, audit, install12, tests13, mailnet, hookwire, authcfg, perms, install14, tests15, install16, install17, tests18, e2ebilling, install19, tests20, install21, tests22, e2ecancellive, e2esignup, e2esignupreal, e2edesign ]
 
 permissions:
   contents: read
@@ -40,6 +40,8 @@ jobs:
     timeout-minutes: 10
     # הסוד נלקח מסביבת GitHub "staging" בלבד
     environment: staging
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -56,7 +58,7 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|e2ecancellive|e2esignup|e2esignupreal) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
@@ -64,14 +66,14 @@ jobs:
         run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
 
       - uses: actions/setup-python@v6
-        if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin'
+        if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign'
         with:
           python-version: '3.12'
 
       - name: Browser (e2e only)
-        if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin'
+        if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign'
         run: |
-          python3 -m pip install --quiet playwright==1.55.0
+          python3 -m pip install --quiet playwright==1.55.0 pillow
           python3 -m playwright install --with-deps chromium webkit
 
       - name: Run on Staging
@@ -84,10 +86,35 @@ jobs:
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
 
       - name: Screenshots (e2e only)
-        if: always() && (steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2eadmin')
+        if: always() && (steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign')
         uses: actions/upload-artifact@v5
         with:
           name: e2e-screenshots
           path: /tmp/hdm-shots
           if-no-files-found: ignore
           retention-days: 7
+
+  # צילומי המסך של העיצוב: נשמרים בענף staging-tests/screens. ג'וב נפרד — בלי סביבת staging ובלי סודות.
+  publish-design-shots:
+    needs: staging-db
+    if: always() && needs.staging-db.outputs.mode == 'e2edesign'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: e2e-screenshots
+          path: shots
+      - name: Push screenshots to staging-tests/screens
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          ls -la shots
+          cd shots
+          git init -q -b staging-tests/screens
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -q -m "design screenshots from $SHA"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:staging-tests/screens
