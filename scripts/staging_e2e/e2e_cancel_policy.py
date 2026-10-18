@@ -182,10 +182,17 @@ def run_browser(pw, name, launcher, ctx_opts):
     check(P + 'חינם: התחברות', login(pg, 'free') == IDS['free'])
     check(P + 'מסך ראשי: קישור "ניהול מנוי"', 'ניהול מנוי' in pg.inner_text('#hdm-plans-link'))
     # האזור האישי ("הפרופיל שלי"): כפתור "ביטול מנוי" בולט
-    pg.evaluate("() => openMyProfile()")
-    try: pg.wait_for_selector('#screen-profile.active #profile-cancel-sub, #profile-cancel-sub:visible', timeout=15000)
+    # כמו משתמש: מחכים שמסך ההתאמות סיים להיטען (אחרי התחברות האפליקציה עוברת אליו בעצמה), ואז מקישים "הפרופיל שלי"
+    try: pg.wait_for_selector('#screen-match.active', timeout=20000)
     except Exception: pass
-    pg.wait_for_timeout(300)
+    pg.wait_for_timeout(2000)
+    for _ in range(3):
+        tap(pg, '#my-profile-link')
+        try: pg.wait_for_selector('#screen-profile.active', timeout=10000)
+        except Exception: pass
+        pg.wait_for_timeout(1000)
+        if pg.locator('#screen-profile.active').count() == 1: break
+        pg.evaluate("() => go('screen-match')"); pg.wait_for_timeout(1500)
     check(P + 'הפרופיל שלי: יש "ניהול מנוי" ו"ביטול מנוי"', pg.locator('#profile-manage-sub').count() == 1 and pg.locator('#profile-cancel-sub').count() == 1)
     touch_ok(pg, '#profile-cancel-sub', P + 'כפתור "ביטול מנוי" בפרופיל', 48)
     tap(pg, '#profile-cancel-sub'); wait_plan(pg)
