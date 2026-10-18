@@ -120,6 +120,20 @@ try:
         miss = [w for w in need if w not in lt]
         check('תוכן המדיניות: כל הסעיפים הנדרשים', not miss, miss)
         pg.evaluate("() => closeLegal()")
+        # דרישות ספק הסליקה: מחירים, אספקה, פרטי העסק, גיל — נגישים בלי חשבון
+        check('מסך הפתיחה: "האפליקציה מיועדת לבני 18 ומעלה בלבד"', 'לבני 18 ומעלה' in pg.inner_text('#auth-age-note'))
+        pg.click('#auth-business'); pg.wait_for_timeout(300)
+        bt = pg.inner_text('#legal-body')
+        check('עמוד "מחירים, אספקת השירות ופרטי העסק"', pg.inner_text('#legal-title') == 'מחירים, אספקת השירות ופרטי העסק', pg.inner_text('#legal-title'))
+        need = ['פרטי העסק', 'מספר עוסק', 'כתובת בית העסק', 'טלפון', 'life.through.numbers333@gmail.com', 'השירותים והמחירים',
+                '₪29.90 לחודש', '₪48.90 לחודש', '₪79.90 לחודש', '₪0', 'אופן התשלום', 'תיבת אישור', 'אספקת השירות', 'מיד לאחר אישור התשלום',
+                'ביטול עסקה ומנוי', '18 ומעלה', 'אחריות בית העסק', 'שמוליק חביבי ולימור רון']
+        miss = [w for w in need if w not in bt]
+        check('תוכן: פרטי עסק, מחירים, תשלום, אספקה, ביטול, גיל, אחריות', not miss, miss)
+        biz = pg.evaluate("() => HDM_BUSINESS")
+        empty = [k for k in ('legalId', 'address', 'phone', 'vatNote') if not biz.get(k)]
+        print('INFO פרטי עסק שעוד לא הוזנו: ' + (', '.join(empty) if empty else 'אין'), flush=True)
+        pg.evaluate("() => closeLegal()")
         c.close()
 
         # --- חינם ---
@@ -130,17 +144,17 @@ try:
         t = pg.inner_text('#hdm-plans-body')
         check('כותרת: "ניהול מנוי"', pg.inner_text('#hdm-plans-screen .about-title').strip() == 'ניהול מנוי')
         check('יש כפתור "ביטול מנוי" באזור האישי', pg.locator('#hdm-bill-cancel').count() == 1)
-        check('לפני רכישה: הסבר חידוש וביטול + קישור למדיניות', pg.locator('#hdm-plans-policy a').count() == 1 and 'מתחדשים אוטומטית' in t, t[-300:])
+        check('לפני רכישה: הסבר חידוש וביטול + קישור למדיניות', pg.locator('#hdm-plans-policy a').count() == 2 and 'מתחדשים אוטומטית' in t, t[-300:])
         check('אין אפשרות רכישה: כל כפתורי המסלולים כבויים', pg.locator('.hdm-plan-btn:not([disabled])').count() == 0 and 'בקרוב' in t)
         pg.click('#hdm-bill-cancel'); pg.wait_for_timeout(300)
         t = pg.inner_text('#hdm-plans-body')
         check('לחיצה: הסבר שאין מנוי בתשלום ולא בוצע חיוב', 'אין לך מנוי בתשלום' in t and 'לא בוצע שום חיוב' in t, t[:400])
         check('לחיצה: מוסבר איך הביטול יעבוד כשהרכישה תיפתח', 'עדיין לא פתוחים לרכישה' in t and 'לא מוחק את החשבון' in t, t[:500])
         check('לא מוצג ביטול שבוצע', not any(w in t for w in NOT_DONE), t[:400])
-        pg.click('#hdm-plans-policy a'); pg.wait_for_timeout(300)
+        pg.locator('#hdm-plans-policy a').first.click(); pg.wait_for_timeout(300)
         check('הקישור במסך המסלולים פותח את המדיניות', pg.inner_text('#legal-title') == 'מדיניות ביטול מנוי')
         pg.evaluate("() => closeLegal()")
-        check('הגדרות: "ביטול מנוי" ו"מדיניות ביטול מנוי"', pg.locator('#set-cancel-sub').count() == 1 and pg.locator('#set-cancel-policy').count() == 1)
+        check('הגדרות: "ביטול מנוי", "מדיניות ביטול מנוי", "מחירים ופרטי העסק"', pg.locator('#set-cancel-sub').count() == 1 and pg.locator('#set-cancel-policy').count() == 1 and pg.locator('#set-business').count() == 1)
         pg.evaluate("() => { hdmCloseLayer('hdm-plans-screen'); hdmCancelEntry(); }"); wait_plan(pg)
         check('"ביטול מנוי" בהגדרות: פותח ישר את הסבר הביטול', pg.locator('#hdm-cancel-info').count() == 1)
         c.close()
