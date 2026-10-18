@@ -85,7 +85,8 @@ def new_page(ctx, url):
 def login(pg, k):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
     pg.fill('#li-email', f'{MAIL}{k}@example.invalid'); pg.fill('#li-pass', PW); pg.click('#li-submit')
-    try: pg.wait_for_function("() => myId || document.getElementById('li-status').textContent.trim()", timeout=15000)
+    # מחכים להתחברות עצמה (שורת הסטטוס מציגה גם "מתחברים…", ולכן היא לא סימן לסיום)
+    try: pg.wait_for_function("() => myId || /אין חיבור|שגוי|לא נמצא/.test(document.getElementById('li-status').textContent)", timeout=30000)
     except Exception: pass
     pg.wait_for_timeout(500)
     return pg.evaluate("() => myId")
