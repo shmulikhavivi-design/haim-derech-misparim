@@ -25,11 +25,17 @@ results = []
 def check(name, ok, got=''):
     results.append(bool(ok)); print(('PASS ' if ok else 'FAIL ') + name + ('' if ok else f'  ← {str(got)[:200]}'), flush=True)
 
-def avatar(c1, c2):   # איור מופשט (לא תמונה של אדם)
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
-           f'<stop offset="0" stop-color="{c1}"/><stop offset="1" stop-color="{c2}"/></linearGradient></defs><rect width="300" height="400" fill="url(#g)"/>'
-           '<circle cx="150" cy="150" r="62" fill="#F3E6CF" fill-opacity=".55"/><path d="M40 400c10-90 60-140 110-140s100 50 110 140z" fill="#F3E6CF" fill-opacity=".55"/></svg>')
-    return 'data:image/svg+xml;base64,' + base64.b64encode(svg.encode()).decode()
+def avatar(c1, c2):   # איור מופשט ב-PNG (לא תמונה של אדם)
+    from PIL import Image, ImageDraw
+    import io
+    w, h = 300, 400
+    im = Image.new('RGB', (w, h)); d = ImageDraw.Draw(im)
+    a, b = tuple(int(c1[i:i+2], 16) for i in (1, 3, 5)), tuple(int(c2[i:i+2], 16) for i in (1, 3, 5))
+    for y in range(h):
+        t = y / (h - 1); d.line([(0, y), (w, y)], fill=tuple(int(a[k] + (b[k] - a[k]) * t) for k in range(3)))
+    d.ellipse([88, 88, 212, 212], fill=(214, 196, 166)); d.ellipse([40, 255, 260, 520], fill=(214, 196, 166))
+    buf = io.BytesIO(); im.save(buf, 'PNG', optimize=True)
+    return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
 
 PEOPLE = {   # מפתח: (שם, לידה, שם לידה, משפחה, מגדר, מחפש, עיר, תמונה)
     'me':   ('נועה לוי',  '1992-03-14', 'נועה', 'לוי',  'אישה', 'גברים', 'תל אביב', avatar('#3A2C6B', '#C9973F')),
