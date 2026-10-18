@@ -641,12 +641,6 @@
     color:var(--cream); line-height:1.55; margin:6px 0 10px; cursor:pointer; }
   .hdm-quota b{ color:var(--gold); }
   .hdm-layer .hdm-note{ color:#BFB4A6; font-size:13.5px; line-height:1.6; margin:0 0 14px; text-align:center; }
-  .hdm-layer .hdm-note a{ color:#E2B769; text-decoration:underline; }
-  .hdm-bill{ border:1px solid rgba(226,183,105,.55); border-radius:16px; padding:14px 16px; margin:0 0 18px; background:rgba(255,255,255,.04); color:#F2EADF; font-size:14.5px; line-height:1.7; }
-  .hdm-bill b{ color:#F2D59A; }
-  .hdm-bill-terms{ background:rgba(255,255,255,.05); border-radius:12px; padding:10px 12px; margin:10px 0; font-size:13.5px; color:#E3D9CC; }
-  .hdm-bill-row{ display:flex; gap:10px; margin-top:12px; }
-  .hdm-bill-row button{ flex:1; border-radius:12px; padding:11px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; border:1px solid #E2B769; background:transparent; color:#F2D59A; }
   .hdm-layer .hdm-current{ border:1px solid rgba(226,183,105,.55); border-radius:16px; padding:14px 16px; margin:0 0 18px;
     background:rgba(226,183,105,.08); color:#F2EADF; font-size:14.5px; line-height:1.7; }
   .hdm-layer .hdm-current b{ color:#F2D59A; }
@@ -660,6 +654,17 @@
   .hdm-plan .hdm-plan-btn{ width:100%; margin-top:12px; border-radius:12px; padding:11px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:500;
     border:1px solid rgba(226,183,105,.5); background:transparent; color:#A99E90; }
   .hdm-plan.is-current .hdm-plan-btn{ background:#E2B769; color:#1a1526; border-color:#E2B769; font-weight:700; }
+  .hdm-bill{ border:1px solid rgba(226,183,105,.55); border-radius:16px; padding:14px 16px; margin:0 0 18px; background:rgba(255,255,255,.04); color:#F2EADF; font-size:14.5px; line-height:1.7; }
+  .hdm-bill b{ color:#F2D59A; }
+  .hdm-bill .hdm-bill-warn{ color:#F4B6A6; }
+  .hdm-bill-terms{ background:rgba(255,255,255,.05); border-radius:12px; padding:10px 12px; margin:10px 0; font-size:13.5px; color:#E3D9CC; }
+  .hdm-bill-check{ display:flex; gap:10px; align-items:flex-start; font-size:13.5px; margin:10px 0; }
+  .hdm-bill-check input{ width:22px; height:22px; flex:0 0 auto; margin-top:2px; accent-color:#E2B769; }
+  .hdm-bill-row{ display:flex; gap:10px; margin-top:12px; }
+  .hdm-bill-row button{ flex:1; border-radius:12px; padding:11px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; border:1px solid #E2B769; background:transparent; color:#F2D59A; }
+  .hdm-bill-row button.primary{ background:#E2B769; color:#1a1526; }
+  .hdm-bill-row button:disabled{ opacity:.45; }
+  .hdm-plan .hdm-plan-btn.buy{ color:#F2D59A; border-color:#E2B769; }
   .hdm-badge{ display:inline-block; font-size:11.5px; color:#1a1526; background:#E2B769; border-radius:999px; padding:1px 9px; margin-inline-start:6px; vertical-align:middle; font-weight:600; }
   .hdm-vip-book{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
   .hdm-vip-book a{ flex:1; min-width:120px; text-align:center; text-decoration:none; border:1px solid #E2B769; color:#F2D59A; border-radius:12px; padding:10px; font-size:14px; }
@@ -761,7 +766,7 @@
     <div class="hint" id="match-hint">לחצו על המטרה אם יש עניין</div>
     <div class="my-chats-link" id="my-chats-link">💬 השיחות שלי<span class="unread-badge" id="my-chats-badge" style="display:none"></span></div>
     <div class="my-chats-link" id="my-profile-link">👤 הפרופיל שלי</div>
-    <div class="hdm-sub-links"><span id="hdm-liked-link" onclick="hdmOpenLikedMe()">🎯 מי סימן אותי</span><span aria-hidden="true">·</span><span id="hdm-plans-link" onclick="hdmOpenPlans()">💎 ניהול מנוי</span></div>
+    <div class="hdm-sub-links"><span id="hdm-liked-link" onclick="hdmOpenLikedMe()">🎯 מי סימן אותי</span><span aria-hidden="true">·</span><span id="hdm-plans-link" onclick="hdmOpenPlans()">💎 המנוי שלי</span></div>
   </div>
 
   <!-- הגדרות, פרטיות ובטיחות -->
@@ -770,8 +775,7 @@
     <div class="lead" style="margin:12px 0 4px;"><h2>הגדרות ופרטיות</h2></div>
     <div class="set-group">
       <div class="set-title">מנוי</div>
-      <button type="button" class="set-row" onclick="hdmOpenPlans()"><span>💎 ניהול מנוי</span><b id="set-plan-name">‹</b></button>
-      <button type="button" class="set-row" id="set-cancel-sub" onclick="hdmCancelEntry()"><span>✖️ ביטול מנוי</span><b>‹</b></button>
+      <button type="button" class="set-row" onclick="hdmOpenPlans()"><span>💎 המנוי שלי</span><b id="set-plan-name">‹</b></button>
     </div>
     <div class="set-group">
       <div class="set-title">בטיחות</div>
@@ -783,8 +787,6 @@
       <button type="button" class="set-row" onclick="openLegal('privacy')"><span>🔒 מדיניות פרטיות</span><b>‹</b></button>
       <button type="button" class="set-row" onclick="openLegal('terms')"><span>📄 תנאי שימוש</span><b>‹</b></button>
       <button type="button" class="set-row" onclick="openLegal('conduct')"><span>🤝 כללי התנהגות</span><b>‹</b></button>
-      <button type="button" class="set-row" id="set-cancel-policy" onclick="openLegal('cancel')"><span>↩️ מדיניות ביטול מנוי</span><b>‹</b></button>
-      <button type="button" class="set-row" id="set-business" onclick="openLegal('business')"><span>💰 מחירים, אספקה ופרטי העסק</span><b>‹</b></button>
     </div>
     <div class="set-group">
       <div class="set-title">אודות</div>
@@ -907,8 +909,6 @@
       </div>
       <p class="auth-note">כבר רשומים? בחרו התחברות</p>
       <p class="legal-links"><a href="#" onclick="openLegal('privacy');return false;">מדיניות פרטיות</a> · <a href="#" onclick="openLegal('terms');return false;">תנאי שימוש</a> · <a href="#" onclick="openLegal('conduct');return false;">כללי התנהגות</a></p>
-      <p class="legal-links hdm-cancel-link"><a href="#" id="auth-business" onclick="openLegal('business');return false;">מחירים ופרטי העסק</a> · <a href="#" id="auth-cancel-link" onclick="hdmCancelEntry();return false;">ביטול מנוי</a> · <a href="#" id="auth-cancel-policy" onclick="openLegal('cancel');return false;">מדיניות ביטול מנוי</a></p>
-      <p class="legal-links" id="auth-age-note">האפליקציה מיועדת לבני 18 ומעלה בלבד.</p>
       <button type="button" class="auth-about" onclick="hdmOpenAbout()">✨ אודות</button>
     </div>
   </div>
@@ -1161,7 +1161,7 @@
   <div class="signup about hdm-layer" id="hdm-plans-screen" aria-hidden="true">
     <div class="signup-inner">
       <button type="button" class="signup-back" onclick="hdmCloseLayer('hdm-plans-screen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
-      <h2 class="about-title">ניהול מנוי</h2>
+      <h2 class="about-title">המנוי שלי</h2>
       <div id="hdm-plans-body"></div>
     </div>
   </div>
@@ -4135,7 +4135,25 @@
 </script>
 <script>
   // טופס הרשמה חדש — שלב ראשון: מסך ובדיקת שדות בלבד. עדיין לא נוצר חשבון ושום דבר לא נשמר.
+  // השלמת פרופיל לחשבון שכבר קיים ב-Supabase Auth אבל אין לו עדיין פרופיל (למשל אישור מייל במכשיר אחר)
+  window.__hdmComplete = null;
+  function hdmSignupMode(complete){
+    var t = document.querySelector('#signup-screen .signup-title'), l = document.querySelector('#signup-screen .signup-lead');
+    var em = document.getElementById('su-email');
+    ['su-f-pass', 'su-f-consent'].forEach(function(id){ var el = document.getElementById(id); if(el) el.style.display = complete ? 'none' : ''; });
+    if(t) t.textContent = complete ? 'השלמת הפרופיל' : 'יצירת חשבון';
+    if(l) l.textContent = complete ? 'החשבון שלך כבר נוצר. נשלים עכשיו את הפרופיל — בלי להירשם מחדש.' : 'כמה פרטים, ונחשב את המספר שלכם';
+    if(em){ em.readOnly = !!complete; if(complete) em.value = complete.email || ''; }
+  }
+  function hdmOpenCompleteProfile(pid, email){
+    window.__hdmComplete = { pid: pid, email: email };
+    try{ closeLogin(); }catch(e){}
+    var choice = document.getElementById('auth-choice-screen');
+    if(choice){ choice.style.display = ''; choice.classList.remove('auth-hide'); }
+    openSignup();
+  }
   function openSignup(){
+    hdmSignupMode(window.__hdmComplete);
     var f = document.getElementById('signup-screen');
     f.classList.add('open'); f.setAttribute('aria-hidden','false'); f.scrollTop = 0;
     var b = document.getElementById('su-birth');
@@ -4144,6 +4162,10 @@
   function closeSignup(){
     var f = document.getElementById('signup-screen');
     f.classList.remove('open'); f.setAttribute('aria-hidden','true');
+    if(window.__hdmComplete){   // יציאה מהשלמת הפרופיל: מתנתקים (שום דבר לא נמחק), אפשר להתחבר שוב מתי שרוצים
+      window.__hdmComplete = null; hdmSignupMode(null);
+      try{ if(window.authClearSession) window.authClearSession(); }catch(e){}
+    }
   }
   function toggleSignupPass(btn){
     var i = document.getElementById('su-pass');
@@ -4178,9 +4200,11 @@
     check('su-f-birth', birthMsg);
     check('su-f-gender', gender ? '' : 'נא לבחור');
     check('su-f-city', city ? '' : 'נא למלא עיר');
-    check('su-f-email', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? '' : 'נא להזין אימייל תקין');
-    check('su-f-pass', pass.length >= 8 ? '' : 'הסיסמה צריכה לכלול לפחות 8 תווים');
-    check('su-f-consent', document.getElementById('su-consent').checked ? '' : 'כדי להירשם יש לאשר את תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות');
+    if(!window.__hdmComplete){
+      check('su-f-email', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? '' : 'נא להזין אימייל תקין');
+      check('su-f-pass', pass.length >= 8 ? '' : 'הסיסמה צריכה לכלול לפחות 8 תווים');
+      check('su-f-consent', document.getElementById('su-consent').checked ? '' : 'כדי להירשם יש לאשר את תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות');
+    }
 
     var status = document.getElementById('su-status');
     if(!ok){
@@ -4341,6 +4365,13 @@
         if(d.photoFile && typeof assetsCap !== 'undefined' && assetsCap){
           try{ var up = await assetsCap.upload(d.photoFile); profile.photoAssetId = up.id; profile.photoUrl = up.url; }catch(e){}
         }
+        if(window.__hdmComplete){
+          newId = await window.hdmStagingClaim();          // החשבון המחובר עכשיו (נבדק שוב בשרת)
+          if(!newId) throw new Error('not-signed-in');
+          await dbCap.doc('profiles/' + newId).set(profile);
+          window.__hdmComplete = null; hdmSignupMode(null);
+          try{ await window.hdmClearPendingMeta(); }catch(e){}
+        }else{
         var su = await window.hdmStagingSignUp(d.email, d.pass, newId, profile);
         if(signupDraft) signupDraft.pass = null;          // לא משאירים את הסיסמה בזיכרון
         if(su && su.needsConfirm){
@@ -4352,6 +4383,7 @@
         }
         newId = su.profileId;
         await dbCap.doc('profiles/' + newId).set(profile);
+        }
       }
     }catch(e){
       signupSaving = false;
@@ -4856,16 +4888,6 @@
 
   // ---------- מדיניות פרטיות / תנאי שימוש ----------
   var HDM_CONTACT_EMAIL = 'life.through.numbers333@gmail.com';
-  // פרטי העסק (דרישת ספק הסליקה). חובה למלא לפני פרסום — scripts/release/make_release_index.py נעצר אם חסר פרט.
-  var HDM_BUSINESS = {
-    name: 'חיים דרך מספרים',
-    owners: 'שמוליק חביבי ולימור רון',
-    legalId: '',      // מספר עוסק / ח"פ
-    address: '',      // כתובת בית העסק
-    phone: '',        // טלפון ליצירת קשר
-    vatNote: ''       // למשל: 'המחירים כוללים מע"מ.' או 'העסק עוסק פטור, ולא נגבה מע"מ.'
-  };
-  function hdmBiz(k){ return HDM_BUSINESS[k] || '(יושלם לפני הפרסום)'; }
   var HDM_LEGAL = {
     privacy: { title: 'מדיניות פרטיות', sections: [
       ['עדכון אחרון', '16 באוקטובר 2026'],
@@ -4961,68 +4983,6 @@
         'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון.',
         'אימייל לכל הפניות: ' + HDM_CONTACT_EMAIL]
     ]},
-    business: { title: 'מחירים, אספקת השירות ופרטי העסק', sections: [
-      ['עדכון אחרון', '18 באוקטובר 2026'],
-      ['פרטי העסק',
-        'שם העסק: ' + HDM_BUSINESS.name + '. מפעילי האפליקציה: ' + HDM_BUSINESS.owners + '.',
-        'מספר עוסק: ' + hdmBiz('legalId') + '.',
-        'כתובת בית העסק: ' + hdmBiz('address') + '.',
-        'טלפון: ' + hdmBiz('phone') + ' · אימייל: ' + HDM_CONTACT_EMAIL],
-      ['השירותים והמחירים',
-        'האפליקציה היא שירות היכרויות דיגיטלי על בסיס נומרולוגיה. ההרשמה והשימוש במסלול החינם ללא תשלום. המסלולים בתשלום הם מנוי חודשי שמתחדש אוטומטית עד לביטולו.',
-        'חינם — ₪0: צפייה בפרופילים ובתמונות בלבד, ללא שליחת 🎯, ללא צ׳אטים וללא הצגת דירוגי התאמה.',
-        'בסיסי — ₪29.90 לחודש: הצגת רמת התאמה (ללא הסבר); שליחת 🎯 ופתיחת צ׳אט לאחר סימון הדדי; עד 5 שיחות חדשות בכל חודש חיוב; הודעות ללא הגבלה בשיחות קיימות כל עוד המנוי פעיל.',
-        'פלוס — ₪48.90 לחודש: התאמות ושיחות ללא הגבלה; אפשרות לראות מי סימן אותי ב־🎯; רמת התאמה וניתוח נומרולוגי מקוצר.',
-        'VIP — ₪79.90 לחודש: כל הטבות פלוס; ניתוח נומרולוגי מורחב מיד לאחר סימון 🎯; 30% הנחה על שירותי נומרולוגיה אצל נומרולוגית.',
-        'המחירים בשקלים חדשים. ' + (HDM_BUSINESS.vatNote || '(פרטי מע"מ יושלמו לפני הפרסום.)'),
-        'כרגע המסלולים בתשלום עדיין לא פתוחים לרכישה, ולא מתבצע שום חיוב.'],
-      ['אופן התשלום',
-        'התשלום בכרטיס אשראי, בעמוד תשלום מאובטח של ספק הסליקה Grow. איננו שומרים את פרטי כרטיס האשראי.',
-        'לפני כל תשלום יוצגו הסכום, תאריך החיוב הבא ותנאי החידוש, ותופיע תיבת אישור (לא מסומנת מראש) לתנאי השימוש ולמדיניות ביטול מנוי. התשלום יתבצע רק לאחר האישור.',
-        'קבלה תישלח באימייל עבור כל חיוב.'],
-      ['אספקת השירות',
-        'השירות דיגיטלי בלבד ואין בו משלוח פיזי. המסלול מופעל בחשבון שלך באפליקציה מיד לאחר אישור התשלום מספק הסליקה, וזמין בכל שעה, בכפוף לתחזוקה ולתקלות.',
-        'אם המסלול לא הופעל תוך 24 שעות מהתשלום, יש לפנות אלינו. נטפל בפנייה תוך 2 ימי עסקים, ואם לא נוכל להפעיל את המסלול — נחזיר את מלוא הסכום.',
-        'הנחת VIP על שירותי נומרולוגיה: השירות עצמו ניתן על ידי הנומרולוגית בתיאום מראש, וההנחה בתוקף כל עוד מנוי ה-VIP פעיל.'],
-      ['ביטול עסקה ומנוי',
-        'אפשר לבטל מנוי בכל עת: באזור האישי ← "ניהול מנוי" ← "ביטול מנוי", בקישור "ביטול מנוי" שבמסך הפתיחה, או באימייל. ביטול בתוך 14 יום מזכה בהחזר לפי הדין. הפרטים המלאים במסמך "מדיניות ביטול מנוי".'],
-      ['גיל',
-        'האפליקציה מיועדת לבני 18 ומעלה בלבד. הגיל נבדק בהרשמה לפי תאריך הלידה.'],
-      ['אחריות בית העסק ושירות לקוחות',
-        'מפעילי האפליקציה אחראים לאספקת השירות כמתואר במסמך זה. פניות, תלונות ובירורי חיוב: ' + HDM_CONTACT_EMAIL + ' או בטלפון ' + hdmBiz('phone') + '. נשיב תוך 3 ימי עסקים.',
-        'הגבלת האחריות לגבי משתמשים ותוכן מפורטת בתנאי השימוש. מסמכים נוספים: תנאי שימוש, מדיניות פרטיות, כללי התנהגות ומדיניות ביטול מנוי.']
-    ]},
-    cancel: { title: 'מדיניות ביטול מנוי', sections: [
-      ['עדכון אחרון', '18 באוקטובר 2026'],
-      ['כללי',
-        'מדיניות זו חלה על המסלולים בתשלום באפליקציה "חיים דרך מספרים": בסיסי, פלוס ו-VIP. היא משלימה את תנאי השימוש. אם יש סתירה בינה לבין הדין, הדין גובר.',
-        'כרגע המסלולים בתשלום עדיין לא פתוחים לרכישה, ולא מתבצע שום חיוב. המדיניות תחול על כל מנוי בתשלום מרגע פתיחת הרכישה.'],
-      ['חידוש אוטומטי',
-        'המנוי הוא חודשי ומתחדש אוטומטית בכל חודש, באותו תאריך שבו הצטרפת, עד שתבטל/י אותו. בחודש שאין בו תאריך כזה, החיוב יתבצע ביום האחרון של החודש.',
-        'כל חיוב מתבצע במחיר המסלול באותה עת, באמצעי התשלום ששמרת אצל ספק הסליקה. איננו שומרים את פרטי כרטיס האשראי שלך. תאריך החיוב הבא והסכום יוצגו תמיד במסך "ניהול מנוי".'],
-      ['איך מבטלים',
-        'אפשר לבטל בכל עת, בכל אחת מהדרכים האלה: באפליקציה — האזור האישי ← "ניהול מנוי" ← "ביטול מנוי" ← אישור (או הגדרות ← "ביטול מנוי"); בקישור "ביטול מנוי" שבמסך הפתיחה; או באימייל לכתובת ' + HDM_CONTACT_EMAIL + ', עם השם וכתובת האימייל של החשבון.',
-        'לא נבקש ממך נימוק לביטול, ולא נתנה את הביטול בשיחת שימור.'],
-      ['מה קורה אחרי הביטול',
-        'החידוש האוטומטי נעצר מיד, ולא יתבצע שום חיוב נוסף על המנוי. הביטול נכנס לתוקף לגבי החיובים לא יאוחר מ-3 ימי עסקים מקבלת הבקשה; בפועל, החיוב הבא נחסם מיד.',
-        'אם לא ביקשת החזר כספי, הגישה למסלול נשמרת עד סוף התקופה ששולמה. בסופה החשבון עובר אוטומטית למסלול החינמי.',
-        'במסך "ניהול מנוי" יוצגו מצב הביטול ותאריך סיום המנוי. כשיש צורך באישור מספק הסליקה, יוצג "בקשת הביטול התקבלה" עד שהאישור יתקבל, ואז "המנוי בוטל". בכל מקרה לא יתבצעו חיובים נוספים מרגע הבקשה.',
-        'נשלח אליך אישור באימייל עם מועד הבקשה ותאריך סיום הגישה.'],
-      ['החזר כספי',
-        'ביטול בתוך 14 יום: מנוי שנרכש באפליקציה הוא עסקה מרחוק. אפשר לבטל אותו בתוך 14 יום מיום העסקה, או מיום קבלת המסמך עם פרטי העסקה, המאוחר מביניהם. במקרה כזה הגישה למסלול תסתיים עם הביטול, ונחזיר את הסכום ששולם בניכוי החלק היחסי עבור הימים שבהם המסלול היה פעיל, לאמצעי התשלום המקורי, בתוך 14 יום מקבלת הודעת הביטול. לא ייגבו דמי ביטול. אפשר לבקש זאת במסך הביטול באפליקציה או באימייל.',
-        'ביטול אחרי 14 יום: הביטול עוצר את החידוש הבא, והגישה נשמרת עד סוף התקופה ששולמה.',
-        'חיוב כפול, חיוב אחרי ביטול או חיוב בסכום שגוי יוחזר במלואו.',
-        'זכויות נוספות לפי דין, למשל של אזרחים ותיקים, אנשים עם מוגבלות ועולים חדשים, נשמרות במלואן.'],
-      ['ביטול מנוי אינו מחיקת חשבון',
-        'ביטול המנוי לא מוחק את החשבון, את הפרופיל, את ההתאמות או את השיחות. אחרי סוף התקופה אפשר להמשיך במסלול החינמי ולהצטרף שוב למסלול בתשלום בכל עת. מחיקת חשבון היא אפשרות נפרדת בהגדרות, והיא מבטלת גם את המנוי.'],
-      ['חיוב שנכשל',
-        'אם חיוב חידוש לא אושר, המנוי לא יוארך. ננסה לחייב שוב עד 3 פעמים בסך הכול, בהפרש של יומיים לפחות. אם החיוב לא יאושר, החידוש ייעצר והחשבון יעבור למסלול החינמי בתום התקופה ששולמה.'],
-      ['שינויים במחיר או במדיניות',
-        'על שינוי מחיר או שינוי מהותי במדיניות נודיע מראש באימייל ובאפליקציה, לפני החיוב הראשון במחיר החדש. אפשר לבטל לפני שהשינוי נכנס לתוקף.'],
-      ['יצירת קשר',
-        'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון. טלפון: ' + hdmBiz('phone') + '.',
-        'שאלות, בקשות ביטול או בירור חיוב: ' + HDM_CONTACT_EMAIL]
-    ]},
     terms: { title: 'תנאי שימוש', sections: [
       ['עדכון אחרון', '16 באוקטובר 2026'],
       ['כללי והסכמה',
@@ -5064,6 +5024,17 @@
       ['מחיקת חשבון',
         'אפשר למחוק את החשבון בכל עת מתוך האפליקציה: הגדרות ← מחיקת חשבון. המחיקה סופית. מה נמחק ומה נשמר מפורט במדיניות הפרטיות.',
         'אם אין לך גישה לחשבון, אפשר לבקש את מחיקתו באימייל לכתובת ' + HDM_CONTACT_EMAIL + '.'],
+      ['מנויים, חיובים, שדרוגים, חידושים וביטולים',
+        'מסלולים: חינם (₪0), בסיסי (₪29.90 לחודש), פלוס (₪48.90 לחודש) ו-VIP (₪79.90 לחודש). ההטבות של כל מסלול מפורטות במסך המסלולים באפליקציה.',
+        'הסכמה לפני תשלום: לפני כל תשלום יוצגו לך הסכום, תאריך החיוב הבא ותנאי החידוש, והתשלום יתבצע רק לאחר אישורך.',
+        'חיוב וחידוש אוטומטי: החיוב הראשון מתבצע ביום ההצטרפות. המנוי מתחדש אוטומטית מדי חודש באותו תאריך, במחיר המסלול, עד לביטולו. בחודש שאין בו תאריך כזה, החיוב יתבצע ביום האחרון של החודש. החיובים מתבצעים באמצעי התשלום ששמרת אצל ספק הסליקה (Grow), בלי צורך להזין שוב את פרטי האשראי. אנחנו לא שומרים את פרטי כרטיס האשראי שלך.',
+        'שדרוג: אפשר לשדרג למסלול גבוה יותר בכל שלב. בעת שדרוג תחויב/י רק בהפרש היחסי בין המסלולים עבור יתרת תקופת החיוב הנוכחית, והסכום יוצג לך לפני האישור. המסלול החדש יופעל מיד לאחר אישור התשלום, ותאריך החיוב החודשי לא ישתנה. מהחידוש הבא תחויב/י במחיר המסלול החדש. אם ההפרש היחסי נמוך מ-₪1, השדרוג יופעל בלי חיוב נוסף.',
+        'מעבר למסלול נמוך יותר אינו זמין באמצע תקופת חיוב. אפשר לבטל את המנוי ולהצטרף למסלול אחר בתום התקופה ששולמה.',
+        'חיוב שנכשל: אם חיוב חידוש לא אושר, המנוי לא יוארך, והגישה למסלול תימשך רק עד סוף התקופה ששולמה. ננסה לחייב שוב עד 3 פעמים בסך הכול, בהפרש של יומיים לפחות בין ניסיון לניסיון. אם החיוב לא יאושר, החידוש האוטומטי ייעצר והחשבון יעבור למסלול החינם.',
+        'ביטול: אפשר לבטל את המנוי בכל עת מתוך מסך "המנוי שלי" באפליקציה, או באימייל לכתובת ' + HDM_CONTACT_EMAIL + '. הביטול עוצר את החיובים הבאים, והגישה למסלול תימשך עד סוף התקופה ששולמה. מחיקת החשבון מבטלת גם את המנוי.',
+        'החזרים: ביטול עסקה והחזר כספי יתבצעו בהתאם להוראות חוק הגנת הצרכן, התשמ"א-1981, והתקנות שלפיו. חיוב שבוצע בטעות או בכפילות יוחזר במלואו.',
+        'קבלה תישלח אליך באימייל עבור כל חיוב.',
+        'כל האמור בסעיף זה כפוף לדין החל.'],
       ['השעיה וסיום שימוש',
         'אנחנו רשאים להגביל, להשעות או למחוק חשבון, עם או בלי הודעה מוקדמת, אם הופרו התנאים, אם התקבלו דיווחים מבוססים, אם יש חשש לפגיעה במשתמשים, או אם הדין מחייב זאת.',
         'את/ה רשאי/ת להפסיק להשתמש באפליקציה בכל עת.',
@@ -5671,6 +5642,13 @@
   var HDM_LIMOR_EMAIL = 'life.through.numbers333@gmail.com';
 
   var hdmEnt = null, hdmEntLoading = null, hdmPlansMsg = '';
+  // מנויים מתחדשים. רכישה תיפתח רק אחרי חיבור Grow (HDM_BILLING_LIVE). עד אז אפשר לבדוק את מסך ההסכמה
+  // ב-Staging בלבד עם ?billing=preview — נפתח ניסיון תשלום במסד, בלי מעבר לתשלום ובלי שום חיוב.
+  var HDM_BILLING_LIVE = false;
+  var HDM_BILLING_PREVIEW = /[?&]billing=preview\b/.test(location.search);
+  var hdmBillUI = null, hdmBillBusy = false;
+  function hdmFmtBillDate(iso){ try{ return new Date(iso).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' }); }catch(e){ return ''; } }
+  function hdmMoney(agorot){ return '₪' + (Number(agorot || 0) / 100).toFixed(2); }
 
   function hdmPlanKnown(){ return !!(myId && hdmEnt && hdmEnt.forId === myId); }
   function hdmFeatures(){
@@ -5697,6 +5675,10 @@
         if(r && r.error) throw r.error;
         if(!r || !r.data || typeof r.data !== 'object' || r.data.profileId !== id) throw new Error('entitlements-mismatch');
         ent = Object.assign({ installed: true }, r.data);
+        try{   // מצב החיוב (אם מנגנון המנויים המתחדשים מותקן). כישלון כאן לא משפיע על שאר האפליקציה
+          var b = await sb.rpc('hdm_billing_status');
+          if(b && !b.error && b.data && typeof b.data === 'object') ent.billing = b.data;
+        }catch(x){}
       }catch(e){
         if(hdmEnt && hdmEnt.forId === id && !hdmEnt.error) return hdmEnt;   // משאירים את מה שכבר ידוע
         ent = { error: true };
@@ -5861,50 +5843,142 @@
       if(e.periodEnd) html += '<br>בתוקף עד ' + hdmFmtDate(e.periodEnd);
     }
     html += '</div>';
-    html += hdmManageHtml(e, plan);
+    html += hdmBillingHtml(e, plan);
+    var bl = e && !e.error && e.billing, canBuy = !!(bl && (HDM_BILLING_LIVE || HDM_BILLING_PREVIEW) && !bl.paid && !bl.pendingCheckout);
+    var canUp = !!(bl && (HDM_BILLING_LIVE || HDM_BILLING_PREVIEW) && bl.paid && bl.autoRenew && bl.status === 'active' && !bl.pendingCheckout);
     HDM_PLAN_ORDER.forEach(function(k){
       var info = HDM_PLAN_INFO[k], cur = plan === k;
       html += '<div class="hdm-plan' + (cur ? ' is-current' : '') + '">';
       html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
       html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
       if(k === 'vip' && cur) html += hdmVipBookingHtml();
-      html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'בקרוב')) + '</button>';
+      if(canUp && HDM_PLAN_ORDER.indexOf(k) > HDM_PLAN_ORDER.indexOf(plan))
+        html += '<button type="button" class="hdm-plan-btn buy" onclick="hdmBillOpenUpgrade(\'' + k + '\')">שדרוג ל' + info.name + '</button>';
+      else if(k !== 'free' && canBuy && !(cur && bl.paid))
+        html += '<button type="button" class="hdm-plan-btn buy" onclick="hdmBillOpenBuy(\'' + k + '\')">הצטרפות למסלול ' + info.name + '</button>';
+      else
+        html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'בקרוב')) + '</button>';
       html += '</div>';
     });
-    html += '<p class="hdm-note">המסלולים בתשלום יופעלו בקרוב. כרגע אי אפשר לרכוש מסלול, ולא מתבצע שום חיוב. לשאלות: life.through.numbers333@gmail.com</p>';
-    html += '<p class="hdm-note" id="hdm-plans-policy">לפני רכישת מנוי: המסלולים בתשלום מתחדשים אוטומטית מדי חודש עד לביטול, ואפשר לבטל בכל עת. הפרטים ב<a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a> וב<a href="#" id="hdm-plans-business" onclick="openLegal(\'business\');return false;">מחירים, אספקת השירות ופרטי העסק</a>.</p>';
+    if(HDM_BILLING_LIVE) html += '<p class="hdm-note">המנויים מתחדשים אוטומטית מדי חודש עד לביטול. אפשר לבטל בכל עת מהמסך הזה. לשאלות: life.through.numbers333@gmail.com</p>';
+    else html += '<p class="hdm-note">המסלולים בתשלום יופעלו בקרוב. כרגע אי אפשר לרכוש מסלול, ולא מתבצע שום חיוב. לשאלות: life.through.numbers333@gmail.com</p>';
     body.innerHTML = html;
   }
-  // ---- ניהול מנוי: כפתור "ביטול מנוי". עד שהסליקה מחוברת אין מנויים בתשלום — מוצג הסבר, ולעולם לא "בוטל" ----
-  var hdmCancelOpen = false;
-  function hdmManageHtml(e, plan){
-    if(!myId) return '';
-    var html = '<div class="hdm-bill" id="hdm-manage-box"><b>ניהול מנוי</b><br>';
-    if(!hdmCancelOpen){
-      html += 'אפשר לבטל מנוי בתשלום בכל עת מכאן.';
-      html += '<div class="hdm-bill-row"><button type="button" id="hdm-bill-cancel" onclick="hdmOpenCancelInfo()">ביטול מנוי</button></div>';
-    }else{
-      html += '<div class="hdm-bill-terms" id="hdm-cancel-info"><b>ביטול מנוי</b><br>';
-      if(e && !e.error && e.installed && plan && plan !== 'free')
-        html += 'המסלול שלך (' + hdmEsc(HDM_PLAN_INFO[plan].name) + ') הוגדר ללא תשלום. לא מתבצע עבורו שום חיוב, ולכן אין מנוי בתשלום לבטל.';
-      else
-        html += 'אין לך מנוי בתשלום, ולכן אין מה לבטל. לא בוצע שום חיוב.';
-      html += '<br>המסלולים בתשלום עדיין לא פתוחים לרכישה. כשייפתחו, הביטול יתבצע כאן: תוצג בקשת אישור עם תאריך סיום המנוי, החידוש ייעצר ולא יתבצעו חיובים נוספים, וישלח אישור באימייל. '
-            + 'ביטול מנוי לא מוחק את החשבון או את הפרופיל.</div>';
-      html += '<div class="hdm-bill-row"><button type="button" onclick="hdmCloseCancelInfo()">חזרה</button></div>';
+  // ---- המנוי שלי: תאריך החיוב הבא, ביטול, הסכמה לתנאי החידוש ----
+  function hdmBillingHtml(e, plan){
+    var b = e && !e.error && e.billing;
+    if(!b) return '';
+    var html = '';
+    if(b.paid){
+      html += '<div class="hdm-bill" id="hdm-bill-box"><b>המנוי שלי</b><br>';
+      if(b.paymentFailed) html += '<span class="hdm-bill-warn">החיוב האחרון לא עבר. המנוי בתוקף עד ' + hdmFmtBillDate(b.activeUntil) + ' ולא יוארך בלי תשלום.</span><br>';
+      if(hdmBillUI && hdmBillUI.mode === 'upgrade' && HDM_PLAN_INFO[hdmBillUI.plan]){
+        var ui = HDM_PLAN_INFO[hdmBillUI.plan], uq = hdmBillUI.quote;
+        html += '<div class="hdm-bill-terms"><b>שדרוג ל' + ui.name + '</b><br>';
+        if(!uq) html += 'מחשבים את הסכום…';
+        else html += 'חיוב עכשיו: <b>' + hdmMoney(uq.chargeNowAgorot) + '</b> — ההפרש היחסי עבור יתרת התקופה עד ' + hdmFmtBillDate(uq.periodEnd) + '.<br>'
+                  + 'המסלול החדש יופעל מיד לאחר אישור התשלום. תאריך החיוב החודשי לא משתנה: החל מ־' + hdmFmtBillDate(uq.nextChargeAt)
+                  + ' תחויב/י ' + hdmMoney(uq.nextChargeAgorot) + ' לחודש, עד לביטול. החיוב מתבצע בכרטיס השמור.';
+        html += '</div>';
+        if(uq){
+          html += '<label class="hdm-bill-check"><input type="checkbox" id="hdm-bill-accept" onchange="hdmBillSync()"><span>קראתי ואני מסכים/ה לתנאי השדרוג והחידוש האוטומטי ול<a href="#" onclick="openLegal(\'terms\');return false;">תנאי השימוש</a></span></label>';
+          html += '<div class="hdm-bill-row"><button type="button" class="primary" id="hdm-bill-pay" disabled onclick="hdmBillUpgrade()">אישור ושדרוג</button>'
+                + '<button type="button" onclick="hdmBillClose()">ביטול</button></div>';
+        }
+        if(hdmBillUI.msg) html += '<p class="hdm-note" style="margin:10px 0 0">' + hdmEsc(hdmBillUI.msg) + '</p>';
+        html += '<hr style="border:none;border-top:1px solid rgba(226,183,105,.25);margin:12px 0">';
+      }
+      if(b.autoRenew){
+        html += 'החיוב הבא: <b>' + hdmFmtBillDate(b.nextChargeAt) + '</b> · ' + hdmMoney(b.nextChargeAgorot) + '<br>המנוי מתחדש אוטומטית מדי חודש עד לביטול.';
+        if(hdmBillUI && hdmBillUI.mode === 'cancel'){
+          html += '<div class="hdm-bill-terms">לבטל את המנוי? החיובים הבאים ייעצרו, והמסלול יישאר פעיל עד <b>' + hdmFmtBillDate(b.activeUntil) + '</b>. אחרי זה החשבון יעבור למסלול החינם.</div>';
+          html += '<div class="hdm-bill-row"><button type="button" class="primary" id="hdm-bill-cancel-yes" onclick="hdmBillCancel()"' + (hdmBillBusy ? ' disabled' : '') + '>כן, לבטל את המנוי</button>'
+                + '<button type="button" onclick="hdmBillClose()">חזרה</button></div>';
+        }else{
+          html += '<div class="hdm-bill-row"><button type="button" id="hdm-bill-cancel" onclick="hdmBillOpenCancel()">ביטול מנוי</button></div>';
+        }
+      }else{
+        html += 'המנוי בוטל ולא יתחדש. המסלול פעיל עד <b>' + hdmFmtBillDate(b.activeUntil) + '</b>, ולא יתבצעו חיובים נוספים.';
+      }
+      html += '</div>';
+    }else if(hdmBillUI && hdmBillUI.mode === 'buy' && HDM_PLAN_INFO[hdmBillUI.plan]){
+      var info = HDM_PLAN_INFO[hdmBillUI.plan];
+      html += '<div class="hdm-bill" id="hdm-bill-box"><b>הצטרפות למסלול ' + info.name + ' · ' + info.price + ' לחודש</b>';
+      html += '<div class="hdm-bill-terms">' + hdmEsc(b.termsText || '') + '<br>החיוב הראשון היום, והבאים בכל חודש באותו תאריך.</div>';
+      html += '<label class="hdm-bill-check"><input type="checkbox" id="hdm-bill-accept" onchange="hdmBillSync()"><span>קראתי ואני מסכים/ה לתנאי החידוש האוטומטי ול<a href="#" onclick="openLegal(\'terms\');return false;">תנאי השימוש</a></span></label>';
+      html += '<div class="hdm-bill-row"><button type="button" class="primary" id="hdm-bill-pay" disabled onclick="hdmBillStart()">המשך לתשלום</button>'
+            + '<button type="button" onclick="hdmBillClose()">ביטול</button></div>';
+      if(hdmBillUI.msg) html += '<p class="hdm-note" style="margin:10px 0 0">' + hdmEsc(hdmBillUI.msg) + '</p>';
+      html += '</div>';
+    }else if(b.pendingCheckout){
+      html += '<div class="hdm-bill">יש תשלום שנמצא בתהליך. אם לא השלמת אותו, אפשר לנסות שוב בעוד כחצי שעה.</div>';
     }
-    html += '<p class="hdm-note" style="margin:10px 0 0"><a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a> · לשאלות: life.through.numbers333@gmail.com</p>';
-    return html + '</div>';
+    return html;
   }
-  function hdmOpenCancelInfo(){ hdmCancelOpen = true; hdmRenderPlans(); var el = document.getElementById('hdm-manage-box'); if(el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }
-  function hdmCloseCancelInfo(){ hdmCancelOpen = false; hdmRenderPlans(); }
-  // קישור "ביטול מנוי": מחובר — ניהול מנוי עם הסבר הביטול; לא מחובר — מדיניות ביטול מנוי (איך מבטלים)
-  function hdmCancelEntry(){
-    if(!myId){ openLegal('cancel'); return; }
-    hdmOpenPlans(); hdmOpenCancelInfo();
+  function hdmBillRender(){ hdmRenderPlans(); var el = document.getElementById('hdm-bill-box'); if(el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }
+  function hdmBillClose(){ hdmBillUI = null; hdmRenderPlans(); }
+  function hdmBillOpenCancel(){ hdmBillUI = { mode: 'cancel' }; hdmBillRender(); }
+  function hdmBillOpenBuy(plan){ hdmBillUI = { mode: 'buy', plan: plan }; hdmBillRender(); }
+  async function hdmBillOpenUpgrade(plan, msg){
+    hdmBillUI = { mode: 'upgrade', plan: plan, quote: null, msg: msg || '' }; hdmBillRender();
+    try{
+      var r = await window.__sb.rpc('hdm_billing_upgrade_quote', { p_plan: plan });
+      if(r && r.error) throw r.error;
+      if(hdmBillUI && hdmBillUI.plan === plan) hdmBillUI.quote = r.data;
+    }catch(e){ if(hdmBillUI) hdmBillUI.msg = (e && e.hint) ? e.hint : 'לא הצלחנו לחשב את הסכום. נסו שוב בעוד רגע.'; }
+    hdmBillRender();
   }
+  async function hdmBillUpgrade(){
+    var c = document.getElementById('hdm-bill-accept');
+    if(!c || !c.checked || hdmBillBusy || !hdmBillUI || !hdmBillUI.quote) return;
+    hdmBillBusy = true; hdmBillSync();
+    try{
+      var q = hdmBillUI.quote;
+      var r = await window.__sb.rpc('hdm_billing_start_upgrade', { p_plan: hdmBillUI.plan, p_terms_version: q.termsVersion, p_accept: true, p_quoted_agorot: q.chargeNowAgorot });
+      if(r && r.error) throw r.error;
+      if(r.data && r.data.upgraded){ hdmBillUI = null; hdmToast('המסלול שודרג.'); }
+      // אחרי חיבור Grow: פונקציית שרת מחייבת את הכרטיס השמור בסכום הזה, והמסלול מתעדכן רק לפי אישור מ-Grow
+      else hdmBillUI.msg = HDM_BILLING_LIVE ? 'מבצעים את החיוב…' : 'ההסכמה נשמרה. החיוב בכרטיס השמור עדיין לא הופעל (ממתין לאישור Grow) — לא בוצע שום חיוב.';
+    }catch(e){
+      if(hdmBillUI) hdmBillUI.msg = (e && e.hint) ? e.hint : 'לא הצלחנו להתחיל את השדרוג. נסו שוב בעוד רגע.';
+      if(e && /QUOTE_CHANGED/.test(String(e.message || '')) && hdmBillUI){ hdmBillBusy = false; return hdmBillOpenUpgrade(hdmBillUI.plan, 'הסכום התעדכן לפי הזמן שעבר. יש לבדוק ולאשר שוב.'); }
+    }
+    hdmBillBusy = false;
+    await hdmRefreshPlan(true).catch(function(){});
+    hdmRenderPlans();
+  }
+  function hdmBillSync(){ var c = document.getElementById('hdm-bill-accept'), b = document.getElementById('hdm-bill-pay'); if(b) b.disabled = !(c && c.checked) || hdmBillBusy; }
+  async function hdmBillCancel(){
+    if(hdmBillBusy) return; hdmBillBusy = true; hdmRenderPlans();
+    try{
+      var r = await window.__sb.rpc('hdm_billing_cancel');
+      if(r && r.error) throw r.error;
+      hdmBillUI = null;
+      hdmToast('המנוי בוטל. המסלול פעיל עד ' + hdmFmtBillDate(r.data && r.data.activeUntil) + ', ולא יתבצעו חיובים נוספים.');
+    }catch(e){ hdmToast('הביטול לא הצליח. נסו שוב, או כתבו לנו: life.through.numbers333@gmail.com'); }
+    hdmBillBusy = false;
+    await hdmRefreshPlan(true).catch(function(){});
+    hdmRenderPlans();
+  }
+  async function hdmBillStart(){
+    var c = document.getElementById('hdm-bill-accept');
+    if(!c || !c.checked || hdmBillBusy || !hdmBillUI) return;
+    var b = hdmEnt && hdmEnt.billing; if(!b) return;
+    hdmBillBusy = true; hdmBillSync();
+    try{
+      var r = await window.__sb.rpc('hdm_billing_start_checkout', { p_plan: hdmBillUI.plan, p_terms_version: b.termsVersion, p_accept: true });
+      if(r && r.error) throw r.error;
+      // כאן, אחרי חיבור Grow: פונקציית שרת יוצרת דף תשלום ב-Grow לניסיון הזה ומעבירה אליו. המנוי מופעל רק לפי אישור מ-Grow.
+      hdmBillUI.msg = HDM_BILLING_LIVE ? 'מעבירים לתשלום מאובטח…' : 'ההסכמה נשמרה. חיבור התשלום (Grow) עדיין לא הופעל — לא בוצע שום חיוב.';
+    }catch(e){
+      hdmBillUI.msg = (e && e.hint) ? e.hint : 'לא הצלחנו להתחיל את התשלום. נסו שוב בעוד רגע.';
+    }
+    hdmBillBusy = false;
+    hdmRenderPlans();
+  }
+
   function hdmOpenPlans(msg){
-    hdmPlansMsg = msg || ''; hdmCancelOpen = false;
+    hdmPlansMsg = msg || ''; hdmBillUI = null;
     hdmRenderPlans();
     hdmOpenLayer('hdm-plans-screen');
     hdmRefreshPlan(true).then(function(){ if(hdmLayerOpen('hdm-plans-screen')) hdmRenderPlans(); }).catch(function(){});
@@ -6095,6 +6169,20 @@
     try{ var raw = localStorage.getItem(hdmPendingKey(email)); if(!raw) return null; localStorage.removeItem(hdmPendingKey(email)); return JSON.parse(raw); }catch(e){ return null; }
   }
 
+  // הפרופיל שממתין לאישור המייל נשמר גם בחשבון ב-Supabase Auth, ולכן זמין גם בהתחברות ממכשיר / דפדפן אחר.
+  // אחרי שהפרופיל נשמר במסד — מוחקים אותו משם.
+  function hdmPendingFromUser(user){
+    var m = (user && user.user_metadata) || {};
+    var p = m.hdm_pending_profile;
+    return (p && typeof p === 'object' && p.birthdate) ? { id: m.hdm_pending_id || null, profile: p } : null;
+  }
+  window.hdmClearPendingMeta = async function(){
+    var a = hdmStgAuth(); if(!a) return;
+    var s = (await a.auth.getSession()).data.session;
+    var m = (s && s.user && s.user.user_metadata) || {};
+    if(m.hdm_pending_profile || m.hdm_pending_id) await a.auth.updateUser({ data: { hdm_pending_profile: null, hdm_pending_id: null } });
+  };
+
   window.hdmStagingSignUp = async function(email, pass, proposedId, profile){
     var a = hdmStgAuth();
     if(!a) throw new Error('no-db');
@@ -6102,7 +6190,8 @@
     var cb = document.getElementById('su-consent');
     if(!cb || !cb.checked) throw new Error('HDM_TERMS_REQUIRED');
     var r = await a.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname,
-      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString() } } });
+      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString(),
+              hdm_pending_id: proposedId || null, hdm_pending_profile: profile || null } } });
     if(r.error){
       var m = hdmStgMsg(r.error);
       if(/already registered|already exists/i.test(m)) throw new Error('HDM_EMAIL_EXISTS');
@@ -6170,7 +6259,7 @@
         status.textContent = /confirm/i.test(hdmStgMsg(r.error)) ? 'צריך קודם לאשר את כתובת האימייל (בדקו בתיבת הדואר ובספאם).' : 'האימייל או הסיסמה שגויים.';
         return;
       }
-      var pending = hdmPendingTake(email);
+      var pending = hdmPendingTake(email) || hdmPendingFromUser(r.data && r.data.user);
       var pid;
       try{ pid = await window.hdmStagingClaim(pending && pending.id); }
       catch(ce){
@@ -6185,14 +6274,19 @@
       }
       var snap = await dbCap.doc('profiles/' + pid).get();
       if(!snap.exists && pending && pending.profile){
-        try{ await dbCap.doc('profiles/' + pid).set(pending.profile); }
+        try{ await dbCap.doc('profiles/' + pid).set(pending.profile); snap = { exists: true }; }
         catch(e){ try{ localStorage.setItem(hdmPendingKey(email), JSON.stringify(pending)); }catch(x){} throw e; }
+      }
+      if(snap.exists){ try{ await window.hdmClearPendingMeta(); }catch(e){} }
+      if(!snap.exists){   // אין פרופיל ואין פרטים שמורים: משלימים את הפרופיל לחשבון הקיים, בלי להירשם מחדש
+        hdmOpenCompleteProfile(pid, authNormEmail(email));
+        return;
       }
       window.__hdmAgeGateOnPass = function(){};
       var entered = await authEnterProfile(pid);
       window.__hdmAgeGateOnPass = null;
       if(!entered && !window.__hdmAgeGateOpen){
-        status.textContent = 'לחשבון הזה עדיין אין פרופיל. נא להירשם מחדש עם אותו אימייל במכשיר שבו התחלתם, או לפנות לצוות.';
+        status.textContent = 'לא הצלחנו לפתוח את הפרופיל. נסו שוב, או כתבו לנו: life.through.numbers333@gmail.com';
       }
     }catch(e){
       var ageErr = hdmDbAgeError(e);
