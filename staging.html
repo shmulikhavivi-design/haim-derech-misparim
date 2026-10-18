@@ -4879,10 +4879,10 @@
   var HDM_BUSINESS = {
     name: 'חיים דרך מספרים',
     owners: 'שמוליק חביבי ולימור רון',
-    legalId: '',      // מספר עוסק / ח"פ
-    address: '',      // כתובת בית העסק
-    phone: '',        // טלפון ליצירת קשר
-    vatNote: ''       // למשל: 'המחירים כוללים מע"מ.' או 'העסק עוסק פטור, ולא נגבה מע"מ.'
+    legalId: '038364659',                              // עוסק מורשה
+    address: 'אורן 3, קיסריה',                          // כתובת בית העסק
+    phone: '054-6628866',                               // טלפון עסקי
+    vatNote: 'העסק עוסק מורשה, והמחירים כוללים מע"מ.'
   };
   function hdmBiz(k){ return HDM_BUSINESS[k] || '(יושלם לפני הפרסום)'; }
   var HDM_LEGAL = {
@@ -4947,7 +4947,8 @@
       ['שינויים במדיניות',
         'אנחנו עשויים לעדכן מדיניות זו מעת לעת. תאריך העדכון האחרון מופיע בראש העמוד. על שינוי מהותי נודיע באפליקציה, ונבקש לאשר את המדיניות המעודכנת לפני המשך השימוש.'],
       ['פרטי קשר',
-        'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון.',
+        'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון (' + HDM_BUSINESS.name + ', עוסק מורשה מס׳ ' + hdmBiz('legalId') + ').',
+        'כתובת: ' + hdmBiz('address') + ' · טלפון: ' + hdmBiz('phone') + '.',
         'אימייל לכל הפניות — פרטיות, מחיקת חשבון, דיווח על משתמשים, חסימות ותמיכה: ' + HDM_CONTACT_EMAIL]
     ]},
     conduct: { title: 'כללי התנהגות', sections: [
@@ -4984,7 +4985,7 @@
       ['עדכון אחרון', '18 באוקטובר 2026'],
       ['פרטי העסק',
         'שם העסק: ' + HDM_BUSINESS.name + '. מפעילי האפליקציה: ' + HDM_BUSINESS.owners + '.',
-        'מספר עוסק: ' + hdmBiz('legalId') + '.',
+        'מספר עוסק: ' + hdmBiz('legalId') + ' (עוסק מורשה).',
         'כתובת בית העסק: ' + hdmBiz('address') + '.',
         'טלפון: ' + hdmBiz('phone') + ' · אימייל: ' + HDM_CONTACT_EMAIL],
       ['השירותים והמחירים',
@@ -5038,9 +5039,11 @@
         'אם חיוב חידוש לא אושר, המנוי לא יוארך. ננסה לחייב שוב עד 3 פעמים בסך הכול, בהפרש של יומיים לפחות. אם החיוב לא יאושר, החידוש ייעצר והחשבון יעבור למסלול החינמי בתום התקופה ששולמה.'],
       ['שינויים במחיר או במדיניות',
         'על שינוי מחיר או שינוי מהותי במדיניות נודיע מראש באימייל ובאפליקציה, לפני החיוב הראשון במחיר החדש. אפשר לבטל לפני שהשינוי נכנס לתוקף.'],
-      ['יצירת קשר',
-        'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון. טלפון: ' + hdmBiz('phone') + '.',
-        'שאלות, בקשות ביטול או בירור חיוב: ' + HDM_CONTACT_EMAIL]
+      ['פרטי העסק ויצירת קשר',
+        'שם העסק: ' + HDM_BUSINESS.name + '. יוצרי ומפעילי האפליקציה: ' + HDM_BUSINESS.owners + '.',
+        'עוסק מורשה מס׳ ' + hdmBiz('legalId') + '. כתובת בית העסק: ' + hdmBiz('address') + '.',
+        'טלפון: ' + hdmBiz('phone') + ' · אימייל: ' + HDM_CONTACT_EMAIL,
+        'שאלות, בקשות ביטול או בירור חיוב — בטלפון או באימייל. נשיב תוך 3 ימי עסקים.']
     ]},
     terms: { title: 'תנאי שימוש', sections: [
       ['עדכון אחרון', '18 באוקטובר 2026'],
@@ -5104,16 +5107,20 @@
       ['דין וסמכות שיפוט',
         'על תנאים אלה יחול הדין הישראלי בלבד. סמכות השיפוט הבלעדית בכל עניין הנוגע לתנאים אלה ולשימוש באפליקציה תהיה לבתי המשפט המוסמכים בישראל.'],
       ['פרטי קשר',
-        'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון.',
+        'יוצרי ומפעילי האפליקציה: שמוליק חביבי ולימור רון (' + HDM_BUSINESS.name + ', עוסק מורשה מס׳ ' + hdmBiz('legalId') + ').',
+        'כתובת: ' + hdmBiz('address') + ' · טלפון: ' + hdmBiz('phone') + '.',
         'אימייל לכל הפניות — פרטיות, מחיקת חשבון, דיווח על משתמשים, חסימות ותמיכה: ' + HDM_CONTACT_EMAIL]
     ]}
   };
   function openLegal(kind){
     var d = HDM_LEGAL[kind] || HDM_LEGAL.privacy;
     var mail = '<a href="mailto:' + HDM_CONTACT_EMAIL + '" dir="ltr">' + HDM_CONTACT_EMAIL + '</a>';
+    var tel = '<a href="tel:' + (HDM_BUSINESS.phone || '').replace(/[^0-9]/g, '').replace(/^0/, '+972') + '" dir="ltr">' + HDM_BUSINESS.phone + '</a>';
     document.getElementById('legal-title').textContent = d.title;
     document.getElementById('legal-body').innerHTML = d.sections.map(function(s){
-      return '<h4>' + hdmEsc(s[0]) + '</h4><p>' + s.slice(1).map(hdmEsc).join('<br><br>').split(HDM_CONTACT_EMAIL).join(mail) + '</p>';
+      var html = s.slice(1).map(hdmEsc).join('<br><br>').split(HDM_CONTACT_EMAIL).join(mail);
+      if(HDM_BUSINESS.phone) html = html.split(HDM_BUSINESS.phone).join(tel);
+      return '<h4>' + hdmEsc(s[0]) + '</h4><p>' + html + '</p>';
     }).join('');
     var f = document.getElementById('legal-screen');
     f.classList.add('open'); f.setAttribute('aria-hidden', 'false'); f.scrollTop = 0;
@@ -5948,10 +5955,10 @@
                 ? (f.end ? hdmEsc('המסלול ' + f.planName + ' (ללא תשלום) בתוקף עד ' + f.end) : hdmEsc('המסלול ' + f.planName + ' הוגדר ללא תשלום ואינו מתחדש בתשלום'))
                 : 'אין מנוי בתשלום לסיים — החשבון במסלול החינמי') + '</b><br>';
       html += 'החשבון, הפרופיל והשיחות נשארים כמו שהם.';
-      html += '<br>רוצה גם אישור בכתב? <a href="mailto:' + HDM_CONTACT_EMAIL + '?subject=' + encodeURIComponent('בקשת ביטול מנוי') + '" id="hdm-cancel-mail">שליחת בקשת ביטול באימייל</a> — נשיב תוך 3 ימי עסקים.</div>';
+      html += '<br>רוצה גם אישור בכתב? <a href="mailto:' + HDM_CONTACT_EMAIL + '?subject=' + encodeURIComponent('בקשת ביטול מנוי') + '" id="hdm-cancel-mail">שליחת בקשת ביטול באימייל</a> או בטלפון <a href="tel:+972546628866" id="hdm-cancel-tel" dir="ltr">' + hdmEsc(HDM_BUSINESS.phone) + '</a> — נשיב תוך 3 ימי עסקים.</div>';
       html += '<div class="hdm-bill-row"><button type="button" onclick="hdmCloseCancelInfo()">סגירה</button></div>';
     }
-    html += '<p class="hdm-note" style="margin:10px 0 0"><a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a> · לשאלות: life.through.numbers333@gmail.com</p>';
+    html += '<p class="hdm-note" style="margin:10px 0 0"><a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a> · לשאלות: life.through.numbers333@gmail.com · <a href="tel:+972546628866" dir="ltr">' + hdmEsc(HDM_BUSINESS.phone) + '</a></p>';
     return html + '</div>';
   }
   function hdmScrollManage(){ var el = document.getElementById('hdm-manage-box'); if(el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }

@@ -144,7 +144,8 @@ def run_browser(pw, name, launcher, ctx_opts):
     check(P + 'לא מחובר: "ביטול מנוי" פותח את מדיניות הביטול', pg.inner_text('#legal-title') == 'מדיניות ביטול מנוי' and 'איך מבטלים' in lt, lt[:200])
     need = ['מתחדש אוטומטית', 'איך מבטלים', 'ביטול מנוי', 'לא יתבצע שום חיוב נוסף', '3 ימי עסקים', 'סוף התקופה ששולמה',
             'ביטול בתוך 14 יום', 'לא ייגבו דמי ביטול', 'אינו מחיקת חשבון', 'תאריך סיום המנוי', 'אישור באימייל', 'חיוב שנכשל',
-            'שינויים במחיר', 'עדיין לא פתוחים לרכישה', 'הפרופיל שלי', 'life.through.numbers333@gmail.com']
+            'שינויים במחיר', 'עדיין לא פתוחים לרכישה', 'הפרופיל שלי', 'life.through.numbers333@gmail.com',
+            'פרטי העסק ויצירת קשר', 'עוסק מורשה מס׳ 038364659', 'אורן 3, קיסריה', '054-6628866']
     miss = [w for w in need if w not in lt]
     check(P + 'תוכן המדיניות: כל הסעיפים הנדרשים', not miss, miss)
     legal_scrolls(pg, P + 'מדיניות ביטול מנוי')
@@ -158,13 +159,14 @@ def run_browser(pw, name, launcher, ctx_opts):
     need = ['פרטי העסק', 'מספר עוסק', 'כתובת בית העסק', 'טלפון', 'life.through.numbers333@gmail.com', 'השירותים והמחירים',
             '₪29.90 לחודש', '₪48.90 לחודש', '₪79.90 לחודש', '₪0', 'אופן התשלום', 'תיבת אישור', 'קבלה', 'אספקת השירות', 'מיד לאחר אישור התשלום',
             'תוך 24 שעות', 'תוך 2 ימי עסקים', 'נחזיר את מלוא הסכום', 'ביטול עסקה ומנוי', '14 יום', '18 ומעלה', 'אחריות בית העסק',
-            'נשיב תוך 3 ימי עסקים', 'שמוליק חביבי ולימור רון']
+            'נשיב תוך 3 ימי עסקים', 'שמוליק חביבי ולימור רון', '038364659', 'עוסק מורשה', 'אורן 3, קיסריה', '054-6628866', 'כוללים מע"מ']
     miss = [w for w in need if w not in bt]
     check(P + 'תוכן: פרטי עסק, מחירים, תשלום, אספקה וזמני טיפול, החזר, ביטול, גיל, אחריות, יצירת קשר', not miss, miss)
     legal_scrolls(pg, P + 'מחירים ופרטי העסק')
     biz = pg.evaluate("() => HDM_BUSINESS")
     empty = [k for k in ('legalId', 'address', 'phone', 'vatNote') if not biz.get(k)]
-    print(P + 'INFO פרטי עסק שעוד לא הוזנו: ' + (', '.join(empty) if empty else 'אין'), flush=True)
+    check(P + 'פרטי העסק מלאים (מספר עוסק, כתובת, טלפון, מע"מ) ואין "(יושלם לפני הפרסום)"', not empty and 'יושלם לפני הפרסום' not in bt + lt, empty)
+    check(P + 'הטלפון במסמך לחיץ (tel:+972546628866)', pg.locator('#legal-body a[href="tel:+972546628866"]').count() >= 1)
     pg.evaluate("() => openLegal('terms')")
     tt = pg.inner_text('#legal-body')
     check(P + 'תנאי השימוש: סעיף "מנויים, תשלום וביטול" עם הפניה למדיניות', 'מנויים, תשלום וביטול' in tt and 'מדיניות ביטול מנוי' in tt and 'מתחדש אוטומטית' in tt, tt[:200])
@@ -219,7 +221,8 @@ def run_browser(pw, name, launcher, ctx_opts):
     check(P + 'שלב 2: אישור על בקשת הביטול עם מועד הבקשה', pg.locator('#hdm-cancel-done').count() == 1 and 'בקשת הביטול התקבלה' in t and today in pg.inner_text('#hdm-cancel-at'), t[:400])
     check(P + 'שלב 2: חידוש אוטומטי כבוי ולא יתבצע חיוב', pg.inner_text('#hdm-cancel-renew') == 'כבוי' and 'לא יתבצע שום חיוב' in t, t[:400])
     check(P + 'שלב 2: מועד סיום המנוי מוצג', 'מועד סיום המנוי' in t and 'אין מנוי בתשלום לסיים' in pg.inner_text('#hdm-cancel-end'), t[:500])
-    check(P + 'שלב 2: אפשרות לבקשה באימייל', 'mailto:life.through.numbers333@gmail.com' in (pg.get_attribute('#hdm-cancel-mail', 'href') or ''))
+    check(P + 'שלב 2: אפשרות לבקשה באימייל או בטלפון', 'mailto:life.through.numbers333@gmail.com' in (pg.get_attribute('#hdm-cancel-mail', 'href') or '')
+          and pg.get_attribute('#hdm-cancel-tel', 'href') == 'tel:+972546628866')
     check(P + 'שלב 2: לא נכתב "המנוי בוטל"', not any(w in t for w in NOT_DONE), t[:400])
     pg.locator('#hdm-plans-policy a').first.click(); pg.wait_for_timeout(300)
     check(P + 'הקישור במסך המסלולים פותח את המדיניות', pg.inner_text('#legal-title') == 'מדיניות ביטול מנוי')
