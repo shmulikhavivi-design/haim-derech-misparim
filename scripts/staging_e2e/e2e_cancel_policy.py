@@ -169,7 +169,7 @@ def run_browser(pw, name, launcher, ctx_opts):
     check(P + 'הטלפון במסמך לחיץ (tel:+972546628866)', pg.locator('#legal-body a[href="tel:+972546628866"]').count() >= 1)
     pg.evaluate("() => openLegal('terms')")
     tt = pg.inner_text('#legal-body')
-    check(P + 'תנאי השימוש: סעיף "מנויים, תשלום וביטול" עם הפניה למדיניות', 'מנויים, תשלום וביטול' in tt and 'מדיניות ביטול מנוי' in tt and 'מתחדש אוטומטית' in tt, tt[:200])
+    check(P + 'תנאי השימוש: סעיף מנויים וביטול עם הפניה למדיניות', ('מנויים, תשלום וביטול' in tt or 'מנויים, חיובים, שדרוגים, חידושים וביטולים' in tt) and 'מדיניות ביטול מנוי' in tt and 'מתחדש אוטומטית' in tt, tt[:200])
     pg.evaluate("() => closeLegal()")
     c.close()
 
