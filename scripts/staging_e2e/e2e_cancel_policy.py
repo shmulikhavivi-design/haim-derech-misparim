@@ -75,7 +75,8 @@ seen_hosts, errors, billing_calls = set(), [], []
 
 def on_request(r):
     seen_hosts.add(r.url.split('/')[2])
-    if 'hdm_billing' in r.url or 'hdm_checkout' in r.url: billing_calls.append(r.url)
+    # פעולות חיוב/ביטול אסורות כאן; קריאת מצב המנוי (hdm_billing_status) היא קריאה בלבד ומותרת
+    if ('hdm_billing' in r.url or 'hdm_checkout' in r.url) and 'hdm_billing_status' not in r.url: billing_calls.append(r.url)
 
 def new_page(ctx, url):
     pg = ctx.new_page(); pg.on('pageerror', lambda e: errors.append(str(e))); pg.on('request', on_request)
