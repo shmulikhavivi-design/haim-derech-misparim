@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|e2esignup|e2esignupreal) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|e2esignup|e2esignupreal) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -548,6 +548,8 @@ case "$MODE" in
   tests18)   FILE="$SQLDIR/18_staging_billing_tests.sql" ;;
   install19) FILE="$SQLDIR/19_staging_billing_upgrade.sql" ;;
   tests20)   FILE="$SQLDIR/20_staging_billing_upgrade_tests.sql" ;;
+  install21) FILE="$SQLDIR/21_staging_billing_cancel.sql" ;;
+  tests22)   FILE="$SQLDIR/22_staging_billing_cancel_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."
 say ""; say "### הרצת $(basename "$FILE")"
@@ -556,6 +558,15 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests22" ]; then
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
+  N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+  [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות ביטול המנוי עברו ($SUMM)."
+  LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c "select (select count(*) from auth.users where email like 'cx%@example.invalid') + (select count(*) from public.hdm_cancel_requests) + (select count(*) from public.hdm_email_outbox) + (select count(*) from public.hdm_payments) + (select count(*) from public.hdm_grow_outbox)")
+  [ "$LEFT" = "0" ] || stop "נשארו נתוני בדיקה במסד ($LEFT)."
+  say "✅ tests22: $SUMM (תשובות Grow מדומות, הכול בוטל — לא נשמר כלום ולא נשלח מייל)."; ann notice "staging-result" "✅ tests22: $SUMM (תשובות Grow מדומות, הכול בוטל — לא נשמר כלום ולא נשלח מייל)"
+  exit 0
+fi
 if [ "$MODE" = "tests20" ]; then
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
   N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
