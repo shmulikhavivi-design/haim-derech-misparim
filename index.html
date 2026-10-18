@@ -646,7 +646,20 @@
   .hdm-bill b{ color:#F2D59A; }
   .hdm-bill-terms{ background:rgba(255,255,255,.05); border-radius:12px; padding:10px 12px; margin:10px 0; font-size:13.5px; color:#E3D9CC; }
   .hdm-bill-row{ display:flex; gap:10px; margin-top:12px; }
-  .hdm-bill-row button{ flex:1; border-radius:12px; padding:11px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; border:1px solid #E2B769; background:transparent; color:#F2D59A; }
+  .hdm-bill-row button{ flex:1; min-height:44px; border-radius:12px; padding:11px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; border:1px solid #E2B769; background:transparent; color:#F2D59A; touch-action:manipulation; }
+  /* כפתור "ביטול מנוי" בולט ונגיש: גובה מגע 48px לפחות (אייפון), ניגודיות גבוהה */
+  .hdm-cancel-btn{ display:block; width:100%; min-height:48px; margin-top:12px; border-radius:14px; padding:12px 14px; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+    font-family:'Heebo',sans-serif; font-size:16px; font-weight:700; color:#FFE9E4; background:rgba(214,92,74,.22); border:1.5px solid #E58B7B; -webkit-appearance:none; appearance:none; }
+  .hdm-cancel-btn:focus-visible, .hdm-bill-row button:focus-visible{ outline:2px solid #F8DFA4; outline-offset:2px; }
+  .hdm-cancel-done{ border:1px solid rgba(140,200,150,.6); background:rgba(120,190,140,.10); border-radius:12px; padding:10px 12px; margin:10px 0; font-size:14px; color:#E6F2E8; line-height:1.7; }
+  .hdm-cancel-done a{ color:#E2B769; text-decoration:underline; }
+  .hdm-account-box{ border:1px solid var(--line); border-radius:16px; padding:12px 14px; margin:18px 0 6px; background:var(--card); }
+  .hdm-account-box .set-title{ padding:0 0 6px; }
+  .hdm-account-box .hdm-acc-manage{ width:100%; min-height:44px; background:none; border:1px solid var(--line); border-radius:12px; color:var(--cream); font-family:'Heebo',sans-serif; font-size:15px; cursor:pointer; touch-action:manipulation; }
+  /* אייפון/ספארי: גלילה חלקה בתוך המסמכים, בלי שהדף מאחור נגלל, ומרווח מתחת לאזור המצלמה */
+  .signup.legal, .hdm-layer{ -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+  .signup.legal .signup-inner, #hdm-plans-screen .signup-inner{ padding-top:max(22px, env(safe-area-inset-top)); padding-bottom:max(36px, env(safe-area-inset-bottom)); }
+  .signup.legal .signup-back{ min-height:44px; }
   .hdm-layer .hdm-current{ border:1px solid rgba(226,183,105,.55); border-radius:16px; padding:14px 16px; margin:0 0 18px;
     background:rgba(226,183,105,.08); color:#F2EADF; font-size:14.5px; line-height:1.7; }
   .hdm-layer .hdm-current b{ color:#F2D59A; }
@@ -839,6 +852,12 @@
     <div class="form-status" id="profile-status"></div>
     <button class="btn" type="button" id="profile-save-btn">שמירה</button>
     <div class="my-chats-link" onclick="openSettings()">☰ הגדרות, פרטיות ובטיחות</div>
+    <div class="hdm-account-box" id="profile-account-box">
+      <div class="set-title">החשבון והמנוי שלי</div>
+      <button type="button" class="hdm-acc-manage" id="profile-manage-sub" onclick="hdmOpenPlans()">💎 ניהול מנוי</button>
+      <button type="button" class="hdm-cancel-btn" id="profile-cancel-sub" onclick="hdmCancelEntry()">ביטול מנוי</button>
+      <p class="legal-links" style="text-align:center"><a href="#" onclick="openLegal('cancel');return false;">מדיניות ביטול מנוי</a> · <a href="#" onclick="openLegal('business');return false;">מחירים ופרטי העסק</a></p>
+    </div>
     <div class="skip-link" id="profile-back">חזרה להתאמות</div>
   </div>
 
@@ -4961,7 +4980,7 @@
         'אם המסלול לא הופעל תוך 24 שעות מהתשלום, יש לפנות אלינו. נטפל בפנייה תוך 2 ימי עסקים, ואם לא נוכל להפעיל את המסלול — נחזיר את מלוא הסכום.',
         'הנחת VIP על שירותי נומרולוגיה: השירות עצמו ניתן על ידי הנומרולוגית בתיאום מראש, וההנחה בתוקף כל עוד מנוי ה-VIP פעיל.'],
       ['ביטול עסקה ומנוי',
-        'אפשר לבטל מנוי בכל עת: באזור האישי ← "ניהול מנוי" ← "ביטול מנוי", בקישור "ביטול מנוי" שבמסך הפתיחה, או באימייל. ביטול בתוך 14 יום מזכה בהחזר לפי הדין. הפרטים המלאים במסמך "מדיניות ביטול מנוי".'],
+        'אפשר לבטל מנוי בכל עת: באזור האישי ← "ניהול מנוי" ← "ביטול מנוי", ב"הפרופיל שלי" או בהגדרות ← "ביטול מנוי", בקישור "ביטול מנוי" שבמסך הפתיחה, או באימייל. ביטול בתוך 14 יום מזכה בהחזר לפי הדין. הפרטים המלאים במסמך "מדיניות ביטול מנוי".'],
       ['גיל',
         'האפליקציה מיועדת לבני 18 ומעלה בלבד. הגיל נבדק בהרשמה לפי תאריך הלידה.'],
       ['אחריות בית העסק ושירות לקוחות',
@@ -4977,7 +4996,7 @@
         'המנוי הוא חודשי ומתחדש אוטומטית בכל חודש, באותו תאריך שבו הצטרפת, עד שתבטל/י אותו. בחודש שאין בו תאריך כזה, החיוב יתבצע ביום האחרון של החודש.',
         'כל חיוב מתבצע במחיר המסלול באותה עת, באמצעי התשלום ששמרת אצל ספק הסליקה. איננו שומרים את פרטי כרטיס האשראי שלך. תאריך החיוב הבא והסכום יוצגו תמיד במסך "ניהול מנוי".'],
       ['איך מבטלים',
-        'אפשר לבטל בכל עת, בכל אחת מהדרכים האלה: באפליקציה — האזור האישי ← "ניהול מנוי" ← "ביטול מנוי" ← אישור (או הגדרות ← "ביטול מנוי"); בקישור "ביטול מנוי" שבמסך הפתיחה; או באימייל לכתובת ' + HDM_CONTACT_EMAIL + ', עם השם וכתובת האימייל של החשבון.',
+        'אפשר לבטל בכל עת, בכל אחת מהדרכים האלה: באפליקציה — האזור האישי ← "ניהול מנוי" ← "ביטול מנוי" ← "אישור ביטול החידוש האוטומטי" (או "הפרופיל שלי" / הגדרות ← "ביטול מנוי"); בקישור "ביטול מנוי" שבמסך הפתיחה; או באימייל לכתובת ' + HDM_CONTACT_EMAIL + ', עם השם וכתובת האימייל של החשבון.',
         'לא נבקש ממך נימוק לביטול, ולא נתנה את הביטול בשיחת שימור.'],
       ['מה קורה אחרי הביטול',
         'החידוש האוטומטי נעצר מיד, ולא יתבצע שום חיוב נוסף על המנוי. הביטול נכנס לתוקף לגבי החיובים לא יאוחר מ-3 ימי עסקים מקבלת הבקשה; בפועל, החיוב הבא נחסם מיד.',
@@ -5000,7 +5019,7 @@
         'שאלות, בקשות ביטול או בירור חיוב: ' + HDM_CONTACT_EMAIL]
     ]},
     terms: { title: 'תנאי שימוש', sections: [
-      ['עדכון אחרון', '16 באוקטובר 2026'],
+      ['עדכון אחרון', '18 באוקטובר 2026'],
       ['כללי והסכמה',
         'תנאים אלה חלים על השימוש באפליקציית ההיכרויות „חיים דרך מספרים” (להלן: „האפליקציה”), שנוצרה ומופעלת על ידי שמוליק חביבי ולימור רון (להלן: „אנחנו” או „מפעילי האפליקציה”).',
         'ההרשמה לאפליקציה והשימוש בה מותנים באישור מפורש של תנאים אלה, של מדיניות הפרטיות ושל כללי ההתנהגות. אם אינך מסכים/ה להם, אין להשתמש באפליקציה.',
@@ -5034,6 +5053,11 @@
       ['התאמות נומרולוגיות',
         'המספרים הנומרולוגיים, אחוזי ההתאמה וההסברים באפליקציה מבוססים על עקרונות נומרולוגיה. הם נועדו להכוונה ולהנאה בלבד.',
         'אין להם ביסוס מדעי, והם אינם מבטיחים התאמה, הצלחה בקשר או תכונה כלשהי של אדם. הם אינם תחליף לשיקול דעת אישי, ואין לקבל החלטות משמעותיות על סמכם בלבד.'],
+      ['מנויים, תשלום וביטול',
+        'ההרשמה והמסלול החינמי ללא תשלום. המסלולים בתשלום (בסיסי, פלוס ו-VIP) הם מנוי חודשי שמתחדש אוטומטית עד לביטולו. המחירים, אופן התשלום ואספקת השירות מפורטים במסמך „מחירים, אספקת השירות ופרטי העסק”.',
+        'לפני כל רכישה יוצגו הסכום ותנאי החידוש, ויש לאשר במפורש את תנאי השימוש ואת מדיניות ביטול מנוי. התשלום מתבצע דרך ספק הסליקה, ואיננו שומרים פרטי כרטיס אשראי.',
+        'אפשר לבטל מנוי בכל עת: בפרופיל או בהגדרות ← „ביטול מנוי”, במסך „ניהול מנוי”, או באימייל לכתובת ' + HDM_CONTACT_EMAIL + '. החידוש נעצר מיד, ותנאי ההחזר מפורטים במסמך „מדיניות ביטול מנוי”, שהוא חלק מתנאים אלה. ביטול מנוי אינו מוחק את החשבון.',
+        'כרגע המסלולים בתשלום עדיין לא פתוחים לרכישה, ולא מתבצע שום חיוב.'],
       ['חסימה ודיווח',
         'אפשר לחסום כל משתמש ולדווח על משתמש שמפר את התנאים, מתוך האפליקציה או באימייל לכתובת ' + HDM_CONTACT_EMAIL + '. דיווחים נבדקים על ידינו, ואנחנו רשאים לפעול בעקבותיהם לפי שיקול דעתנו.',
         'אסור לשלוח דיווחי שווא בכוונה.'],
@@ -5073,7 +5097,18 @@
   function closeLegal(){
     var f = document.getElementById('legal-screen');
     f.classList.remove('open'); f.setAttribute('aria-hidden', 'true');
+    if(/^#(cancel-policy|cancellation|business|prices|terms|privacy|conduct)$/.test(location.hash || '')){ try{ history.replaceState(null, '', location.pathname + location.search); }catch(x){} }
   }
+  // קישורים ישירים לכל מסמך, עם או בלי חשבון: #cancel-policy, #business, #terms, #privacy, #conduct; #cancel = כפתור ביטול המנוי
+  var HDM_DOC_HASH = { 'cancel-policy':'cancel', 'cancellation':'cancel', 'business':'business', 'prices':'business', 'terms':'terms', 'privacy':'privacy', 'conduct':'conduct' };
+  function hdmOpenDocFromHash(){
+    var h = (location.hash || '').replace(/^#/, '');
+    if(window.__hdmRecoveryMode || !h) return;
+    if(HDM_DOC_HASH[h]) openLegal(HDM_DOC_HASH[h]);
+    else if(h === 'cancel') hdmCancelEntry();
+  }
+  window.addEventListener('hashchange', hdmOpenDocFromHash);
+  window.addEventListener('load', function(){ setTimeout(hdmOpenDocFromHash, 0); });
 
   // ---------- הגדרות ----------
   async function openSettings(){
@@ -5852,35 +5887,60 @@
     body.innerHTML = html;
   }
   // ---- ניהול מנוי: כפתור "ביטול מנוי". עד שהסליקה מחוברת אין מנויים בתשלום — מוצג הסבר, ולעולם לא "בוטל" ----
-  var hdmCancelOpen = false;
+  // שלבים: 0 = כפתור "ביטול מנוי"; 1 = מסך אישור (מה יקרה); 2 = אישור על הבקשה, מועד הטיפול ומועד סיום המנוי.
+  // בגרסה הזו אין סליקה ואין מנויים בתשלום, ולכן אין חידוש אוטומטי לעצור: האישור אומר זאת במפורש ולא קורא לשום פונקציית חיוב.
+  var hdmCancelStep = 0, hdmCancelAt = null;
+  function hdmFmtDateTime(d){ try{ return d.toLocaleDateString('he-IL') + ' ' + d.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit' }); }catch(x){ return ''; } }
+  function hdmCancelFacts(e, plan){
+    var known = !!(e && !e.error);
+    var manual = known && e.installed && plan && plan !== 'free';
+    return {
+      planName: (known && e.installed && HDM_PLAN_INFO[plan]) ? HDM_PLAN_INFO[plan].name : HDM_PLAN_INFO.free.name,
+      manual: manual,
+      end: (manual && e.periodEnd) ? hdmFmtDate(e.periodEnd) : ''
+    };
+  }
   function hdmManageHtml(e, plan){
     if(!myId) return '';
+    var f = hdmCancelFacts(e, plan);
     var html = '<div class="hdm-bill" id="hdm-manage-box"><b>ניהול מנוי</b><br>';
-    if(!hdmCancelOpen){
-      html += 'אפשר לבטל מנוי בתשלום בכל עת מכאן.';
-      html += '<div class="hdm-bill-row"><button type="button" id="hdm-bill-cancel" onclick="hdmOpenCancelInfo()">ביטול מנוי</button></div>';
+    if(hdmCancelStep === 0){
+      html += 'אפשר לבטל מנוי בתשלום ואת החידוש האוטומטי שלו בכל עת, מכאן, בלי נימוק ובלי דמי ביטול.';
+      html += '<button type="button" class="hdm-cancel-btn" id="hdm-bill-cancel" onclick="hdmOpenCancelInfo()">ביטול מנוי</button>';
+    }else if(hdmCancelStep === 1){
+      html += '<div class="hdm-bill-terms" id="hdm-cancel-info"><b>ביטול מנוי וחידוש אוטומטי</b><br>';
+      html += 'המסלול שלך כרגע: <b>' + hdmEsc(f.planName) + '</b>.<br>';
+      if(f.manual) html += 'המסלול הזה הוגדר לך ללא תשלום, ולא מתבצע עבורו שום חיוב או חידוש בתשלום.';
+      else html += 'אין לך מנוי בתשלום, ולא בוצע שום חיוב.';
+      html += '<br><br>מה קורה בביטול מנוי בתשלום: החידוש האוטומטי נעצר מיד ולא יתבצעו חיובים נוספים; הגישה נשמרת עד סוף התקופה ששולמה, ואחריה החשבון עובר למסלול החינמי; '
+            + 'ביטול בתוך 14 יום מזכה בהחזר לפי <a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a>. הביטול לא מוחק את החשבון, את הפרופיל או את השיחות.</div>';
+      html += '<div class="hdm-bill-row"><button type="button" id="hdm-cancel-confirm" onclick="hdmConfirmCancel()">אישור ביטול החידוש האוטומטי</button>'
+            + '<button type="button" id="hdm-cancel-back" onclick="hdmCloseCancelInfo()">חזרה</button></div>';
     }else{
-      html += '<div class="hdm-bill-terms" id="hdm-cancel-info"><b>ביטול מנוי</b><br>';
-      if(e && !e.error && e.installed && plan && plan !== 'free')
-        html += 'המסלול שלך (' + hdmEsc(HDM_PLAN_INFO[plan].name) + ') הוגדר ללא תשלום. לא מתבצע עבורו שום חיוב, ולכן אין מנוי בתשלום לבטל.';
-      else
-        html += 'אין לך מנוי בתשלום, ולכן אין מה לבטל. לא בוצע שום חיוב.';
-      html += '<br>המסלולים בתשלום עדיין לא פתוחים לרכישה. כשייפתחו, הביטול יתבצע כאן: תוצג בקשת אישור עם תאריך סיום המנוי, החידוש ייעצר ולא יתבצעו חיובים נוספים, וישלח אישור באימייל. '
-            + 'ביטול מנוי לא מוחק את החשבון או את הפרופיל.</div>';
-      html += '<div class="hdm-bill-row"><button type="button" onclick="hdmCloseCancelInfo()">חזרה</button></div>';
+      html += '<div class="hdm-cancel-done" id="hdm-cancel-done" role="status" aria-live="polite"><b>✔️ בקשת הביטול התקבלה וטופלה</b><br>';
+      html += 'מועד הבקשה: <b id="hdm-cancel-at">' + hdmEsc(hdmFmtDateTime(hdmCancelAt || new Date())) + '</b><br>';
+      html += 'חידוש אוטומטי: <b id="hdm-cancel-renew">כבוי</b> — אין בחשבון מנוי בתשלום, ולכן לא יתבצע שום חיוב, לא עכשיו ולא בעתיד.<br>';
+      html += 'מועד סיום המנוי: <b id="hdm-cancel-end">' + (f.manual
+                ? (f.end ? hdmEsc('המסלול ' + f.planName + ' (ללא תשלום) בתוקף עד ' + f.end) : hdmEsc('המסלול ' + f.planName + ' הוגדר ללא תשלום ואינו מתחדש בתשלום'))
+                : 'אין מנוי בתשלום לסיים — החשבון במסלול החינמי') + '</b><br>';
+      html += 'החשבון, הפרופיל והשיחות נשארים כמו שהם.';
+      html += '<br>רוצה גם אישור בכתב? <a href="mailto:' + HDM_CONTACT_EMAIL + '?subject=' + encodeURIComponent('בקשת ביטול מנוי') + '" id="hdm-cancel-mail">שליחת בקשת ביטול באימייל</a> — נשיב תוך 3 ימי עסקים.</div>';
+      html += '<div class="hdm-bill-row"><button type="button" onclick="hdmCloseCancelInfo()">סגירה</button></div>';
     }
     html += '<p class="hdm-note" style="margin:10px 0 0"><a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a> · לשאלות: life.through.numbers333@gmail.com</p>';
     return html + '</div>';
   }
-  function hdmOpenCancelInfo(){ hdmCancelOpen = true; hdmRenderPlans(); var el = document.getElementById('hdm-manage-box'); if(el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }
-  function hdmCloseCancelInfo(){ hdmCancelOpen = false; hdmRenderPlans(); }
+  function hdmScrollManage(){ var el = document.getElementById('hdm-manage-box'); if(el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }
+  function hdmOpenCancelInfo(){ hdmCancelStep = 1; hdmRenderPlans(); hdmScrollManage(); }
+  function hdmConfirmCancel(){ hdmCancelStep = 2; hdmCancelAt = new Date(); hdmRenderPlans(); hdmScrollManage(); }
+  function hdmCloseCancelInfo(){ hdmCancelStep = 0; hdmRenderPlans(); }
   // קישור "ביטול מנוי": מחובר — ניהול מנוי עם הסבר הביטול; לא מחובר — מדיניות ביטול מנוי (איך מבטלים)
   function hdmCancelEntry(){
     if(!myId){ openLegal('cancel'); return; }
     hdmOpenPlans(); hdmOpenCancelInfo();
   }
   function hdmOpenPlans(msg){
-    hdmPlansMsg = msg || ''; hdmCancelOpen = false;
+    hdmPlansMsg = msg || ''; hdmCancelStep = 0;
     hdmRenderPlans();
     hdmOpenLayer('hdm-plans-screen');
     hdmRefreshPlan(true).then(function(){ if(hdmLayerOpen('hdm-plans-screen')) hdmRenderPlans(); }).catch(function(){});
