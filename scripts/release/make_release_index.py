@@ -18,6 +18,13 @@ def sub(old, new, text, count=1):
     return text.replace(old, new)
 
 out = src
+# פרטי העסק (דרישת ספק הסליקה) חייבים להיות מלאים לפני פרסום. --draft בונה לבדיקה בלבד.
+import sys
+_biz = re.search(r"var HDM_BUSINESS = \{(.*?)\};", src, re.S)
+assert _biz, 'לא נמצא HDM_BUSINESS'
+_missing = [k for k in ('legalId', 'address', 'phone', 'vatNote') if re.search(k + r": ''", _biz.group(1))]
+if _missing and '--draft' not in sys.argv:
+    raise SystemExit('⛔ חסרים פרטי עסק ב-HDM_BUSINESS: ' + ', '.join(_missing) + ' — לא בונים גרסה לפרסום. לבדיקה בלבד: --draft')
 out = sub("    // ===== גרסת בדיקות: מחוברת רק לפרויקט Haim Derech Misparim Staging =====\n",
           "    // ===== הגרסה הפעילה: מחוברת לפרויקט Haim Derech Misparim =====\n", out)
 out = sub("var SUPABASE_URL = 'https://ousepgdvzammgkxkweze.supabase.co';", f"var SUPABASE_URL = '{PROD_URL}';", out)
