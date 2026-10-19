@@ -97,6 +97,11 @@ def serve(path):
     return srv, f'http://127.0.0.1:{srv.server_address[1]}/{os.path.basename(path)}'
 
 errors = []
+def settle(pg):   # מחכים שכל הבקשות לשרת יסתיימו לפני סגירת הדפדפן (אחרת WebKit רושם בקשה שנקטעה כשגיאה)
+    try: pg.wait_for_load_state('networkidle', timeout=10000)
+    except Exception: pass
+    pg.wait_for_timeout(400)
+
 def shot(pg, name):
     pg.wait_for_timeout(500); pg.screenshot(path=os.path.join(SHOTS, name + '.png')); print(f'SHOT {name}', flush=True)
 
@@ -151,8 +156,11 @@ try:
         c = ctx_new(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
         pg.goto(APP); pg.wait_for_timeout(2500)
         check('התחברות (עומר)', login(pg, 'omer') == IDS['omer'])
-        show_card(pg, IDS['me']); pg.evaluate("async () => { await onTargetClick(); }"); pg.wait_for_timeout(1500)
-        c.close()
+        show_card(pg, IDS['me']); pg.evaluate("async () => { await onTargetClick(); }")
+        try: pg.wait_for_function("() => /העניין נשמר/.test(document.getElementById('match-hint').textContent)", timeout=15000)
+        except Exception: pass
+        check('🎯 של עומר נשמר (חד־צדדי)', 'העניין נשמר' in pg.inner_text('#match-hint'), pg.inner_text('#match-hint'))
+        settle(pg); c.close()
 
         # --- נועה: התאמות בשלוש הרמות, ❌, 🎯 חד־צדדי ---
         c = ctx_new(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
@@ -221,7 +229,7 @@ try:
         # מסמך: מדיניות ביטול מנוי
         pg.evaluate("() => openLegal('cancel')"); pg.wait_for_timeout(600); shot(pg, '12_cancel_policy_doc')
         pg.evaluate("() => closeLegal()")
-        c.close()
+        settle(pg); c.close()
 
         # --- דניאל: 🎯 הדדי ---
         c = ctx_new(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
@@ -250,7 +258,7 @@ try:
             if 'היי נועה' in last: break
             pg.wait_for_timeout(500)
         check('הודעה בצ׳אט נשמרת בשרת', 'היי נועה' in last, last)
-        c.close()
+        settle(pg); c.close()
 
         # --- נועה עונה: רשימת שיחות וצ׳אט ---
         c = ctx_new(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
@@ -264,13 +272,13 @@ try:
             pg.fill('#chat-input', 'היי דניאל 😊 שמחה שהתאמנו'); pg.click('#send-chat-btn'); pg.wait_for_timeout(2000)
         check('הצ׳אט נפתח לנועה', pg.evaluate("() => document.getElementById('screen-chat').classList.contains('active')"))
         shot(pg, '04_chat')
-        c.close()
+        settle(pg); c.close()
 
         # --- מסך ההתחברות (כבר כהה) ---
         c = ctx_new(); pg = c.new_page(); pg.goto(APP); pg.wait_for_timeout(2000)
         pg.evaluate("() => { var i=document.getElementById('intro-screen'); if(i){ i.classList.add('intro-hide'); i.style.display='none'; } }"); pg.wait_for_timeout(500)
         shot(pg, '09_auth_choice')
-        c.close()
+        settle(pg); c.close()
 
         check('אין שגיאות JavaScript', not errors, errors[:3])
         br.close()
