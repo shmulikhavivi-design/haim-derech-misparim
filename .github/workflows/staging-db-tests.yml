@@ -37,7 +37,7 @@ jobs:
     # רק מהריפו הזה ורק מהענף הייעודי / כפתור ידני
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/staging-tests/run')
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     # הסוד נלקח מסביבת GitHub "staging" בלבד
     environment: staging
     outputs:
