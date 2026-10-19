@@ -82,8 +82,9 @@ with sync_playwright() as p:
             btn = pg.locator(f'#hdm-plan-buy-{plan}')
             ok = btn.count() == 1 and price in btn.inner_text()
             if ok:
-                btn.click(); pg.wait_for_timeout(150); ok = pg.inner_text('#hdm-co-plan') == name
-                pg.evaluate('hdmCloseCheckout()')
+                btn.click(); pg.wait_for_timeout(150)
+                ok = pg.inner_text('#hdm-co-plan') == name and pg.evaluate("() => { const r = document.querySelector('#hdm-checkout-screen').getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width/2, r.top + 120); return !!(el && el.closest('#hdm-checkout-screen')); }")
+                pg.evaluate('hdmCloseCheckout()'); ok = ok and 'open' in (pg.get_attribute('#hdm-plans-screen', 'class') or '')
             check(f'[{label}] מסך המסלולים: "{name}" ← עמוד התשלום', ok)
         check(f'[{label}] אין כפתור "בקרוב" במסלולים בתשלום', 'בקרוב' not in pg.inner_text('#hdm-plans-body'))
         pg.evaluate("hdmCloseLayer('hdm-plans-screen'); hdmOpenCheckout('plus')"); pg.wait_for_timeout(100)

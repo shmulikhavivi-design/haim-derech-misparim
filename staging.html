@@ -806,7 +806,7 @@
     <div class="hint" id="match-hint">לחצו על המטרה אם יש עניין</div>
     <div class="my-chats-link" id="my-chats-link">💬 השיחות שלי<span class="unread-badge" id="my-chats-badge" style="display:none"></span></div>
     <div class="my-chats-link" id="my-profile-link">👤 הפרופיל שלי</div>
-    <div class="hdm-sub-links"><span id="hdm-liked-link" onclick="hdmOpenLikedMe()">🎯 מי סימן אותי</span><span aria-hidden="true">·</span><span id="hdm-plans-link" onclick="hdmOpenPlans()">💎 ניהול מנוי</span></div>
+    <div class="hdm-sub-links"><span id="hdm-liked-link" onclick="hdmOpenLikedMe()">🎯 מי סימן אותי</span><span aria-hidden="true">·</span><span id="hdm-plans-link" onclick="hdmOpenPlans()">💎 הצטרפות למנוי</span></div>
   </div>
 
   <!-- הגדרות, פרטיות ובטיחות -->
@@ -815,7 +815,7 @@
     <div class="lead" style="margin:12px 0 4px;"><h2>הגדרות ופרטיות</h2></div>
     <div class="set-group">
       <div class="set-title">מנוי</div>
-      <button type="button" class="set-row" onclick="hdmOpenPlans()"><span>💎 ניהול מנוי</span><b id="set-plan-name">‹</b></button>
+      <button type="button" class="set-row" onclick="hdmOpenPlans()"><span id="set-plans-label">💎 הצטרפות למנוי</span><b id="set-plan-name">‹</b></button>
       <button type="button" class="set-row" id="set-cancel-sub" onclick="hdmCancelEntry()"><span>✖️ ביטול מנוי</span><b>‹</b></button>
     </div>
     <div class="set-group">
@@ -886,7 +886,7 @@
     <div class="my-chats-link" onclick="openSettings()">☰ הגדרות, פרטיות ובטיחות</div>
     <div class="hdm-account-box" id="profile-account-box">
       <div class="set-title">החשבון והמנוי שלי</div>
-      <button type="button" class="hdm-acc-manage" id="profile-manage-sub" onclick="hdmOpenPlans()">💎 ניהול מנוי</button>
+      <button type="button" class="hdm-acc-manage" id="profile-manage-sub" onclick="hdmOpenPlans()">💎 הצטרפות למנוי</button>
       <button type="button" class="hdm-cancel-btn" id="profile-cancel-sub" onclick="hdmCancelEntry()">ביטול מנוי</button>
       <p class="legal-links" style="text-align:center"><a href="#" onclick="openLegal('cancel');return false;">מדיניות ביטול מנוי</a> · <a href="#" onclick="openLegal('business');return false;">מחירים ופרטי העסק</a></p>
     </div>
@@ -1212,7 +1212,7 @@
   <div class="signup about hdm-layer" id="hdm-plans-screen" aria-hidden="true">
     <div class="signup-inner">
       <button type="button" class="signup-back" onclick="hdmCloseLayer('hdm-plans-screen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
-      <h2 class="about-title">ניהול מנוי</h2>
+      <h2 class="about-title" id="hdm-plans-title">הצטרפות למנוי</h2>
       <div id="hdm-plans-body"></div>
     </div>
   </div>
@@ -6034,6 +6034,15 @@
     try{ if(hdmIsActive('screen-chat')) hdmApplyChatPlan(); }catch(e){}
     try{ if(hdmIsActive('screen-chats') && typeof lastListDocs !== 'undefined' && lastListDocs) renderConversations(lastListDocs); }catch(e){}
     try{ if(hdmLayerOpen('hdm-plans-screen')) hdmRenderPlans(); }catch(e){}
+    try{ hdmApplyPlansLabels(); }catch(e){}
+  }
+  // מנוי פעיל = מסלול בתשלום (בסיסי/פלוס/VIP). בלי מנוי פעיל: "הצטרפות למנוי"; עם מנוי פעיל: "ניהול מנוי"
+  var HDM_PLAN_RANK = { free: 0, basic: 1, plus: 2, vip: 3 };
+  function hdmHasActiveSub(){ var p = hdmPlanId(); return !!(p && p !== 'free'); }
+  function hdmApplyPlansLabels(){
+    var sub = hdmHasActiveSub(), label = sub ? '💎 ניהול מנוי' : '💎 הצטרפות למנוי';
+    ['hdm-plans-link', 'set-plans-label', 'profile-manage-sub'].forEach(function(id){ var el = document.getElementById(id); if(el) el.textContent = label; });
+    var t = document.getElementById('hdm-plans-title'); if(t) t.textContent = sub ? 'ניהול מנוי' : 'הצטרפות למנוי';
   }
 
   // ---- מסך המנויים ----
@@ -6046,37 +6055,58 @@
     html += '<a href="mailto:' + HDM_LIMOR_EMAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body) + '">✉️ אימייל</a>';
     return html + '</div>';
   }
+  function hdmPlanCardHtml(k, btn){
+    var info = HDM_PLAN_INFO[k], cur = hdmPlanId() === k;
+    var html = '<div class="hdm-plan' + (cur ? ' is-current' : '') + '" id="hdm-plan-card-' + k + '">';
+    html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
+    html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
+    if(k === 'vip' && cur) html += hdmVipBookingHtml();
+    return html + btn + '</div>';
+  }
+  function hdmBuyBtn(k, text){ return '<button type="button" class="hdm-plan-btn is-buy" id="hdm-plan-buy-' + k + '" onclick="hdmOpenCheckout(\'' + k + '\')">' + text + '</button>'; }
+  function hdmOffBtn(text){ return '<button type="button" class="hdm-plan-btn" disabled>' + text + '</button>'; }
   function hdmRenderPlans(){
     var body = document.getElementById('hdm-plans-body');
     if(!body) return;
-    var e = hdmPlanKnown() ? hdmEnt : null, plan = hdmPlanId();
+    try{ hdmApplyPlansLabels(); }catch(x){}
+    var e = hdmPlanKnown() ? hdmEnt : null, plan = hdmPlanId(), sub = hdmHasActiveSub();
     var html = '';
     if(hdmPlansMsg) html += '<p class="hdm-note" style="color:#F2D59A">' + hdmEsc(hdmPlansMsg) + '</p>';
-    html += '<div class="hdm-current">';
-    if(!myId) html += 'יש להתחבר כדי לראות את המנוי.';
-    else if(!e) html += 'בודקים את המנוי שלך…';
-    else if(e.error) html += 'לא הצלחנו לבדוק את המנוי כרגע. נסו שוב בעוד רגע.';
-    else if(!e.installed) html += 'מערכת המנויים עדיין לא הופעלה. בינתיים כל האפשרויות הקיימות פתוחות, בדיוק כמו היום.';
+    var cur = '<div class="hdm-current" id="hdm-plans-status">';
+    if(!myId) cur += 'כדי שהמנוי יופעל בחשבון שלך, יש להתחבר לפני התשלום.';
+    else if(!e) cur += 'בודקים את המנוי שלך…';
+    else if(e.error) cur += 'לא הצלחנו לבדוק את המנוי כרגע. נסו שוב בעוד רגע.';
+    else if(!e.installed) cur += 'מערכת המנויים עדיין לא הופעלה. בינתיים כל האפשרויות הקיימות פתוחות, בדיוק כמו היום.';
     else{
-      html += 'המסלול שלך: <b>' + hdmEsc(HDM_PLAN_INFO[plan].name) + '</b>' + (e.source === 'test' ? '<span class="hdm-badge">מנוי בדיקה</span>' : '');
+      cur += 'המסלול שלך: <b>' + hdmEsc(HDM_PLAN_INFO[plan].name) + '</b>' + (e.source === 'test' ? '<span class="hdm-badge">מנוי בדיקה</span>' : '');
       if(plan === 'basic'){
-        html += '<br>שיחות חדשות החודש: נותרו <b>' + (e.chatsLeft == null ? '—' : e.chatsLeft) + '</b> מתוך ' + (e.chatsLimit || 5);
-        if(e.periodReset) html += '<br>המכסה מתחדשת ב־' + hdmFmtDate(e.periodReset);
+        cur += '<br>שיחות חדשות החודש: נותרו <b>' + (e.chatsLeft == null ? '—' : e.chatsLeft) + '</b> מתוך ' + (e.chatsLimit || 5);
+        if(e.periodReset) cur += '<br>המכסה מתחדשת ב־' + hdmFmtDate(e.periodReset);
       }
-      if(e.periodEnd) html += '<br>בתוקף עד ' + hdmFmtDate(e.periodEnd);
+      if(e.periodEnd) cur += '<br>בתוקף עד ' + hdmFmtDate(e.periodEnd);
     }
-    html += '</div>';
-    html += hdmManageHtml(e, plan);
-    HDM_PLAN_ORDER.forEach(function(k){
-      var info = HDM_PLAN_INFO[k], cur = plan === k;
-      html += '<div class="hdm-plan' + (cur ? ' is-current' : '') + '">';
-      html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
-      html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
-      if(k === 'vip' && cur) html += hdmVipBookingHtml();
-      if(cur || k === 'free') html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : 'מסלול חינם') + '</button>';
-      else html += '<button type="button" class="hdm-plan-btn is-buy" id="hdm-plan-buy-' + k + '" onclick="hdmOpenCheckout(\'' + k + '\')">להצטרפות — ' + info.price + ' לחודש</button>';
-      html += '</div>';
-    });
+    cur += '</div>';
+    if(sub){
+      // מנוי פעיל: המצב, שדרוג למסלול גבוה יותר, וביטול
+      html += cur;
+      html += '<p class="hdm-note" style="margin-bottom:10px"><b style="color:#F2D59A">שדרוג מסלול</b></p>';
+      HDM_CHECKOUT.order.forEach(function(k){
+        var r = HDM_PLAN_RANK[k] - HDM_PLAN_RANK[plan], info = HDM_PLAN_INFO[k];
+        html += hdmPlanCardHtml(k, r === 0 ? hdmOffBtn('המסלול שלך') : r > 0 ? hdmBuyBtn(k, 'שדרוג ל־' + info.name + ' — ' + info.price + ' לחודש') : hdmOffBtn('מסלול נמוך מהמסלול שלך'));
+      });
+      html += hdmManageHtml(e, plan);
+    }else{
+      // בלי מנוי פעיל: קודם שלושת המסלולים בתשלום, עם כפתור הצטרפות לכל אחד. בלי כפתור "ביטול מנוי"
+      // (אם הגיעו מכפתור "ביטול מנוי" בפרופיל/בהגדרות — מוצג ההסבר שאין מנוי בתשלום לבטל, בראש המסך)
+      if(myId && hdmCancelStep > 0) html += hdmManageHtml(e, plan);
+      html += '<p class="hdm-note" style="margin-bottom:10px">בחרו מסלול ולחצו "הצטרפות". המנוי חודשי ומתחדש אוטומטית, ואפשר לבטל בכל עת.</p>';
+      HDM_CHECKOUT.order.forEach(function(k){
+        var info = HDM_PLAN_INFO[k];
+        html += hdmPlanCardHtml(k, hdmBuyBtn(k, 'הצטרפות — ' + info.price + ' לחודש'));
+      });
+      html += hdmPlanCardHtml('free', hdmOffBtn(plan === 'free' ? 'המסלול שלך' : 'מסלול חינם'));
+      if(myId) html += cur;
+    }
     html += '<p class="hdm-note">' + (HDM_CHECKOUT.live ? 'התשלום מתבצע בעמוד מאובטח של ספק הסליקה Grow.' : 'הסליקה דרך Grow בתהליך הפעלה — עד להפעלתה לא מתבצע שום חיוב.') + ' לשאלות: life.through.numbers333@gmail.com</p>';
     html += '<p class="hdm-note" id="hdm-plans-policy">לפני רכישת מנוי: המסלולים בתשלום מתחדשים אוטומטית מדי חודש עד לביטול, ואפשר לבטל בכל עת. הפרטים ב<a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a> וב<a href="#" id="hdm-plans-business" onclick="openLegal(\'business\');return false;">מחירים, אספקת השירות ופרטי העסק</a>.</p>';
     body.innerHTML = html;
@@ -6160,14 +6190,20 @@
     if(!myId){ hdmCo.msg = 'כדי לשלם יש להתחבר לחשבון, כך שהמנוי יופעל בחשבון שלך.'; hdmRenderCheckout(); return; }
     if(typeof window.hdmGrowStartCheckout === 'function') window.hdmGrowStartCheckout(hdmCo.plan);
   }
+  // עמוד התשלום נפתח במקום מסך המנויים (ולא מתחתיו), ו"חזרה" מחזיר אליו
   function hdmOpenCheckout(plan){
+    hdmCo.fromPlans = hdmLayerOpen('hdm-plans-screen');
+    if(hdmCo.fromPlans) hdmCloseLayer('hdm-plans-screen');
     if(HDM_CHECKOUT.plans[plan]) hdmCo.plan = plan;
     hdmCo.accepted = false; hdmCo.msg = ''; hdmCo.err = false;   // תמיד מתחילים בלי סימון
     hdmRenderCheckout();
     hdmOpenLayer('hdm-checkout-screen');
   }
   function hdmCloseCheckout(){
+    var back = hdmCo.fromPlans && hdmLayerOpen('hdm-checkout-screen');
     hdmCloseLayer('hdm-checkout-screen');
+    hdmCo.fromPlans = false;
+    if(back){ hdmRenderPlans(); hdmOpenLayer('hdm-plans-screen'); }
     if(/^#checkout(-(basic|plus|vip))?$/.test(location.hash || '')){ try{ history.replaceState(null, '', location.pathname + location.search); }catch(x){} }
   }
   // ---- ניהול מנוי: כפתור "ביטול מנוי". עד שהסליקה מחוברת אין מנויים בתשלום — מוצג הסבר, ולעולם לא "בוטל" ----
