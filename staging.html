@@ -770,7 +770,7 @@
       </div>
     </div>
     </div>
-    <div class="actions"><button class="target-btn" onclick="onTargetClick()">🎯</button></div>
+    <div class="actions"><button type="button" class="skip-btn" id="skip-btn" aria-label="דילוג על הפרופיל" onclick="navCard(1)">❌</button><button class="target-btn" onclick="onTargetClick()" aria-label="סימון עניין">🎯</button></div>
     <div class="hint" id="match-hint">לחצו על המטרה אם יש עניין</div>
     <div class="my-chats-link" id="my-chats-link">💬 השיחות שלי<span class="unread-badge" id="my-chats-badge" style="display:none"></span></div>
     <div class="my-chats-link" id="my-profile-link">👤 הפרופיל שלי</div>
@@ -3902,6 +3902,122 @@
   @supports (-webkit-touch-callout: none){
     #chat-input{ font-size:16px; }
   }
+</style>
+<style id="hdm-luxury">
+  /* ===== עיצוב יוקרתי "לילה וזהב" — כל המסכים חוץ ממסך הפתיחה =====
+     שכבת עיצוב בלבד: בלי שינוי בקוד, בטקסטים או בנתונים. מסך הפתיחה (#intro-screen) לא משתמש במשתנים האלה ואין כאן אף בורר שלו. */
+  :root{
+    --bg:#0B1026; --bg2:#070A1A; --card:#141A3A; --card2:#1D2350;
+    --gold:#DDB46A; --gold-soft:#EBCB8B; --cream:#F3EBDD; --muted:#A9A2BE;
+    --rose:#E58A92; --line:rgba(226,183,105,.22);
+    --lux-gold-grad:linear-gradient(135deg,#F6DDA0 0%,#E2B769 45%,#B9853A 100%);
+    --lux-glow:0 0 0 1px rgba(226,183,105,.35), 0 10px 30px rgba(0,0,0,.45), 0 0 26px rgba(226,183,105,.10);
+  }
+  /* הרקע של הדף/הפס העליון באייפון: בזמן מסך הפתיחה — הצבע המקורי בדיוק; אחרי שהוא נסגר — לילה */
+  html, body{ background:#F5E6E1; }
+  html:has(#intro-screen.intro-hide), html:has(#intro-screen.intro-hide) body{ background:#070A1A; }
+
+  .phone{
+    background:
+      url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20600%22%20fill%3D%22none%22%20stroke%3D%22%23E2B769%22%20stroke-opacity%3D%22.09%22%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%22292%22%20stroke-width%3D%221.4%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%22268%22%20stroke-width%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%22214%22%20stroke-width%3D%221.1%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%22150%22%20stroke-width%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%2292%22%20stroke-width%3D%221%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%2240%22%20stroke-width%3D%220.8%22%2F%3E%3Cline%20x1%3D%22568.0%22%20y1%3D%22300.0%22%20x2%3D%22592.0%22%20y2%3D%22300.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22571.8%22%20y1%3D%22347.9%22%20x2%3D%22581.7%22%20y2%3D%22349.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22559.4%22%20y1%3D%22394.4%22%20x2%3D%22568.8%22%20y2%3D%22397.8%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22539.0%22%20y1%3D%22438.0%22%20x2%3D%22547.7%22%20y2%3D%22443.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22505.3%22%20y1%3D%22472.3%22%20x2%3D%22523.7%22%20y2%3D%22487.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22477.4%22%20y1%3D%22511.4%22%20x2%3D%22483.8%22%20y2%3D%22519.1%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22438.0%22%20y1%3D%22539.0%22%20x2%3D%22443.0%22%20y2%3D%22547.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22394.4%22%20y1%3D%22559.4%22%20x2%3D%22397.8%22%20y2%3D%22568.8%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22346.5%22%20y1%3D%22563.9%22%20x2%3D%22350.7%22%20y2%3D%22587.6%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22300.0%22%20y1%3D%22576.0%22%20x2%3D%22300.0%22%20y2%3D%22586.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22252.1%22%20y1%3D%22571.8%22%20x2%3D%22250.3%22%20y2%3D%22581.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22205.6%22%20y1%3D%22559.4%22%20x2%3D%22202.2%22%20y2%3D%22568.8%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22166.0%22%20y1%3D%22532.1%22%20x2%3D%22154.0%22%20y2%3D%22552.9%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22122.6%22%20y1%3D%22511.4%22%20x2%3D%22116.2%22%20y2%3D%22519.1%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2288.6%22%20y1%3D%22477.4%22%20x2%3D%2280.9%22%20y2%3D%22483.8%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2261.0%22%20y1%3D%22438.0%22%20x2%3D%2252.3%22%20y2%3D%22443.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2248.2%22%20y1%3D%22391.7%22%20x2%3D%2225.6%22%20y2%3D%22399.9%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2228.2%22%20y1%3D%22347.9%22%20x2%3D%2218.3%22%20y2%3D%22349.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2224.0%22%20y1%3D%22300.0%22%20x2%3D%2214.0%22%20y2%3D%22300.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2228.2%22%20y1%3D%22252.1%22%20x2%3D%2218.3%22%20y2%3D%22250.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2248.2%22%20y1%3D%22208.3%22%20x2%3D%2225.6%22%20y2%3D%22200.1%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2261.0%22%20y1%3D%22162.0%22%20x2%3D%2252.3%22%20y2%3D%22157.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2288.6%22%20y1%3D%22122.6%22%20x2%3D%2280.9%22%20y2%3D%22116.2%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22122.6%22%20y1%3D%2288.6%22%20x2%3D%22116.2%22%20y2%3D%2280.9%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22166.0%22%20y1%3D%2267.9%22%20x2%3D%22154.0%22%20y2%3D%2247.1%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22205.6%22%20y1%3D%2240.6%22%20x2%3D%22202.2%22%20y2%3D%2231.2%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22252.1%22%20y1%3D%2228.2%22%20x2%3D%22250.3%22%20y2%3D%2218.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22300.0%22%20y1%3D%2224.0%22%20x2%3D%22300.0%22%20y2%3D%2214.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22346.5%22%20y1%3D%2236.1%22%20x2%3D%22350.7%22%20y2%3D%2212.4%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22394.4%22%20y1%3D%2240.6%22%20x2%3D%22397.8%22%20y2%3D%2231.2%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22438.0%22%20y1%3D%2261.0%22%20x2%3D%22443.0%22%20y2%3D%2252.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22477.4%22%20y1%3D%2288.6%22%20x2%3D%22483.8%22%20y2%3D%2280.9%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22505.3%22%20y1%3D%22127.7%22%20x2%3D%22523.7%22%20y2%3D%22112.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22539.0%22%20y1%3D%22162.0%22%20x2%3D%22547.7%22%20y2%3D%22157.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22559.4%22%20y1%3D%22205.6%22%20x2%3D%22568.8%22%20y2%3D%22202.2%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22571.8%22%20y1%3D%22252.1%22%20x2%3D%22581.7%22%20y2%3D%22250.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22300.0%22%20y1%3D%22208.0%22%20x2%3D%22300.0%22%20y2%3D%2286.0%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22300.0%22%20y%3D%2268.0%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E1%3C%2Ftext%3E%3Cline%20x1%3D%22359.1%22%20y1%3D%22229.5%22%20x2%3D%22437.6%22%20y2%3D%22136.1%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22454.9%22%20y%3D%22124.4%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E2%3C%2Ftext%3E%3Cline%20x1%3D%22390.6%22%20y1%3D%22284.0%22%20x2%3D%22510.7%22%20y2%3D%22262.8%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22537.3%22%20y%3D%22267.2%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E3%3C%2Ftext%3E%3Cline%20x1%3D%22379.7%22%20y1%3D%22346.0%22%20x2%3D%22485.3%22%20y2%3D%22407.0%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22508.7%22%20y%3D%22429.5%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E4%3C%2Ftext%3E%3Cline%20x1%3D%22331.5%22%20y1%3D%22386.5%22%20x2%3D%22373.2%22%20y2%3D%22501.1%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22382.4%22%20y%3D%22535.5%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E5%3C%2Ftext%3E%3Cline%20x1%3D%22268.5%22%20y1%3D%22386.5%22%20x2%3D%22226.8%22%20y2%3D%22501.1%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22217.6%22%20y%3D%22535.5%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E6%3C%2Ftext%3E%3Cline%20x1%3D%22220.3%22%20y1%3D%22346.0%22%20x2%3D%22114.7%22%20y2%3D%22407.0%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%2291.3%22%20y%3D%22429.5%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E7%3C%2Ftext%3E%3Cline%20x1%3D%22209.4%22%20y1%3D%22284.0%22%20x2%3D%2289.3%22%20y2%3D%22262.8%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%2262.7%22%20y%3D%22267.2%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E8%3C%2Ftext%3E%3Cline%20x1%3D%22240.9%22%20y1%3D%22229.5%22%20x2%3D%22162.4%22%20y2%3D%22136.1%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22145.1%22%20y%3D%22124.4%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E9%3C%2Ftext%3E%3Cpolygon%20points%3D%22300.0%2C150.0%20351.3%2C441.0%20203.6%2C185.1%20429.9%2C375.0%20152.3%2C274.0%20447.7%2C274.0%20170.1%2C375.0%20396.4%2C185.1%20248.7%2C441.0%22%20stroke-width%3D%22.6%22%2F%3E%3C%2Fsvg%3E") center 46% / 132% auto no-repeat,
+      radial-gradient(ellipse 80% 45% at 50% 0%, rgba(98,72,160,.30), transparent 70%),
+      radial-gradient(ellipse 70% 40% at 50% 100%, rgba(52,30,78,.45), transparent 75%),
+      linear-gradient(180deg,#0A0F26 0%,#0B1028 45%,#120E26 100%);
+  }
+
+  /* טיפוגרפיה */
+  .brand{ color:var(--gold); letter-spacing:.12em; }
+  .brand b{ background:var(--lux-gold-grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .lead h2, .name-row h3, .chat-head h3, .chat-row h3{ color:var(--cream); }
+
+  /* כפתורים וזהב */
+  .btn, .composer button, .sheet-btn.primary{
+    background:var(--lux-gold-grad); color:#1B1306; border:1px solid rgba(255,230,170,.55);
+    box-shadow:0 6px 18px rgba(226,183,105,.22);
+  }
+  .sheet-btn.danger{ color:#2A0E12; }
+  .field input, .field select, .field textarea, .composer input{
+    background:rgba(20,26,58,.92); border-color:rgba(226,183,105,.28); color:var(--cream);
+  }
+  .field input::placeholder, .composer input::placeholder, .field textarea::placeholder{ color:#7F7896; }
+  .field input:focus, .field select:focus, .field textarea:focus, .composer input:focus{ border-color:#E2B769; box-shadow:0 0 0 3px rgba(226,183,105,.15); }
+  .field input[type="date"]{ color-scheme:dark; }
+  .field select{ -webkit-appearance:none; appearance:none; min-height:48px; padding-left:36px;
+    background:rgba(20,26,58,.92) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E2B769' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat 12px center / 16px 16px; }
+  .field select option{ background:#141A3A; color:#F3EBDD; }
+  .field input[type=number]::-webkit-inner-spin-button, .field input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+  .field input[type=number]{ -moz-appearance:textfield; appearance:textfield; }
+  a[href^="tel:"]{ white-space:nowrap; unicode-bidi:isolate; }
+
+  /* כרטיס הפרופיל — גדול ומעוגל, מסגרת זהב עדינה */
+  .match-card{
+    background:linear-gradient(180deg,#151B3D 0%,#10142F 100%);
+    border:1px solid rgba(226,183,105,.45); border-radius:28px; box-shadow:var(--lux-glow);
+  }
+  .match-card{ min-height:0; }
+  .photo{ flex:1 1 auto; height:auto; min-height:170px; background-color:#1A2048; background-image:linear-gradient(160deg,#1E2552,#120F2A); color:var(--muted); border-bottom:1px solid rgba(226,183,105,.35); }
+  .info{ flex:0 1 auto; max-height:50%; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:16px; }
+  .card-arrow{ top:24%; }
+  .num-badge{
+    background:radial-gradient(circle at 35% 30%,#1F2658,#0B1026 75%); border:2px solid #E2B769; color:#F2D59A;
+    box-shadow:0 0 0 4px rgba(11,16,38,.9), 0 0 18px rgba(226,183,105,.35);
+  }
+  .match-pct{ color:#F2D59A; }
+  .why{ color:#D3CADF; border-top-color:rgba(226,183,105,.22); }
+  .card-arrow, .card-more{
+    background:rgba(13,17,42,.78); border:1px solid rgba(226,183,105,.55); color:#F2D59A;
+    box-shadow:0 4px 14px rgba(0,0,0,.45);
+  }
+
+  /* ❌ דילוג · 🎯 עניין (המטרה נשארת מטרה) */
+  .actions{ gap:26px; align-items:center; padding:16px 0 4px; }
+  .skip-btn{
+    width:60px; height:60px; border-radius:50%; flex:none; cursor:pointer; padding:0;
+    display:flex; align-items:center; justify-content:center; font-size:24px; line-height:1;
+    background:radial-gradient(circle at 35% 30%,#1E2450,#0D1130 75%); border:1.5px solid rgba(169,162,190,.55);
+    box-shadow:0 6px 18px rgba(0,0,0,.45); touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  }
+  .skip-btn:active{ transform:scale(.92); }
+  .skip-btn:focus-visible, .target-btn:focus-visible{ outline:2px solid #F8DFA4; outline-offset:3px; }
+  .target-btn{
+    width:78px; height:78px; background:radial-gradient(circle at 35% 30%,#262C63,#0D1130 75%);
+    border:2px solid #E2B769; box-shadow:0 0 0 5px rgba(226,183,105,.10), 0 0 26px rgba(226,183,105,.35), 0 8px 22px rgba(0,0,0,.5);
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  }
+  .hint{ color:var(--muted); }
+  .my-chats-link{ color:#F2D59A; }
+
+  /* מסך ההתאמה (שניכם בחרתם) */
+  .conn .glow{ background:radial-gradient(circle,rgba(226,183,105,.38),rgba(120,80,190,.12) 55%,transparent 72%); box-shadow:0 0 40px rgba(226,183,105,.18); border-radius:50%; }
+  /* כותרות עם אימוג'י: זהב אחיד (מילוי בגרדיאנט הופך את ה-🎯 לכתם זהב) */
+  .conn h2{ color:#F2D59A; text-shadow:0 0 18px rgba(226,183,105,.35); }
+  #hdm-liked-screen .about-title{ background:none; -webkit-text-fill-color:#F2D59A; color:#F2D59A; }
+
+  /* צ'אט ורשימת שיחות */
+  .chat-head{ border-bottom-color:rgba(226,183,105,.25); }
+  .chat-head .avatar, .chat-row .avatar, #chat-avatar{ border:1.5px solid rgba(226,183,105,.6); }
+  .chat-row{ background:linear-gradient(180deg,rgba(24,30,66,.92),rgba(17,21,48,.92)); border-color:rgba(226,183,105,.22); border-radius:18px; }
+  .chat-row.has-unread{ border-color:rgba(226,183,105,.6); box-shadow:0 0 16px rgba(226,183,105,.12); }
+  .msg.them{ background:rgba(29,35,80,.92); border-color:rgba(226,183,105,.22); color:var(--cream); }
+  .msg.me{ background:var(--lux-gold-grad); color:#1B1306; }
+  #chat-msgs .msg-av{ border-color:#0B1026; box-shadow:0 1px 4px rgba(0,0,0,.5); }
+  .hdm-chat-lock{ background:rgba(29,35,80,.9); }
+
+  /* פרופיל, הגדרות ותפריט */
+  .profile-photo{ background-color:#1D2350; border-color:#E2B769; box-shadow:0 0 0 5px rgba(226,183,105,.08), 0 0 22px rgba(226,183,105,.22); }
+  .set-group, .hdm-account-box{ background:linear-gradient(180deg,rgba(22,28,62,.94),rgba(16,20,46,.94)); border-color:rgba(226,183,105,.25); border-radius:18px; }
+  .set-row{ border-top-color:rgba(226,183,105,.14); }
+  .unread-badge, .test-user-chip.is-second{ color:#2A0E12; }
+  .switch-user-btn{ background:rgba(20,26,58,.95); color:#F2D59A; border:1px solid rgba(226,183,105,.55); box-shadow:0 6px 18px rgba(0,0,0,.45); }
+
+  /* חלוניות תחתונות והודעות קופצות */
+  .hdm-sheet-back{ background:rgba(3,5,16,.62); }
+  .hdm-sheet{ background:linear-gradient(180deg,#141A3A,#0D1130); border-top:1px solid rgba(226,183,105,.45); box-shadow:0 -10px 30px rgba(0,0,0,.5); }
+  .hdm-sheet p, .hdm-sheet ul{ color:#D3CADF; }
+  .hdm-toast{ background:#1D2350; color:var(--cream); border:1px solid rgba(226,183,105,.5); box-shadow:0 8px 24px rgba(0,0,0,.5); }
+
+  /* ביצועים באייפון: בלי טשטוש רקע ובלי אנימציות רקע */
+  @media (prefers-reduced-motion: reduce){ .skip-btn, .target-btn{ transition:none; } }
 </style>
 <script>
   (function keepChatAboveKeyboard(){
