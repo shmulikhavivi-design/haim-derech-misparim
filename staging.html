@@ -4084,6 +4084,26 @@
   .skip-btn{ border-color:rgba(153,79,105,.85); }
   .conn .glow{ background:radial-gradient(circle,rgba(226,183,105,.38),rgba(153,79,105,.26) 55%,transparent 72%); }
   .hdm-liked-row .avatar{ background-color:#3A1D2B; }
+
+  /* ---- כפתורים והדגשות בוורוד עתיק (לפי ההדמיה המאושרת). מסגרות וכותרות נשארות זהב.
+         לא חל על מסך ההרשמה (#screen-register) ועל מסכי ההתחברות/ההרשמה (.auth-*, .signup שאינו שכבה פנימית) ---- */
+  :root{ --rose-btn:linear-gradient(180deg,#B0607F 0%,#994F69 55%,#7C3E56 100%); --rose-ink:#FFF3EE; --rose-edge:rgba(242,213,154,.55); }
+  .screen:not(#screen-register) .btn, .composer button, .sheet-btn.primary, .msg.me,
+  .hdm-plan .hdm-plan-btn.is-buy, .hdm-co-pay:not([aria-disabled="true"]), .hdm-co-tabs button[aria-pressed="true"]{
+    background:var(--rose-btn); color:var(--rose-ink); border:1px solid var(--rose-edge);
+    box-shadow:0 6px 18px rgba(153,79,105,.35), inset 0 1px 0 rgba(255,255,255,.14);
+  }
+  .msg.me{ box-shadow:0 4px 12px rgba(153,79,105,.28); }
+  .hdm-plan .hdm-plan-btn.is-buy{ font-weight:700; }
+  /* ❌ ו-🎯: עיגולים בוורוד עתיק עם מסגרת זהב דקה (האייקונים עצמם לא משתנים) */
+  .skip-btn{ background:radial-gradient(circle at 35% 30%,#B0607F,#7C3E56 78%); border:1.5px solid var(--rose-edge); box-shadow:0 6px 18px rgba(153,79,105,.35), 0 6px 18px rgba(0,0,0,.35); }
+  .target-btn{ background:radial-gradient(circle at 35% 30%,#B0607F,#7C3E56 78%); border:2px solid #E2B769;
+    box-shadow:0 0 0 5px rgba(153,79,105,.16), 0 0 24px rgba(153,79,105,.45), 0 8px 22px rgba(0,0,0,.5); }
+  /* הדגשות: שורת תפריט בלחיצה, תגית "לא נקראו", תגית מנוי, כפתור ביטול מנוי */
+  .set-row:active, .set-row:focus-visible{ background:rgba(153,79,105,.55); }
+  .unread-badge, .hdm-badge{ background:#994F69; color:var(--rose-ink); }
+  .hdm-cancel-btn{ background:var(--rose-btn); color:var(--rose-ink); border:1px solid var(--rose-edge); }
+  .hdm-co-check input{ accent-color:#994F69; }
 </style>
 <script>
   (function keepChatAboveKeyboard(){
