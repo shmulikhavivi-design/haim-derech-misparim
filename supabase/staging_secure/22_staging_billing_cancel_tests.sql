@@ -203,12 +203,16 @@ begin
   perform pg_temp.chk('החזר', 'ביטול עם בקשת החזר', 'ok:%"cancelState": "pending"%"refundRequested": true%', r);
   perform pg_temp.chk('החזר', 'הבקשה פתוחה לטיפול', 'true|true|open',
     (select refund_eligible || '|' || refund_requested || '|' || refund_state from public.hdm_cancel_requests where profile_id = pR));
-  perform pg_temp.chk('החזר', 'המייל מאשר שבקשת ההחזר התקבלה', 'true',
-    (select (body_text like '%בקשת ההחזר הכספי שלך התקבלה%')::text from public.hdm_email_outbox where profile_id = pR));
+  perform pg_temp.chk('ביטול עסקה', 'המייל: ביטול עסקה לפי החוק, השירות הופסק, החזר לפי החוק', 'true',
+    (select (body_text like '%לבטל את העסקה לפי חוק הגנת הצרכן%' and body_text like '%השירות הופסק עם הביטול%'
+             and body_text like '%בניכוי התמורה עבור התקופה שבה השירות ניתן%')::text from public.hdm_email_outbox where profile_id = pR));
+  perform pg_temp.chk('ביטול עסקה', 'השירות מופסק עם הביטול: המסלול חזר לחינם', 'free', public.hdm_plan_of(pR));
+  perform pg_temp.chk('ביטול עסקה', 'תאריך הסיום הוא מועד הביטול', 'true',
+    (select (active_until <= now() + interval '1 minute')::text from public.hdm_cancel_requests where profile_id = pR));
   perform pg_temp.chk('החזר', 'מופיע ברשימה למנהל', 'ok:1',
     pg_temp.as_service(format('select count(*)::text from public.hdm_billing_cancel_issues() where profile_id = %L and refund_state = ''open''', pR)));
   st := substr(pg_temp.as_user(uR, 'select public.hdm_billing_status()::text'), 4)::jsonb;
-  perform pg_temp.chk('החזר', 'הלקוח רואה שבקשת ההחזר התקבלה', 'true|open', (st->'cancel'->>'refundRequested') || '|' || (st->'cancel'->>'refundState'));
+  perform pg_temp.chk('ביטול עסקה', 'הלקוח רואה את אישור ביטול העסקה גם אחרי שהשירות הופסק', 'true|open|false', (st->'cancel'->>'refundRequested') || '|' || (st->'cancel'->>'refundState') || '|' || (st->>'paid'));
 
   -- ---- אחרי 14 יום ----
   perform pg_temp.join_plan(uL, 'plus', 4890, pfx || 'TL', pfx || 'DDL');
@@ -218,6 +222,10 @@ begin
   perform pg_temp.chk('14 יום', 'בקשת החזר אחרי 14 יום — נדחית, שום דבר לא משתנה', 'err:HDM_BILLING_REFUND_WINDOW%', pg_temp.as_user(uL, 'select public.hdm_billing_cancel(true)::text'));
   perform pg_temp.chk('14 יום', 'עדיין מתחדש (הביטול לא בוצע)', 'true', (select auto_renew::text from public.hdm_subscriptions where profile_id = pL));
   perform pg_temp.chk('14 יום', 'ביטול רגיל — עובד', 'ok:%"cancelState": "pending"%"refundRequested": false%', pg_temp.as_user(uL, 'select public.hdm_billing_cancel(false)::text'));
+  perform pg_temp.chk('ביטול רגיל', 'המנוי נשאר פעיל עד סוף התקופה ששולמה', 'plus', public.hdm_plan_of(pL));
+  perform pg_temp.chk('ביטול רגיל', 'המייל: פעיל עד סוף התקופה, בלי חיוב נוסף, בלי החזר יחסי, זכויות החוק נשמרות', 'true',
+    (select (bool_and(body_text like '%המנוי יישאר פעיל עד%' and body_text like '%ללא חיוב נוסף%' and body_text like '%אינו מזכה בהחזר יחסי%'
+             and body_text like '%חוק הגנת הצרכן נשמרות%' and body_text not like '%14 יום%'))::text from public.hdm_email_outbox where profile_id = pL));
 
   -- ---- פלוס ידני (חשבונות קיימים) ----
   perform public.hdm_admin_set_plan(pM, 'plus', null, 'בדיקה: פלוס ללא הגבלה');
