@@ -6211,12 +6211,13 @@
   function hdmCancelEntry(){
     if(!myId){ openLegal('cancel'); return; }
     hdmOpenPlans();
+    var seq = hdmPlansSeq;
     // נפתח מיד לפי המצב הידוע; אם השרת מחזיר מנוי בתשלום שאפשר לבטל — עוברים לאישור הביטול האמיתי
     var b0 = hdmEnt && hdmEnt.forId === myId && hdmEnt.billing;
     if(b0 && b0.canCancel){ hdmBillUI = { mode: 'cancel' }; hdmBillRender(); }
     else if(!(b0 && b0.paid)) hdmOpenCancelInfo();
     hdmRefreshPlan(true).then(function(){
-      if(!hdmLayerOpen('hdm-plans-screen')) return;
+      if(seq !== hdmPlansSeq || !hdmLayerOpen('hdm-plans-screen')) return;   // המסך נסגר או נפתח מחדש בינתיים
       var b = hdmEnt && hdmEnt.billing;
       if(b && b.canCancel){ if(!(hdmBillUI && hdmBillUI.mode === 'cancel')){ hdmCancelStep = 0; hdmBillUI = { mode: 'cancel' }; hdmBillRender(); } }
       else if(!(b && b.paid) && hdmCancelStep === 0) hdmOpenCancelInfo();
@@ -6311,7 +6312,9 @@
     hdmRenderPlans();
   }
 
+  var hdmPlansSeq = 0;   // כל פתיחה של "ניהול מנוי" מקבלת מספר; תשובה מאוחרת מהשרת חלה רק על הפתיחה שביקשה אותה
   function hdmOpenPlans(msg){
+    hdmPlansSeq++;
     hdmPlansMsg = msg || ''; hdmBillUI = null; hdmCancelStep = 0;
     hdmRenderPlans();
     hdmOpenLayer('hdm-plans-screen');
