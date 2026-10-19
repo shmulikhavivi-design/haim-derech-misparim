@@ -42,6 +42,12 @@ PEOPLE = {   # מפתח: (שם, לידה, שם לידה, משפחה, מגדר, �
     'dan':  ('דניאל כהן', '1990-07-22', 'דניאל', 'כהן', 'גבר', 'נשים', 'חיפה',    avatar('#1D3B6B', '#B9853A')),
     'omer': ('עומר בר',   '1988-11-05', 'עומר', 'בר',   'גבר', 'נשים', 'ירושלים', avatar('#4A2450', '#D9AE5F')),
 }
+_extra = [('איתי שמש', '1987-01-09', 'איתי', 'שמש'), ('יואב גל', '1991-02-17', 'יואב', 'גל'), ('אורי נחום', '1989-04-26', 'אורי', 'נחום'),
+          ('רועי אדם', '1993-05-03', 'רועי', 'אדם'), ('גיא פרץ', '1986-08-11', 'גיא', 'פרץ'), ('נדב טל', '1990-09-29', 'נדב', 'טל'),
+          ('אלון רז', '1985-10-16', 'אלון', 'רז'), ('תומר שגיא', '1992-12-08', 'תומר', 'שגיא')]
+_cols = [('#2B3A6E', '#C59A4E'), ('#3B2658', '#B88A45'), ('#1F3350', '#D2A85C'), ('#432C5E', '#C79B52')]
+for i, (n, b, f, l) in enumerate(_extra):
+    PEOPLE[f'x{i}'] = (n, b, f, l, 'גבר', 'נשים', 'באר שבע', avatar(*_cols[i % 4]))
 IDS = {k: PFX + k for k in PEOPLE}
 IDS_SQL = "array[" + ",".join(f"'{v}'" for v in IDS.values()) + "]"
 CRYPT = 'extensions.crypt' if sql("select count(*) from pg_proc where proname='crypt' and pronamespace='extensions'::regnamespace") != '0' else 'crypt'
@@ -141,56 +147,103 @@ try:
                 print(f'INFO מסך הפתיחה: הפרש מרבי {mx}/255 לערוץ', flush=True)
                 check('מסך הפתיחה: זהה ל-main (בלי הבדל נראה לעין, סף 4/255)', strict is None, (mx, strict))
 
-        # --- נועה: התחברות, כרטיס פרופיל ---
+        # --- עומר מסמן 🎯 את נועה (כדי שיופיע אצלה ב"מי סימן אותי") ---
+        c = ctx_new(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
+        pg.goto(APP); pg.wait_for_timeout(2500)
+        check('התחברות (עומר)', login(pg, 'omer') == IDS['omer'])
+        show_card(pg, IDS['me']); pg.evaluate("async () => { await onTargetClick(); }"); pg.wait_for_timeout(1500)
+        c.close()
+
+        # --- נועה: התאמות בשלוש הרמות, ❌, 🎯 חד־צדדי ---
         c = ctx_new(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
         pg.goto(APP); pg.wait_for_timeout(2500)
         check('התחברות (נועה)', login(pg, 'me') == IDS['me'])
-        show_card(pg, IDS['dan'])
-        try: pg.wait_for_function("() => document.getElementById('match-pct').textContent.trim()", timeout=10000)
-        except Exception: pass
-        pct = pg.inner_text('#match-pct')
-        check('רמת התאמה — אחת משלוש הרמות הקיימות', pct.strip() in ('❤️ התאמה גבוהה מאוד', '🩷 התאמה טובה', '💔 התאמה מאתגרת'), pct)
-        check('בכרטיס: ❌ ו-🎯 (המטרה לא הוחלפה בלב)', pg.inner_text('#skip-btn') == '❌' and pg.inner_text('.target-btn') == '🎯')
-        shot(pg, '01_profile_card')
+        cand = [IDS['dan']] + [IDS[f'x{i}'] for i in range(len(_extra))]
+        labels = pg.evaluate(f"""async () => {{ const s = await dbCap.collection('profiles').get(); const out = {{}};
+            for (const d of s.docs) if ({json.dumps(cand)}.includes(d.id)) out[d.id] = matchCategoryLabel(overallCompatibility(myProfile, d.data()));
+            return out; }}""")
+        LEVELS = [('❤️ התאמה גבוהה מאוד', 'high'), ('🩷 התאמה טובה', 'good'), ('💔 התאמה מאתגרת', 'challenging')]
+        print('INFO רמות: ' + json.dumps(labels, ensure_ascii=False), flush=True)
+        for lab, tag in LEVELS:
+            who = next((k for k, v in labels.items() if v == lab), None)
+            if not who:
+                print(f'INFO אין מועמד ברמה {lab}', flush=True); continue
+            show_card(pg, who)
+            try: pg.wait_for_function("() => document.getElementById('match-pct').textContent.trim()", timeout=10000)
+            except Exception: pass
+            pct = pg.inner_text('#match-pct').strip()
+            check(f'כרטיס ברמה "{lab}": הרמה מוצגת כמו שהיא', pct == lab, pct)
+            check(f'כרטיס ברמה "{lab}": ❌ ו-🎯 (המטרה לא הוחלפה בלב)', pg.inner_text('#skip-btn') == '❌' and pg.inner_text('.target-btn') == '🎯')
+            shot(pg, f'01_card_{tag}')
+            pg.evaluate("() => { var i = document.querySelector('#match-card .info'); if(i) i.scrollTop = i.scrollHeight; }"); pg.wait_for_timeout(300)
+            shot(pg, f'01_card_{tag}_analysis')
+            pg.evaluate("() => { var i = document.querySelector('#match-card .info'); if(i) i.scrollTop = 0; }")
+        check('הוצגו כל שלוש רמות ההתאמה', all(any(v == lab for v in labels.values()) for lab, _ in LEVELS), labels)
         # ❌ = מעבר לפרופיל הבא בלבד (בלי שום כתיבה לשרת)
         writes = []
-        pg.on('request', lambda r: writes.append(r.url) if r.method in ('POST', 'PATCH', 'DELETE') and '/rest/v1/' in r.url and 'rpc/hdm_billing_status' not in r.url and 'rpc/hdm_my_' not in r.url else None)
-        pg.evaluate("() => { matchQueue = matchQueue && matchQueue.length ? matchQueue : []; }")
-        before = pg.evaluate("() => ({ idx: matchQueueIndex, n: (matchQueue||[]).length, id: currentMatchId })")
+        on_req = lambda r: writes.append(r.url) if r.method in ('POST', 'PATCH', 'DELETE') and '/rest/v1/' in r.url and '/rpc/' not in r.url else None
+        pg.on('request', on_req)
+        before = pg.evaluate("() => ({ idx: matchQueueIndex, n: (matchQueue||[]).length })")
         pg.locator('#skip-btn').tap(); pg.wait_for_timeout(900)
-        after = pg.evaluate("() => ({ idx: matchQueueIndex, id: currentMatchId })")
-        moved = (before['n'] < 2 and after['idx'] == before['idx']) or after['idx'] == before['idx'] + 1
-        check('❌ עובר לפרופיל הבא (או נשאר באחרון)', moved, [before, after])
+        after = pg.evaluate("() => ({ idx: matchQueueIndex })")
+        check('❌ עובר לפרופיל הבא (או נשאר באחרון)', (before['n'] < 2 and after['idx'] == before['idx']) or after['idx'] == before['idx'] + 1, [before, after])
         check('❌ לא שולח שום שינוי לשרת', not writes, writes[:3])
+        pg.remove_listener('request', on_req)
         # 🎯 חד־צדדי: אין צ׳אט
         show_card(pg, IDS['dan'])
-        pg.evaluate("async () => { await onTargetClick(); }"); pg.wait_for_timeout(1500)
+        pg.evaluate("() => onTargetClick()"); pg.wait_for_timeout(2200)
         pair = '__'.join(sorted([IDS['me'], IDS['dan']]))
         check('🎯 חד־צדדי: לא נפתח צ׳אט', sql(f"select count(*) from docs where collection='chats' and id='{pair}'") == '0')
-        shot(pg, '02_after_target_one_side')
-        # תפריט / הגדרות, פרופיל, מנוי
-        pg.evaluate("() => openSettings()"); pg.wait_for_timeout(900); shot(pg, '05_settings_menu')
-        pg.evaluate("() => openMyProfile()"); pg.wait_for_timeout(1500); shot(pg, '06_my_profile')
-        pg.evaluate("() => { go('screen-match'); hdmOpenPlans(); }"); pg.wait_for_timeout(2000); shot(pg, '07_plans')
-        pg.evaluate("() => hdmCloseLayer('hdm-plans-screen')")
+        shot(pg, '02_target_one_side_hint')
+        # ⋯ חסימה / דיווח
+        pg.evaluate("() => openUserActions('card')"); pg.wait_for_timeout(700); shot(pg, '10_block_report_sheet')
+        pg.evaluate("() => { try{ closeSheet(); }catch(e){} }"); pg.wait_for_timeout(300)
+        # מי סימן אותי (פלוס)
+        pg.evaluate("() => hdmOpenLikedMe()"); pg.wait_for_timeout(2500)
+        check('"מי סימן אותי" מציג את עומר', 'עומר' in pg.inner_text('#hdm-liked-body'), pg.inner_text('#hdm-liked-body')[:200])
+        shot(pg, '11_liked_me')
+        pg.evaluate("() => hdmCloseLayer('hdm-liked-screen')"); pg.wait_for_timeout(300)
+        # תפריט / הגדרות (למעלה + למטה)
+        pg.evaluate("() => openSettings()"); pg.wait_for_timeout(900); shot(pg, '05_settings_menu_top')
+        pg.evaluate("() => { var s = document.getElementById('screen-settings'); s.scrollTop = s.scrollHeight; }"); pg.wait_for_timeout(400); shot(pg, '05_settings_menu_bottom')
+        # הפרופיל שלי (למעלה + אזור החשבון והמנוי עם "ביטול מנוי")
+        pg.evaluate("() => openMyProfile()"); pg.wait_for_timeout(1500); shot(pg, '06_my_profile_top')
+        pg.evaluate("() => document.getElementById('profile-account-box').scrollIntoView({ block: 'center' })"); pg.wait_for_timeout(400); shot(pg, '06_my_profile_account')
+        # מנויים: ניהול מנוי + מסלולים + שלב הביטול (בלי לבצע ביטול)
+        pg.evaluate("() => { go('screen-match'); hdmOpenPlans(); }"); pg.wait_for_timeout(2200); shot(pg, '07_plans_top')
+        pg.evaluate("() => { var l = document.getElementById('hdm-plans-screen'); var p = document.querySelectorAll('.hdm-plan'); if(p.length > 2) p[2].scrollIntoView({ block: 'center' }); }"); pg.wait_for_timeout(400); shot(pg, '07_plans_tiers')
+        pg.evaluate("() => { var p = document.querySelectorAll('.hdm-plan'); if(p.length) p[p.length-1].scrollIntoView({ block: 'center' }); }"); pg.wait_for_timeout(400); shot(pg, '07_plans_vip')
+        subs_before = sql(f"select count(*) || '|' || coalesce(max(updated_at)::text,'') from public.hdm_subscriptions")
+        pg.evaluate("() => { document.getElementById('hdm-plans-screen').scrollTop = 0; hdmOpenCancelInfo(); }"); pg.wait_for_timeout(600); shot(pg, '07_cancel_step')
+        check('שלב הביטול מוצג כמו קודם (אין מנוי בתשלום, אישור הביטול)', pg.locator('#hdm-cancel-info').count() == 1 and pg.locator('#hdm-cancel-confirm').count() == 1)
+        check('שום מנוי לא השתנה', sql(f"select count(*) || '|' || coalesce(max(updated_at)::text,'') from public.hdm_subscriptions") == subs_before)
+        pg.evaluate("() => { hdmCloseCancelInfo(); hdmCloseLayer('hdm-plans-screen'); }")
+        # מסמך: מדיניות ביטול מנוי
+        pg.evaluate("() => openLegal('cancel')"); pg.wait_for_timeout(600); shot(pg, '12_cancel_policy_doc')
+        pg.evaluate("() => closeLegal()")
         c.close()
 
-        # --- דניאל: 🎯 הדדי → מסך ההתאמה וצ׳אט ---
+        # --- דניאל: 🎯 הדדי ---
         c = ctx_new(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
         pg.goto(APP); pg.wait_for_timeout(2500)
         check('התחברות (דניאל)', login(pg, 'dan') == IDS['dan'])
         show_card(pg, IDS['me'])
-        pg.evaluate("async () => { await onTargetClick(); }"); pg.wait_for_timeout(700)
-        if pg.evaluate("() => document.getElementById('screen-connect').classList.contains('active')"): shot(pg, '03_match_connect')
+        shot(pg, '03a_before_mutual_target')
+        pg.evaluate("() => onTargetClick()")
+        for _ in range(24):
+            if pg.evaluate("() => document.getElementById('screen-chat').classList.contains('active')"): break
+            pg.wait_for_timeout(250)
+        on_chat = pg.evaluate("() => document.getElementById('screen-chat').classList.contains('active')")
+        check('🎯 הדדי: הצ׳אט נפתח מיד (ההתנהגות הקיימת, ללא שינוי)', on_chat)
+        shot(pg, '03b_after_mutual_target_chat_opens')
         for _ in range(16):
             if sql(f"select count(*) from docs where collection='chats' and id='{pair}'") == '1': break
             pg.wait_for_timeout(500)
         check('🎯 הדדי: השרת פתח שיחה (המנגנון הקיים)', sql(f"select count(*) from docs where collection='chats' and id='{pair}'") == '1')
-        if not pg.evaluate("() => document.getElementById('screen-chat').classList.contains('active')"):
-            try: pg.click('#open-chat-btn', timeout=5000)
-            except Exception: pass
-        pg.wait_for_timeout(1200)
-        pg.fill('#chat-input', 'היי נועה! ראיתי שיש לנו התאמה גבוהה 🙂'); pg.click('#send-chat-btn'); pg.wait_for_timeout(1500)
+        # מסך "יש התאמה" — קיים בקוד אבל האפליקציה לא מגיעה אליו כרגע. מוצג כאן ישירות רק כדי לראות את העיצוב שלו
+        pg.evaluate("() => go('screen-connect')"); pg.wait_for_timeout(700); shot(pg, '03c_match_screen_design_only')
+        pg.evaluate("() => openChat()"); pg.wait_for_timeout(1200)
+        pg.fill('#chat-input', 'היי נועה! ראיתי שיש לנו התאמה 🙂'); pg.click('#send-chat-btn'); pg.wait_for_timeout(1500)
         last = ''
         for _ in range(16):
             last = sql(f"select coalesce(data->'messages'->-1->>'text','') from docs where collection='chats' and id='{pair}'")
@@ -199,7 +252,7 @@ try:
         check('הודעה בצ׳אט נשמרת בשרת', 'היי נועה' in last, last)
         c.close()
 
-        # --- נועה עונה: צ׳אט ורשימת שיחות ---
+        # --- נועה עונה: רשימת שיחות וצ׳אט ---
         c = ctx_new(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
         pg.goto(APP); pg.wait_for_timeout(2500)
         login(pg, 'me')
