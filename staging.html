@@ -6261,8 +6261,16 @@
       var r = await window.__sb.rpc('hdm_billing_start_upgrade', { p_plan: hdmBillUI.plan, p_terms_version: q.termsVersion, p_accept: true, p_quoted_agorot: q.chargeNowAgorot });
       if(r && r.error) throw r.error;
       if(r.data && r.data.upgraded){ hdmBillUI = null; hdmToast('המסלול שודרג.'); }
-      // אחרי חיבור Grow: פונקציית שרת מחייבת את הכרטיס השמור בסכום הזה, והמסלול מתעדכן רק לפי אישור מ-Grow
-      else hdmBillUI.msg = HDM_BILLING_LIVE ? 'מבצעים את החיוב…' : 'ההסכמה נשמרה. החיוב בכרטיס השמור עדיין לא הופעל (ממתין לאישור Grow) — לא בוצע שום חיוב.';
+      // Morning (Grow): פונקציית השרת מחייבת את הכרטיס השמור בסכום הזה, והמסלול מתעדכן רק אחרי אישור מ-Morning
+      else if(HDM_BILLING_LIVE){
+        hdmBillUI.msg = 'מבצעים את החיוב…'; hdmRenderPlans();
+        var fx = await window.__sb.functions.invoke('morning-checkout', { body: { checkoutId: r.data.checkoutId } });
+        var fd = (fx && fx.data) || {};
+        if(fd.mode === 'redirect' && /^https:\/\//.test(fd.url || '')){ location.href = fd.url; return; }
+        if(fd.result === 'upgraded'){ hdmBillUI = null; hdmToast('התשלום אושר והמסלול שודרג.'); }
+        else hdmBillUI.msg = fd.result === 'failed' ? 'החיוב בכרטיס השמור נדחה. המסלול לא השתנה.' : 'לא הצלחנו לבצע את החיוב. לא שונה דבר במנוי. נסו שוב בעוד כמה דקות.';
+      }
+      else hdmBillUI.msg = 'ההסכמה נשמרה. החיוב בכרטיס השמור עדיין לא הופעל — לא בוצע שום חיוב.';
     }catch(e){
       if(hdmBillUI) hdmBillUI.msg = (e && e.hint) ? e.hint : 'לא הצלחנו להתחיל את השדרוג. נסו שוב בעוד רגע.';
       if(e && /QUOTE_CHANGED/.test(String(e.message || '')) && hdmBillUI){ hdmBillBusy = false; return hdmBillOpenUpgrade(hdmBillUI.plan, 'הסכום התעדכן לפי הזמן שעבר. יש לבדוק ולאשר שוב.'); }
@@ -6303,8 +6311,15 @@
     try{
       var r = await window.__sb.rpc('hdm_billing_start_checkout', { p_plan: hdmBillUI.plan, p_terms_version: b.termsVersion, p_accept: true });
       if(r && r.error) throw r.error;
-      // כאן, אחרי חיבור Grow: פונקציית שרת יוצרת דף תשלום ב-Grow לניסיון הזה ומעבירה אליו. המנוי מופעל רק לפי אישור מ-Grow.
-      hdmBillUI.msg = HDM_BILLING_LIVE ? 'מעבירים לתשלום מאובטח…' : 'ההסכמה נשמרה. חיבור התשלום (Grow) עדיין לא הופעל — לא בוצע שום חיוב.';
+      // Morning (Grow): פונקציית השרת יוצרת דף תשלום מאובטח לניסיון הזה. המנוי מופעל רק כשהשרת מאמת את התשלום מול Morning.
+      if(HDM_BILLING_LIVE){
+        hdmBillUI.msg = 'מעבירים לתשלום מאובטח…'; hdmRenderPlans();
+        var fx = await window.__sb.functions.invoke('morning-checkout', { body: { checkoutId: r.data.checkoutId } });
+        var fd = (fx && fx.data) || {};
+        if(fd.mode === 'redirect' && /^https:\/\//.test(fd.url || '')){ location.href = fd.url; return; }
+        hdmBillUI.msg = 'לא הצלחנו לפתוח את דף התשלום. לא בוצע חיוב. נסו שוב בעוד כמה דקות.';
+      }
+      else hdmBillUI.msg = 'ההסכמה נשמרה. חיבור התשלום עדיין לא הופעל — לא בוצע שום חיוב.';
     }catch(e){
       hdmBillUI.msg = (e && e.hint) ? e.hint : 'לא הצלחנו להתחיל את התשלום. נסו שוב בעוד רגע.';
     }
