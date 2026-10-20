@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|growperms|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -470,6 +470,13 @@ if [ "$MODE" = "e2egrow" ]; then
   ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY|ERROR)|ניקוי' | tail -n 70)"
   [ $RC -eq 0 ] || stop "בדיקת Grow מקצה לקצה נכשלה (ראו פלט). $(echo "$OUT" | grep -E '^(FAIL|ERROR)' | head -5)"
   ann notice "staging-result" "✅ e2egrow: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
+  exit 0
+fi
+
+# ---- vaultnames: שמות הסודות ב-Vault של מסד Staging (שמות בלבד, קריאה בלבד) ----
+if [ "$MODE" = "vaultnames" ]; then
+  N=$("${RO[@]}" "${PSQL[@]}" -At -c "select coalesce(string_agg(name, ', ' order by name), 'אין') from vault.secrets" 2>&1 | tail -1)
+  say "שמות ב-Vault של Staging: $N"; ann notice "staging-result" "שמות סודות ב-Vault של מסד Staging (בלי ערכים): $N"
   exit 0
 fi
 
