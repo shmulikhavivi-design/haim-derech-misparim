@@ -35,7 +35,17 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|growsecrets|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+
+# ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
+if [ "$MODE" = "growsecrets" ]; then
+  L=""
+  for n in GROW_USER_ID GROW_PAGE_CODE GROW_API_KEY GROW_CLIENT_ID GROW_SANDBOX_USER_ID GROW_SANDBOX_PAGE_CODE GROW_SANDBOX_API_KEY; do
+    v="${!n:-}"; [ -n "$v" ] && L="$L $n=✅(${#v})" || L="$L $n=—"
+  done
+  say "סודות Grow בסביבה staging:$L"; ann notice "staging-result" "סודות Grow בסביבה staging (קיים/חסר בלבד):$L"
+  exit 0
+fi
 
 # ---- הגנה 1: כתובת החיבור ----
 URL="${STAGING_DB_URL:-}"
@@ -586,6 +596,8 @@ case "$MODE" in
   install23) FILE="$SQLDIR/23_staging_billing_statutory_cancel.sql" ;;
   install24) FILE="$SQLDIR/24_staging_billing_morning.sql" ;;
   tests25)   FILE="$SQLDIR/25_staging_billing_morning_tests.sql" ;;
+  install26) FILE="$SQLDIR/26_staging_billing_grow.sql" ;;
+  tests27)   FILE="$SQLDIR/27_staging_billing_grow_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."
 say ""; say "### הרצת $(basename "$FILE")"
@@ -594,6 +606,15 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests27" ]; then
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
+  N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+  [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות החיבור ל-Grow עברו ($SUMM)."
+  LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c "select (select count(*) from auth.users where email like 'gr%@example.invalid') + (select count(*) from public.hdm_payments) + (select count(*) from public.hdm_checkouts) + (select count(*) from public.hdm_renewal_charges) + (select count(*) from public.hdm_billing_tokens) + (select count(*) from public.hdm_cancel_requests) + (select count(*) from public.hdm_email_outbox)")
+  [ "$LEFT" = "0" ] || stop "נשארו נתוני בדיקה במסד ($LEFT)."
+  say "✅ tests27: $SUMM (תשובות Grow מדומות, בלי קריאה ל-Grow ובלי חיוב; הכול בוטל)."; ann notice "staging-result" "✅ tests27: $SUMM (תשלום, חידוש, כישלון, שדרוג, ביטול, ביטול לפי החוק — תשובות Grow מדומות, בלי חיוב; הכול בוטל)"
+  exit 0
+fi
 if [ "$MODE" = "tests25" ]; then
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1)
   N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
