@@ -21,10 +21,18 @@
 - `supabase/staging_secure/24_staging_billing_morning.sql` — פונקציות כלליות (פרטי ניסיון תשלום, "תפיסה" חד-פעמית); כבר מותקן ב-Staging
 - `supabase/staging_secure/26_staging_billing_grow.sql` + `27_staging_billing_grow_tests.sql` (57 בדיקות לכל חיי המנוי)
 
-## בדיקות
-- יחידה: 14/14 ✅
-- מסד מקומי: 18 (83/83), 20 (59/59), 22 (68/68), 27 (57/57) ✅
-- Staging: install26 ✅ · tests27 57/57 ✅ (בוטל בסוף, לא נשמר כלום) · growsecrets: אין עדיין סודות Grow בסביבה staging
+## בדיקות (20.10.2026)
+| בדיקה | איפה | תוצאה |
+|---|---|---|
+| מקצה לקצה: קוד הפונקציות + שכבת המנויים המלאה + תחליף Grow (בלי רשת) | מסד מקומי זמני (`scripts/grow_local/run.sh`) | 15/15 ✅ |
+| מחזור חיי מנוי ב-Grow (27) | Staging | 57/57 ✅ |
+| תיקון חידוש ראשון בכרטיס שמור (29) | Staging | 12/12 ✅ |
+| מנויים (18), שדרוג (20), ביטול (22), Morning (25) | Staging | 83/83, 59/59, 68/68, 41/41 ✅ |
+| יחידה — לקוח Grow | מקומי | 15/15 ✅ |
+| מקצה לקצה עם הפונקציות פרוסות ב-Staging (`e2egrow`) | Staging | ממתין להרשאה |
+
+**באג שנמצא ותוקן (28):** חידוש ראשון בכרטיס שמור (לפני ש-Grow נתנה מזהה סדרה) נרשם "unknown": כרטיס שנדחה לא סומן
+past_due ולא נוסה שוב, וחידוש מאושר בלי מזהה סדרה לא האריך. עכשיו החידוש מזוהה לפי החיוב שנתפס (`hdm_billing_apply_card_renewal`).
 
 ## איפה שומרים את המפתחות (בלי להדביק בצ'אט)
 GitHub ← הריפו ← **Settings** ← **Environments** ← **staging** ← **Add environment secret**:
@@ -56,7 +64,7 @@ GitHub ← הריפו ← **Settings** ← **Environments** ← **staging** ← 
 `grow-mock` — תחליף ל-Grow שפועל רק ב-Staging (HDM_ENV=staging + GROW_MOCK=1), חותם את מזהי העסקאות שלו ומזהה הודעות מזויפות.
 משתמשי בדיקה זמניים בלבד, נמחקים בסוף. בסוף כל הרצה הפונקציות מכובות (GROW_LIVE=0, GROW_MOCK=0) וסודות הבדיקה מוחלפים.
 נבדק: הצטרפות לשלושת המסלולים, הודעה כפולה/מזויפת/סכום שונה, חידוש, כרטיס שנדחה, שדרוג יחסי, ביטול חידוש, ביטול לפי החוק.
-חסום כרגע: לטוקן `SUPABASE_ACCESS_TOKEN` בסביבה staging חסרה ההרשאה `edge_functions_secrets_write` (וכנראה גם הרשאת פריסת Edge Functions).
+חסום כרגע: לטוקן `SUPABASE_ACCESS_TOKEN` בסביבה staging חסרות `edge_functions_write` ו-`edge_functions_secrets_write` (נבדק במצב `growperms`). הפתרון: טוקן נפרד ומוגבל לפרויקט Staging בשם `STAGING_FUNCTIONS_TOKEN` עם Edge Functions + Edge Function Secrets (Read-write); הטוקן הקיים לא משתנה.
 
 ## לא נעשה בלי אישור מפורש
 חיבור עמוד התשלום הקיים לפונקציות, `GROW_LIVE=1` בסביבה אמיתית, כל שינוי ב-Production, מיזוג.
