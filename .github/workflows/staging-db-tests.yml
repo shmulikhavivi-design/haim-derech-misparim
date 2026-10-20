@@ -130,6 +130,13 @@ jobs:
           GROW_SANDBOX_USER_ID: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.GROW_SANDBOX_USER_ID || '' }}
           GROW_SANDBOX_PAGE_CODE: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.GROW_SANDBOX_PAGE_CODE || '' }}
           GROW_SANDBOX_API_KEY: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.GROW_SANDBOX_API_KEY || '' }}
+          MORNING_CLIENT_ID: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.MORNING_CLIENT_ID || '' }}
+          MORNING_CLIENT_SECRET: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.MORNING_CLIENT_SECRET || '' }}
+          MORNING_API_KEY: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.MORNING_API_KEY || '' }}
+          MORNING_API_SECRET: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.MORNING_API_SECRET || '' }}
+          MORNING_SANDBOX_CLIENT_ID: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.MORNING_SANDBOX_CLIENT_ID || '' }}
+          MORNING_SANDBOX_CLIENT_SECRET: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.MORNING_SANDBOX_CLIENT_SECRET || '' }}
+          STAGING_FUNCTIONS_TOKEN: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.STAGING_FUNCTIONS_TOKEN || '' }}
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
 
       - name: Grow e2e — switch functions off (always)

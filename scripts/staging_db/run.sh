@@ -40,10 +40,10 @@ case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|aut
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
   L=""
-  for n in GROW_USER_ID GROW_PAGE_CODE GROW_API_KEY GROW_CLIENT_ID GROW_SANDBOX_USER_ID GROW_SANDBOX_PAGE_CODE GROW_SANDBOX_API_KEY; do
+  for n in GROW_USER_ID GROW_PAGE_CODE GROW_API_KEY GROW_CLIENT_ID GROW_SANDBOX_USER_ID GROW_SANDBOX_PAGE_CODE GROW_SANDBOX_API_KEY MORNING_CLIENT_ID MORNING_CLIENT_SECRET MORNING_API_KEY MORNING_API_SECRET MORNING_SANDBOX_CLIENT_ID MORNING_SANDBOX_CLIENT_SECRET STAGING_FUNCTIONS_TOKEN; do
     v="${!n:-}"; [ -n "$v" ] && L="$L $n=✅(${#v})" || L="$L $n=—"
   done
-  say "סודות Grow בסביבה staging:$L"; ann notice "staging-result" "סודות Grow בסביבה staging (קיים/חסר בלבד):$L"
+  say "סודות Grow / Morning בסביבה staging:$L"; ann notice "staging-result" "סודות Grow / Morning / טוקן פריסה בסביבה staging (קיים/חסר בלבד):$L"
   exit 0
 fi
 
