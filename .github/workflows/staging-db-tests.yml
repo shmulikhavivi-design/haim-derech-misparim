@@ -23,7 +23,7 @@ on:
         required: true
         default: 'check'
         type: choice
-        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, install08, tests09, install10, tests11, e2eadmin, audit, install12, tests13, mailnet, hookwire, authcfg, perms, install14, tests15, install16, install17, tests18, e2ebilling, install19, tests20, install21, tests22, install23, install24, tests25, install26, tests27, growsecrets, e2ecancellive, e2esignup, e2esignupreal, e2edesign ]
+        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, install08, tests09, install10, tests11, e2eadmin, audit, install12, tests13, mailnet, hookwire, authcfg, perms, install14, tests15, install16, install17, tests18, e2ebilling, install19, tests20, install21, tests22, install23, install24, tests25, install26, tests27, growsecrets, e2egrow, e2ecancellive, e2esignup, e2esignupreal, e2edesign ]
 
 permissions:
   contents: read
@@ -58,7 +58,7 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|growsecrets|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|growsecrets|e2egrow|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
@@ -76,6 +76,40 @@ jobs:
           python3 -m pip install --quiet playwright==1.55.0 pillow
           python3 -m playwright install --with-deps chromium webkit
 
+      # ---- e2egrow בלבד: פריסת פונקציות Grow ל-Staging (רק לפרויקט Staging) עם סודות חד-פעמיים לבדיקה ----
+      - name: Grow e2e — setup CLI
+        if: steps.mode.outputs.mode == 'e2egrow'
+        uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - name: Grow e2e — deploy to Staging (mock Grow, no charges)
+        if: steps.mode.outputs.mode == 'e2egrow'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          REF=ousepgdvzammgkxkweze
+          [ "$REF" != "qtspzigjlbtckqfyaubp" ] || exit 1
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error title=e2egrow::חסר SUPABASE_ACCESS_TOKEN בסביבה staging"; exit 1; }
+          WT=$(openssl rand -hex 32); CS=$(openssl rand -hex 32); MS=$(openssl rand -hex 32); UID_=mock-user-$(openssl rand -hex 4)
+          for v in "$WT" "$CS" "$MS"; do echo "::add-mask::$v"; done
+          echo "GROW_WEBHOOK_TOKEN=$WT" >> "$GITHUB_ENV"; echo "HDM_CRON_SECRET=$CS" >> "$GITHUB_ENV"
+          umask 077; F=$(mktemp)
+          cat > "$F" <<EOT
+          HDM_ENV=staging
+          GROW_MOCK=1
+          GROW_LIVE=1
+          GROW_API_BASE=https://$REF.supabase.co/functions/v1/grow-mock
+          GROW_USER_ID=$UID_
+          GROW_PAGE_CODE=mock-page
+          GROW_WEBHOOK_TOKEN=$WT
+          HDM_CRON_SECRET=$CS
+          GROW_MOCK_SECRET=$MS
+          HDM_APP_URL=https://shmulikhavivi-design.github.io/haim-derech-misparim
+          EOT
+          sed -i 's/^ *//' "$F"
+          supabase secrets set --project-ref "$REF" --env-file "$F" >/dev/null
+          rm -f "$F"
+          supabase functions deploy grow-checkout grow-webhook grow-renewals grow-mock --project-ref "$REF" --use-api --no-verify-jwt 2>&1 | grep -vE 'eyJ|sb_secret' | tail -n 15
       - name: Run on Staging
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
@@ -83,6 +117,8 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           RUN_MODE: ${{ steps.mode.outputs.mode }}
           SUPABASE_STAGING_READ_TOKEN: ${{ secrets.SUPABASE_STAGING_READ_TOKEN }}
+          GROW_WEBHOOK_TOKEN: ${{ env.GROW_WEBHOOK_TOKEN }}
+          HDM_CRON_SECRET: ${{ env.HDM_CRON_SECRET }}
           # סודות Grow — מועברים רק לבדיקת קיום (growsecrets); הסקריפט לא מדפיס ערכים
           GROW_USER_ID: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.GROW_USER_ID || '' }}
           GROW_PAGE_CODE: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.GROW_PAGE_CODE || '' }}
@@ -93,6 +129,16 @@ jobs:
           GROW_SANDBOX_API_KEY: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.GROW_SANDBOX_API_KEY || '' }}
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
 
+      - name: Grow e2e — switch functions off (always)
+        if: always() && steps.mode.outputs.mode == 'e2egrow'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          REF=ousepgdvzammgkxkweze
+          supabase secrets set --project-ref "$REF" GROW_LIVE=0 GROW_MOCK=0 HDM_ENV=staging GROW_API_BASE=https://sandbox.meshulam.co.il/api/light/server/1.0 \
+            GROW_WEBHOOK_TOKEN=$(openssl rand -hex 32) HDM_CRON_SECRET=$(openssl rand -hex 32) GROW_MOCK_SECRET=$(openssl rand -hex 32) >/dev/null \
+            && echo "::notice title=e2egrow-off::הפונקציות ב-Staging כבויות: GROW_LIVE=0, GROW_MOCK=0, סודות הבדיקה הוחלפו" \
+            || echo "::error title=e2egrow-off::כיבוי נכשל — יש לבדוק ידנית"
       - name: Screenshots (e2e only)
         if: always() && (steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign')
         uses: actions/upload-artifact@v5

@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|growsecrets|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|growsecrets|e2egrow|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -432,6 +432,23 @@ if [ "$MODE" = "e2ecancellive" ]; then
   ann notice "staging-e2e-fail" "$(echo "$OUT" | grep -E '^(FAIL|SUMMARY)|ניקוי|Traceback|Error' | tail -n 40)"
   [ $RC -eq 0 ] || stop "בדיקת הדפדפן של ביטול המנוי נכשלה (ראו פלט)."
   ann notice "staging-result" "✅ e2ecancellive: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
+  exit 0
+fi
+
+# ---- בדיקה מקצה לקצה של חיבור Grow: הפונקציות שנפרסו ל-Staging + תחליף Grow (בלי Grow ובלי חיובים) ----
+if [ "$MODE" = "e2egrow" ]; then
+  if [ -z "${STAGING_PUBLISHABLE_KEY:-}" ]; then
+    STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1)
+    export STAGING_PUBLISHABLE_KEY
+  fi
+  case "${STAGING_PUBLISHABLE_KEY:-}" in sb_publishable_*) ;; *) stop "חסר מפתח ציבורי של Staging.";; esac
+  [ -n "${GROW_WEBHOOK_TOKEN:-}" ] && [ -n "${HDM_CRON_SECRET:-}" ] || stop "חסרים סודות הבדיקה (נוצרים בשלב הפריסה)."
+  say ""; say "### בדיקה מקצה לקצה — Grow (תחליף, בלי חיובים)"
+  OUT=$(STAGING_DB_URL="$URL" python3 "$ROOT/scripts/staging_e2e/e2e_grow.py" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; { echo '```'; echo "$OUT"; echo '```'; } >> "$SUMMARY"
+  ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY|ERROR)|ניקוי' | tail -n 70)"
+  [ $RC -eq 0 ] || stop "בדיקת Grow מקצה לקצה נכשלה (ראו פלט). $(echo "$OUT" | grep -E '^(FAIL|ERROR)' | head -5)"
+  ann notice "staging-result" "✅ e2egrow: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
   exit 0
 fi
 
