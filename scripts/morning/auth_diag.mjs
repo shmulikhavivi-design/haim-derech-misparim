@@ -2,13 +2,13 @@
 // חיים דרך מספרים — אבחון אימות מול Morning. **אימות בלבד**: אין מסמכים, אין חיובים, אין דפי תשלום.
 // לא מדפיס את המפתחות ולא טוקנים. מדפיס רק: אורך, פורמט, רווחים/שורות נסתרים, קוד HTTP והודעת השגיאה של Morning.
 // =====================================================================
-const rawId = Deno.env.get('MORNING_CLIENT_ID') ?? '';
-const rawSecret = Deno.env.get('MORNING_CLIENT_SECRET') ?? '';
-const out: string[] = [];
-const say = (s: string) => { out.push(s); console.log(s); };
+const rawId = (process.env.MORNING_CLIENT_ID ?? '');
+const rawSecret = (process.env.MORNING_CLIENT_SECRET ?? '');
+const out = [];
+const say = (s) => { out.push(s); console.log(s); };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function describe(name: string, v: string) {
+function describe(name, v) {
   const t = v.trim();
   const hidden = v !== t ? ' ⚠️ יש רווח/שורה ריקה בהתחלה או בסוף' : '';
   const quotes = /^["'].*["']$/.test(t) ? ' ⚠️ עטוף במרכאות' : '';
@@ -21,15 +21,14 @@ describe('MORNING_CLIENT_SECRET', rawSecret);
 if (rawId.trim() && rawId.trim() === rawSecret.trim()) say('⚠️ שני הסודות זהים');
 
 const id = rawId.trim().replace(/^["']|["']$/g, ''), secret = rawSecret.trim().replace(/^["']|["']$/g, '');
-const scrub = (s: string) => {
+const scrub = (s) => {
   let r = s;
   for (const v of [id, secret]) if (v.length >= 4) r = r.split(v).join('***');
   return r.replace(/("?(access_?token|token|refresh_?token)"?\s*:\s*")[^"]+/gi, '$1***').slice(0, 300);
 };
 
-type Attempt = { label: string; url: string; init: RequestInit };
-const form = (a: string, b: string) => new URLSearchParams({ grant_type: 'client_credentials', client_id: a, client_secret: b }).toString();
-const attempts = (a: string, b: string, tag: string): Attempt[] => [
+const form = (a, b) => new URLSearchParams({ grant_type: 'client_credentials', client_id: a, client_secret: b }).toString();
+const attempts = (a, b, tag) => [
   { label: `${tag} · Morning OAuth (form)`, url: 'https://api.morning.co/idp/v1/oauth/token',
     init: { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body: form(a, b) } },
   { label: `${tag} · Morning OAuth (Basic)`, url: 'https://api.morning.co/idp/v1/oauth/token',
@@ -43,7 +42,7 @@ const attempts = (a: string, b: string, tag: string): Attempt[] => [
 ];
 
 let okLabel = '';
-for (const [a, b, tag] of [[id, secret, 'רגיל'], [secret, id, 'הפוך']] as const) {
+for (const [a, b, tag] of [[id, secret, 'רגיל'], [secret, id, 'הפוך']] ) {
   for (const at of attempts(a, b, tag)) {
     try {
       const r = await fetch(at.url, at.init);
@@ -53,12 +52,12 @@ for (const [a, b, tag] of [[id, secret, 'רגיל'], [secret, id, 'הפוך']] a
       const ok = r.ok && tok;
       say(`${ok ? '✅' : '❌'} ${at.label}: HTTP ${r.status}${ok ? ' — טוקן התקבל' : ` — ${scrub(text) || '(גוף ריק)'}`}`);
       if (ok && !okLabel) okLabel = at.label;
-    } catch (e) { say(`❌ ${at.label}: שגיאת רשת ${(e as Error).name}`); }
+    } catch (e) { say(`❌ ${at.label}: שגיאת רשת ${e && e.cause ? (e.cause.code || e.name) : e.name}`); }
   }
   if (okLabel) break;
 }
 say(okLabel ? `סיכום: האימות הצליח דרך "${okLabel}".` : 'סיכום: האימות נכשל בכל הדרכים.');
 
-const summary = Deno.env.get('GITHUB_STEP_SUMMARY');
-if (summary) await Deno.writeTextFile(summary, `### אבחון אימות Morning\n\n${out.map((l) => `- ${l}`).join('\n')}\n`, { append: true });
-if (Deno.env.get('GITHUB_ACTIONS')) console.log(`::notice title=morning-auth::${out.join('%0A')}`);
+const summary = process.env.GITHUB_STEP_SUMMARY;
+if (summary) (await import('node:fs')).appendFileSync(summary, `### אבחון אימות Morning\n\n${out.map((l) => `- ${l}`).join('\n')}\n`);
+if (process.env.GITHUB_ACTIONS) console.log(`::notice title=morning-auth::${out.join('%0A')}`);

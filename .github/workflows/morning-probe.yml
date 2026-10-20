@@ -25,7 +25,7 @@ jobs:
         run: |
           echo "::add-mask::$MORNING_CLIENT_ID"
           echo "::add-mask::$MORNING_CLIENT_SECRET"
-          deno run --allow-net=api.morning.co,api.sandbox.morning.dev,api.greeninvoice.co.il,sandbox.d.greeninvoice.co.il --allow-env --allow-write scripts/morning/auth_diag.ts
+          node scripts/morning/auth_diag.mjs
       - name: Probe Morning (GET only)
         env:
           MORNING_CLIENT_ID: ${{ secrets.MORNING_CLIENT_ID }}
