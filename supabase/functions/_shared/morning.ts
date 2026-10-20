@@ -71,7 +71,10 @@ export class MorningClient {
 
   private async accessToken(): Promise<string> {
     if (this.token && this.now() < this.tokenExp - 60_000) return this.token;
-    const id = this.env('MORNING_CLIENT_ID'), secret = this.env('MORNING_CLIENT_SECRET');
+    // ה-ID נשמר לפעמים עם טקסט שהועתק לידו (תווית/תאריך) — משתמשים רק ב-UUID שבתוכו.
+    const rawId = this.env('MORNING_CLIENT_ID').trim();
+    const id = rawId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? rawId;
+    const secret = this.env('MORNING_CLIENT_SECRET').trim();
     if (!id || !secret) throw new MorningError('NO_CREDENTIALS', 'חסרים MORNING_CLIENT_ID / MORNING_CLIENT_SECRET בסודות הפונקציה');
     const url = `${authBase(this.api)}/idp/v1/oauth/token`;
     const form = new URLSearchParams({ grant_type: 'client_credentials', client_id: id, client_secret: secret });
