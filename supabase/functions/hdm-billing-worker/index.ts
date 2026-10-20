@@ -44,10 +44,12 @@ async function sendEmails() {
 }
 
 async function cancelAtGrow() {
-  if (env('GROW_LIVE') !== '1') return { skipped: 'GROW_LIVE off — ממתין לאישור Grow' };
-  // TODO אחרי אישור Grow: קריאה ל-API של Grow לביטול הסדרה (recurringDebitId / directDebitId),
-  // ואז hdm_billing_outbox_done(id, true) רק אם Grow החזירה הצלחה; אחרת (id, false, שגיאה).
-  throw new Error('Grow cancel API not implemented yet');
+  // מודל "כרטיס שמור, החיובים מנוהלים אצלנו" (26): Grow לא מחייבת לבד, ולכן אין מה לבטל אצלה.
+  // הבקשה מאושרת רק כשהחידוש אצלנו כבר כבוי (hdm_billing_grow_confirm_cancellations). אותה פעולה רצה גם ב-grow-renewals.
+  if (DRY) return { dryRun: true };
+  const { data, error } = await sb.rpc('hdm_billing_grow_confirm_cancellations');
+  if (error) throw error;
+  return { confirmed: data ?? 0 };
 }
 
 Deno.serve(async () => {
