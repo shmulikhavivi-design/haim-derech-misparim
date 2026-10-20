@@ -35,6 +35,16 @@ Deno.test('סביבות: Sandbox כברירת מחדל, כתובת זרה נדח
   A.throws(() => growBase(envOf({ GROW_API_BASE: 'https://evil.example/api' })), GrowError);
 });
 
+Deno.test('תחליף Grow לבדיקות: רק Staging + GROW_MOCK=1 + אותו פרויקט', () => {
+  const sb = 'https://abcdef.supabase.co', mock = `${sb}/functions/v1/grow-mock`;
+  A.equal(growBase(envOf({ SUPABASE_URL: sb, HDM_ENV: 'staging', GROW_MOCK: '1', GROW_API_BASE: mock })), mock);
+  for (const e of [
+    { SUPABASE_URL: sb, HDM_ENV: 'production', GROW_MOCK: '1', GROW_API_BASE: mock },
+    { SUPABASE_URL: sb, HDM_ENV: 'staging', GROW_API_BASE: mock },
+    { SUPABASE_URL: sb, HDM_ENV: 'staging', GROW_MOCK: '1', GROW_API_BASE: 'https://other.supabase.co/functions/v1/grow-mock' },
+  ]) A.throws(() => growBase(envOf(e)), GrowError);
+});
+
 Deno.test('חסימות כסף: כבוי כברירת מחדל; Production חסום מחוץ ל-Production', () => {
   A.throws(() => assertGrowMoneyAllowed(envOf(BASE)), /כבויה/);
   assertGrowMoneyAllowed(envOf({ ...BASE, GROW_LIVE: '1' }));

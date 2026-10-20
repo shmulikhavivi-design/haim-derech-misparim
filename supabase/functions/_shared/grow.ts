@@ -24,10 +24,18 @@ export class GrowError extends Error {
   constructor(public code: string, message: string, public status = 0, public growErr: unknown = undefined) { super(message); }
 }
 
+/** תחליף Grow לבדיקות אוטומטיות — רק ב-Staging, רק עם GROW_MOCK=1, ורק הפונקציה grow-mock של אותו פרויקט. */
+export function growMockBase(env: EnvFn): string | null {
+  const sb = (env('SUPABASE_URL') || '').trim().replace(/\/+$/, '');
+  if (env('HDM_ENV') !== 'staging' || env('GROW_MOCK') !== '1' || !/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(sb)) return null;
+  return `${sb}/functions/v1/grow-mock`;
+}
+
 export function growBase(env: EnvFn): string {
   const b = (env('GROW_API_BASE') || GROW_SANDBOX).trim().replace(/\/+$/, '');
-  if (b !== GROW_SANDBOX && b !== GROW_PROD) throw new GrowError('BAD_BASE', 'GROW_API_BASE לא מוכר (רק Sandbox או Production של Grow)');
-  return b;
+  if (b === GROW_SANDBOX || b === GROW_PROD) return b;
+  if (b === growMockBase(env)) return b;
+  throw new GrowError('BAD_BASE', 'GROW_API_BASE לא מוכר (רק Sandbox או Production של Grow)');
 }
 
 export function assertGrowMoneyAllowed(env: EnvFn): void {

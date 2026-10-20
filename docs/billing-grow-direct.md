@@ -51,5 +51,12 @@ GitHub ← הריפו ← **Settings** ← **Environments** ← **staging** ← 
    - שדות התשובה של `createTransactionWithToken` (שם השדה של מזהה העסקה ושל `recurringDebitId`).
 6. **Supabase:** פריסת 3 הפונקציות ל-Staging (יש הרשאה ב-GitHub) — אחרי שסעיף 1 קיים.
 
+## בדיקה מקצה לקצה ב-Staging (מוכנה, ממתינה להרשאה)
+`scripts/staging_e2e/e2e_grow.py` + מצב `e2egrow`: פורסת את grow-checkout / grow-webhook / grow-renewals ל-Staging יחד עם
+`grow-mock` — תחליף ל-Grow שפועל רק ב-Staging (HDM_ENV=staging + GROW_MOCK=1), חותם את מזהי העסקאות שלו ומזהה הודעות מזויפות.
+משתמשי בדיקה זמניים בלבד, נמחקים בסוף. בסוף כל הרצה הפונקציות מכובות (GROW_LIVE=0, GROW_MOCK=0) וסודות הבדיקה מוחלפים.
+נבדק: הצטרפות לשלושת המסלולים, הודעה כפולה/מזויפת/סכום שונה, חידוש, כרטיס שנדחה, שדרוג יחסי, ביטול חידוש, ביטול לפי החוק.
+חסום כרגע: לטוקן `SUPABASE_ACCESS_TOKEN` בסביבה staging חסרה ההרשאה `edge_functions_secrets_write` (וכנראה גם הרשאת פריסת Edge Functions).
+
 ## לא נעשה בלי אישור מפורש
 חיבור עמוד התשלום הקיים לפונקציות, `GROW_LIVE=1` בסביבה אמיתית, כל שינוי ב-Production, מיזוג.
