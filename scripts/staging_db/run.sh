@@ -61,6 +61,9 @@ if [ "$MODE" = "growperms" ]; then
   R1=$(p GET /functions); R2=$(p GET /secrets); R3=$(p POST /secrets '[]'); R4=$(p PATCH /functions/hdm-permission-probe-nonexistent '{}')
   res(){ case "${1%% *}" in 200|201|204) echo "✅";; 404) echo "✅ (404 = מותר, אין פונקציה כזו)";; 401|403) echo "❌ חסרה: ${1#* }";; *) echo "? ${1}";; esac; }
   MSG="$KIND | Edge Functions קריאה: $(res "$R1") | Edge Function Secrets קריאה: $(res "$R2") | Edge Function Secrets כתיבה: $(res "$R3") | Edge Functions כתיבה/פריסה: $(res "$R4")"
+  NAMES=$(curl -sS -m 20 -H "Authorization: Bearer $T" "$A/secrets" | jq -r '[.[].name] | map(select(test("^SUPABASE_")|not)) | join(", ")' 2>/dev/null || echo '?')
+  FNS=$(curl -sS -m 20 -H "Authorization: Bearer $T" "$A/functions" | jq -r '[.[].slug] | join(", ")' 2>/dev/null || echo '?')
+  MSG="$MSG | שמות סודות ב-Supabase Staging (בלי ערכים): ${NAMES:-אין} | פונקציות פרוסות: ${FNS:-אין}"
   unset T; say "$MSG"; ann notice "staging-result" "$MSG"
   exit 0
 fi
