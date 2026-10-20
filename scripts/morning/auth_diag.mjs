@@ -46,6 +46,34 @@ const attempts = (a, b, tag) => [
     init: { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ id: a, secret: b }) } },
 ];
 
+// מבנה ה-ID בלי לחשוף אותו: אורכי המקטעים וסוגי התווים החריגים
+{
+  const t = rawId.trim();
+  const parts = t.split(/\s+/);
+  const kinds = new Set();
+  for (const ch of t) {
+    const c = ch.codePointAt(0);
+    if (c >= 0x20 && c <= 0x7e) continue;
+    if (c >= 0x0590 && c <= 0x05ff) kinds.add('אותיות עבריות');
+    else if ([0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069, 0x200b, 0xfeff, 0x00a0].includes(c)) kinds.add(`תו נסתר U+${c.toString(16).toUpperCase().padStart(4, '0')}`);
+    else kinds.add(`תו U+${c.toString(16).toUpperCase().padStart(4, '0')}`);
+  }
+  say(`מבנה ה-ID: ${parts.length} מקטעים, אורכים [${parts.map((x) => x.length).join(', ')}] · חריגים: ${[...kinds].join(', ') || 'אין'}`);
+  const uuid = t.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
+  const longest = (t.match(/[A-Za-z0-9_\-]+/g) ?? []).sort((x, y) => y.length - x.length)[0] ?? '';
+  const cand = uuid ?? longest;
+  say(`בתוך ה-ID נמצא ${uuid ? 'UUID תקני' : `רצף אנגלי/ספרות באורך ${longest.length}`}`);
+  if (cand && cand !== id) {
+    for (const [lbl, url] of [['Production', 'https://api.morning.co/idp/v1/oauth/token'], ['Sandbox', 'https://api.sandbox.morning.dev/idp/v1/oauth/token']]) {
+      try {
+        const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' }, body: form(cand, secret) });
+        const text = await r.text(); let tok = false;
+        try { const j = JSON.parse(text); tok = !!(j.access_token ?? j.accessToken ?? j.token); } catch { /* */ }
+        say(`${r.ok && tok ? '✅' : '❌'} ID מנוקה · ${lbl}: HTTP ${r.status}${r.ok && tok ? ' — טוקן התקבל' : ` — ${scrub(text)}`}`);
+      } catch (e) { say(`❌ ID מנוקה · ${lbl}: שגיאת רשת`); }
+    }
+  }
+}
 let okLabel = '';
 for (const [a, b, tag] of [[id, secret, 'רגיל'], [secret, id, 'הפוך']] ) {
   for (const at of attempts(a, b, tag)) {
