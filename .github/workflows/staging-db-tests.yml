@@ -107,9 +107,11 @@ jobs:
           HDM_APP_URL=https://shmulikhavivi-design.github.io/haim-derech-misparim
           EOT
           sed -i 's/^ *//' "$F"
-          supabase secrets set --project-ref "$REF" --env-file "$F" >/dev/null
+          report(){ printf '::error title=e2egrow-%s::%s\n' "$1" "$(printf '%s' "$2" | grep -vE 'eyJ|sb_secret' | tail -n 8 | tr '\n' ' ' | cut -c1-600)"; }
+          OUT=$(supabase secrets set --project-ref "$REF" --env-file "$F" 2>&1) || { rm -f "$F"; report secrets "$OUT"; exit 1; }
           rm -f "$F"
-          supabase functions deploy grow-checkout grow-webhook grow-renewals grow-mock --project-ref "$REF" --use-api --no-verify-jwt 2>&1 | grep -vE 'eyJ|sb_secret' | tail -n 15
+          OUT=$(supabase functions deploy grow-checkout grow-webhook grow-renewals grow-mock --project-ref "$REF" --use-api --no-verify-jwt 2>&1) || { report deploy "$OUT"; exit 1; }
+          echo "::notice title=e2egrow-deploy::$(printf '%s' "$OUT" | grep -iE 'deployed|function' | tail -n 6 | tr '\n' ' ' | cut -c1-500)"
       - name: Run on Staging
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
@@ -135,10 +137,10 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           REF=ousepgdvzammgkxkweze
-          supabase secrets set --project-ref "$REF" GROW_LIVE=0 GROW_MOCK=0 HDM_ENV=staging GROW_API_BASE=https://sandbox.meshulam.co.il/api/light/server/1.0 \
-            GROW_WEBHOOK_TOKEN=$(openssl rand -hex 32) HDM_CRON_SECRET=$(openssl rand -hex 32) GROW_MOCK_SECRET=$(openssl rand -hex 32) >/dev/null \
+          OUT=$(supabase secrets set --project-ref "$REF" GROW_LIVE=0 GROW_MOCK=0 HDM_ENV=staging GROW_API_BASE=https://sandbox.meshulam.co.il/api/light/server/1.0 \
+            GROW_WEBHOOK_TOKEN=$(openssl rand -hex 32) HDM_CRON_SECRET=$(openssl rand -hex 32) GROW_MOCK_SECRET=$(openssl rand -hex 32) 2>&1) \
             && echo "::notice title=e2egrow-off::הפונקציות ב-Staging כבויות: GROW_LIVE=0, GROW_MOCK=0, סודות הבדיקה הוחלפו" \
-            || echo "::error title=e2egrow-off::כיבוי נכשל — יש לבדוק ידנית"
+            || echo "::error title=e2egrow-off::כיבוי לא בוצע: $(printf '%s' "$OUT" | grep -vE 'eyJ|sb_secret' | tail -n 5 | tr '\n' ' ' | cut -c1-400)"
       - name: Screenshots (e2e only)
         if: always() && (steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign')
         uses: actions/upload-artifact@v5
