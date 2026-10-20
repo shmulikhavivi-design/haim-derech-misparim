@@ -84,7 +84,8 @@ jobs:
       - name: Grow e2e — deploy to Staging (mock Grow, no charges)
         if: steps.mode.outputs.mode == 'e2egrow'
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # טוקן נפרד ומוגבל לפריסת פונקציות Staging בלבד; אם לא קיים — הטוקן הכללי של Staging
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN || secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           REF=ousepgdvzammgkxkweze
@@ -116,7 +117,7 @@ jobs:
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
           STAGING_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ (steps.mode.outputs.mode == 'growperms' && secrets.STAGING_FUNCTIONS_TOKEN) || secrets.SUPABASE_ACCESS_TOKEN }}
           RUN_MODE: ${{ steps.mode.outputs.mode }}
           SUPABASE_STAGING_READ_TOKEN: ${{ secrets.SUPABASE_STAGING_READ_TOKEN }}
           GROW_WEBHOOK_TOKEN: ${{ env.GROW_WEBHOOK_TOKEN }}
@@ -134,7 +135,7 @@ jobs:
       - name: Grow e2e — switch functions off (always)
         if: always() && steps.mode.outputs.mode == 'e2egrow'
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN || secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           REF=ousepgdvzammgkxkweze
           OUT=$(supabase secrets set --project-ref "$REF" GROW_LIVE=0 GROW_MOCK=0 HDM_ENV=staging GROW_API_BASE=https://sandbox.meshulam.co.il/api/light/server/1.0 \
