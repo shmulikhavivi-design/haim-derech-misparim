@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|growsecrets|e2egrow|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|growsecrets|e2egrow|growperms|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -44,6 +44,24 @@ if [ "$MODE" = "growsecrets" ]; then
     v="${!n:-}"; [ -n "$v" ] && L="$L $n=✅(${#v})" || L="$L $n=—"
   done
   say "סודות Grow בסביבה staging:$L"; ann notice "staging-result" "סודות Grow בסביבה staging (קיים/חסר בלבד):$L"
+  exit 0
+fi
+
+# ---- growperms: אילו הרשאות יש לטוקן של Supabase בפרויקט Staging. בקשות שלא משנות כלום:
+#      קריאה, עדכון סודות ריק, ועדכון פונקציה שלא קיימת (403 = אין הרשאה, 404 = יש הרשאה). לא נוגע ב-Production. ----
+if [ "$MODE" = "growperms" ]; then
+  T="${SUPABASE_ACCESS_TOKEN:-}"; unset SUPABASE_ACCESS_TOKEN
+  [ -n "$T" ] || stop "חסר SUPABASE_ACCESS_TOKEN בסביבה staging."
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$T"
+  A="https://api.supabase.com/v1/projects/$STAGING_REF"
+  case "$A" in *"$PRODUCTION_REF"*) stop "Production ref";; esac
+  case "$T" in sbp_fc*) KIND="טוקן מוגבל (scoped)";; sbp_*) KIND="טוקן קלאסי (גישה מלאה)";; *) KIND="סוג לא מזוהה";; esac
+  p(){ local c; c=$(curl -sS -m 20 -o /tmp/pp.json -w '%{http_code}' -X "$1" -H "Authorization: Bearer $T" -H 'Content-Type: application/json' "$A$2" ${3:+-d "$3"} || echo 000)
+       printf '%s %s' "$c" "$(jq -c '.error.missing_permissions // .message // empty' /tmp/pp.json 2>/dev/null | head -c 160)"; }
+  R1=$(p GET /functions); R2=$(p GET /secrets); R3=$(p POST /secrets '[]'); R4=$(p PATCH /functions/hdm-permission-probe-nonexistent '{}')
+  res(){ case "${1%% *}" in 200|201|204) echo "✅";; 404) echo "✅ (404 = מותר, אין פונקציה כזו)";; 401|403) echo "❌ חסרה: ${1#* }";; *) echo "? ${1}";; esac; }
+  MSG="$KIND | Edge Functions קריאה: $(res "$R1") | Edge Function Secrets קריאה: $(res "$R2") | Edge Function Secrets כתיבה: $(res "$R3") | Edge Functions כתיבה/פריסה: $(res "$R4")"
+  unset T; say "$MSG"; ann notice "staging-result" "$MSG"
   exit 0
 fi
 
