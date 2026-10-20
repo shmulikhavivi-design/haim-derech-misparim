@@ -38,27 +38,29 @@ const call = async (method, path, body) => {
 const today = new Date().toISOString().slice(0, 10);
 const plans = [['בסיסי', 29.90], ['פלוס', 48.90], ['VIP', 79.90]];
 for (const [plan, price] of plans) {
-  for (const vatType of [0, 1]) {
+  for (const [vatType, rowVat] of [[0, 1], [0, 2]]) {
     const body = {
       type: 320, lang: 'he', currency: 'ILS', vatType, date: today,
       description: `מנוי ${plan} חודשי — חיים דרך מספרים (תצוגה מקדימה בלבד)`,
       client: { name: 'לקוח בדיקה', emails: [], add: false },
-      income: [{ description: `מנוי ${plan} חודשי`, quantity: 1, price, currency: 'ILS', vatType }],
+      income: [{ description: `מנוי ${plan} חודשי`, quantity: 1, price, currency: 'ILS', vatType: rowVat }],
       payment: [{ type: 3, price, currency: 'ILS', date: today }],
     };
     const r = await call('POST', '/documents/preview', body);
     const file = r.j?.file;
-    if (r.status !== 200 || !file) { say(`❌ תצוגת חשבונית ${plan} (vatType ${vatType}): HTTP ${r.status} — ${scrub(r.j?.errorMessage ?? r.text)}`); continue; }
+    if (r.status !== 200 || !file) { say(`❌ תצוגת חשבונית ${plan} (מסמך ${vatType}, שורה ${rowVat}): HTTP ${r.status} — ${scrub(r.j?.errorMessage ?? r.text)}`); continue; }
     let lines = '';
     try {
       writeFileSync('/tmp/preview.pdf', Buffer.from(file, 'base64'));
       const txt = execFileSync('pdftotext', ['-layout', '/tmp/preview.pdf', '-'], { encoding: 'utf8' });
       lines = txt.split('\n').map((l) => l.trim()).filter((l) => /מע"?מ|סה"?כ|לתשלום|פטור|17|18%|₪/.test(l) && !/@|טל|ח\.?פ|עוסק|רחוב|קיסריה/.test(l)).slice(0, 6).join(' | ');
     } catch (e) { lines = `(לא ניתן לקרוא PDF: ${e.name})`; }
-    say(`✅ תצוגת חשבונית ${plan} ${price} (vatType ${vatType}): ${scrub(lines) || '(אין שורות סכום)'}`);
+    say(`✅ תצוגת חשבונית ${plan} ${price} (מסמך ${vatType}, שורה ${rowVat}): ${scrub(lines) || '(אין שורות סכום)'}`);
   }
 }
 
+{ const r = await call('GET', '/businesses/me'); const b = r.j ?? {}; say(`עסק ב-Morning (שדות מע"מ בלבד): ${JSON.stringify(Object.fromEntries(Object.entries(b).filter(([k]) => /type|vat|exempt|tax/i.test(k) && !/id$/i.test(k))))}`); }
+if (process.env.SKIP_FORM) { flush(); process.exit(0); }
 // ---- 2. יצירת דף תשלום (קישור בלבד — לא נפתח, לא משולם) ----
 {
   const body = {
@@ -72,7 +74,7 @@ for (const [plan, price] of plans) {
   };
   const r = await call('POST', '/payments/form', body);
   const url = typeof r.j?.url === 'string' ? r.j.url : r.j?.url?.he;
-  say(r.status === 200 && url ? `✅ דף תשלום נוצר (קישור לא נפתח ולא שולם): מארח ${new URL(url).host}` : `❌ דף תשלום: HTTP ${r.status} — ${scrub(r.j?.errorMessage ?? r.text)}`);
+  say((r.status === 200 || r.status === 201) && url ? `✅ דף תשלום נוצר (קישור לא נפתח ולא שולם): מארח ${new URL(url).host}` : `❌ דף תשלום: HTTP ${r.status} — ${scrub(r.j?.errorMessage ?? r.text)}`);
   if (r.j && typeof r.j === 'object') say(`  שדות בתשובה (שמות בלבד): ${Object.keys(r.j).join(', ')}`);
 }
 
