@@ -14,18 +14,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { persist-credentials: false }
-      - uses: denoland/setup-deno@v2
-        with: { deno-version: v2.x }
-      - name: Unit tests (no network)
-        run: deno test --no-check supabase/functions/_shared/morning_test.ts
       - name: Auth diagnostics (no charges, no documents)
+        if: always()
+        continue-on-error: true
         env:
           MORNING_CLIENT_ID: ${{ secrets.MORNING_CLIENT_ID }}
           MORNING_CLIENT_SECRET: ${{ secrets.MORNING_CLIENT_SECRET }}
         run: |
-          echo "::add-mask::$MORNING_CLIENT_ID"
-          echo "::add-mask::$MORNING_CLIENT_SECRET"
-          node scripts/morning/auth_diag.mjs
+          echo "::notice title=morning-auth-start::node $(node --version)"
+          node scripts/morning/auth_diag.mjs; echo "::notice title=morning-auth-exit::$?"
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.x }
+      - name: Unit tests (no network)
+        run: deno test --no-check supabase/functions/_shared/morning_test.ts
       - name: Probe Morning (GET only)
         env:
           MORNING_CLIENT_ID: ${{ secrets.MORNING_CLIENT_ID }}
