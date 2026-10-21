@@ -1,0 +1,2 @@
+"docs/openapi.bundled.json"
+fetch("docs/openapi.bundled.json")

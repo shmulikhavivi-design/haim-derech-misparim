@@ -1,0 +1,12 @@
+openapi.json 200
+openapi.yaml 200
+api/openapi.json 200
+api/openapi.yaml 200
+swagger.json 200
+api.json 200
+api.yaml 200
+openapi/openapi.json 200
+spec.json 200
+https://developers.morning.co/docs/openapi.bundled.json 200 497067
+https://developers.morning.co/api/docs/openapi.bundled.json 200 29538
+https://developers.morning.co/assets/docs/openapi.bundled.json 200 29538
