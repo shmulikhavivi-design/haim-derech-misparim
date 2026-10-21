@@ -38,7 +38,7 @@ const call = async (method, path, body) => {
 const today = new Date().toISOString().slice(0, 10);
 const plans = [['בסיסי', 29.90], ['פלוס', 48.90], ['VIP', 79.90]];
 for (const [plan, price] of (process.env.SKIP_PREVIEW ? [] : plans)) {
-  for (const [vatType, rowVat] of [[0, 1], [0, 2]]) {
+  for (const [vatType, rowVat] of [[0, 1]]) {
     const body = {
       type: 320, lang: 'he', currency: 'ILS', vatType, date: today,
       description: `מנוי ${plan} חודשי — חיים דרך מספרים (תצוגה מקדימה בלבד)`,
@@ -61,12 +61,12 @@ for (const [plan, price] of (process.env.SKIP_PREVIEW ? [] : plans)) {
 
 { const r = await call('GET', '/businesses/me'); const b = r.j ?? {}; say(`עסק ב-Morning (שדות מע"מ בלבד): ${JSON.stringify(Object.fromEntries(Object.entries(b).filter(([k]) => /type|vat|exempt|tax/i.test(k) && !/id$/i.test(k))))}`); }
 if (process.env.SKIP_FORM) { flush(); process.exit(0); }
-// ---- 2. יצירת דף תשלום (קישור בלבד — לא נפתח, לא משולם) ----
-{
+// ---- 2. יצירת דף תשלום לכל מסלול (קישור בלבד — לא נפתח, לא משולם) ----
+for (const [plan, price] of [['בסיסי', 29.90], ['פלוס', 48.90], ['VIP', 79.90]]) {
   const body = {
-    description: 'בדיקת חיבור — חיים דרך מספרים (לא לתשלום)', type: 320, lang: 'he', currency: 'ILS', vatType: 0,
-    amount: 29.90, maxPayments: 1,
-    income: [{ description: 'מנוי בסיסי חודשי', quantity: 1, price: 29.90, currency: 'ILS', vatType: 1 }], pluginId: process.env.MORNING_PLUGIN_ID || undefined, group: 100,
+    description: `מנוי ${plan} חודשי — חיים דרך מספרים (בדיקה, לא לתשלום)`, type: 320, lang: 'he', currency: 'ILS', vatType: 0,
+    amount: price, maxPayments: 1,
+    income: [{ description: `מנוי ${plan} חודשי`, quantity: 1, price, currency: 'ILS', vatType: 1 }], pluginId: process.env.MORNING_PLUGIN_ID || undefined, group: 100,
     client: { name: 'לקוח בדיקה', emails: [], add: false },
     successUrl: 'https://haim-derech-misparim.pages.dev/?billing=return&ck=probe',
     failureUrl: 'https://haim-derech-misparim.pages.dev/?billing=failed&ck=probe',
@@ -75,8 +75,7 @@ if (process.env.SKIP_FORM) { flush(); process.exit(0); }
   };
   const r = await call('POST', '/payments/form', body);
   const url = typeof r.j?.url === 'string' ? r.j.url : r.j?.url?.he;
-  say((r.status === 200 || r.status === 201) && url ? `✅ דף תשלום נוצר (קישור לא נפתח ולא שולם): מארח ${new URL(url).host}` : `❌ דף תשלום: HTTP ${r.status} — ${scrub(r.j?.errorMessage ?? r.text)}`);
-  if (r.j && typeof r.j === 'object') say(`  שדות בתשובה (שמות בלבד): ${Object.keys(r.j).join(', ')}`);
+  say((r.status === 200 || r.status === 201) && url ? `✅ דף תשלום ${plan} ₪${price.toFixed(2)} נוצר (קישור לא נפתח ולא שולם): מארח ${new URL(url).host}` : `❌ דף תשלום ${plan}: HTTP ${r.status} — ${scrub(r.j?.errorMessage ?? r.text)}`);
 }
 
 // ---- 3. כרטיסים שמורים (קריאה בלבד) ----

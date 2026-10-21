@@ -32,7 +32,7 @@ jobs:
           MORNING_PLUGIN_ID: 53ed9395-02de-4902-a1dd-28dd3f74a5fa
         run: |
           command -v pdftotext || (sudo apt-get update -q && sudo apt-get install -y -q poppler-utils) >/dev/null
-          SKIP_PREVIEW=1 node scripts/morning/nocharge_e2e.mjs
+          node scripts/morning/nocharge_e2e.mjs
       - uses: denoland/setup-deno@v2
         with: { deno-version: v2.x }
       - name: Unit tests (no network)
