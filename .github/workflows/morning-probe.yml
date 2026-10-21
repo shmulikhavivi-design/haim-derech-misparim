@@ -1,5 +1,5 @@
 # חיים דרך מספרים — בדיקת קיום מפתחות בלבד (בלי ערכים, בלי חיבור לשום שירות).
-# רץ רק ב-push לענף morning-probe/run. סביבת GitHub "production".
+# רץ רק ב-push לענף morning-probe/run. סביבת GitHub "staging".
 name: Morning probe (read-only)
 on: { push: { branches: [ 'morning-probe/run' ] } }
 permissions: { contents: read }
@@ -9,8 +9,13 @@ jobs:
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/morning-probe/run'
     runs-on: ubuntu-24.04
     timeout-minutes: 3
-    environment: production
+    environment: staging
     steps:
+      - name: All secret names (names + length, values never printed)
+        env: { S: '${{ toJSON(secrets) }}' }
+        run: |
+          L=$(printf '%s' "$S" | jq -r 'to_entries | map(select(.key!="github_token")) | map("\(.key)=\(.value|length)") | join(" ")'); unset S
+          echo "::notice title=staging-env-names::$L"
       - name: Key presence only (values never printed)
         env:
           A1: ${{ secrets.MORNING_SANDBOX_CLIENT_ID }}
@@ -26,4 +31,4 @@ jobs:
           for n in MORNING_SANDBOX_CLIENT_ID MORNING_SANDBOX_CLIENT_SECRET STAGING_FUNCTIONS_TOKEN MORNING_CLIENT_ID MORNING_CLIENT_SECRET MORNING_SANDBOX_API_KEY MORNING_SANDBOX_SECRET MORNING_SANDBOX_ID; do
             i=$((i+1)); v=$(eval echo "\${A$i:-}"); [ -n "$v" ] && L="$L $n=✅(${#v})" || L="$L $n=—"
           done
-          echo "::notice title=production-env-keys::$L"
+          echo "::notice title=staging-env-keys::$L"
