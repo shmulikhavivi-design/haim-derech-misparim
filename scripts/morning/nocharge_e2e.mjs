@@ -37,7 +37,7 @@ const call = async (method, path, body) => {
 // ---- 1. תצוגה מקדימה של חשבונית מס/קבלה לכל מסלול, בשני סוגי מע"מ ----
 const today = new Date().toISOString().slice(0, 10);
 const plans = [['בסיסי', 29.90], ['פלוס', 48.90], ['VIP', 79.90]];
-for (const [plan, price] of plans) {
+for (const [plan, price] of (process.env.SKIP_PREVIEW ? [] : plans)) {
   for (const [vatType, rowVat] of [[0, 1], [0, 2]]) {
     const body = {
       type: 320, lang: 'he', currency: 'ILS', vatType, date: today,
@@ -65,7 +65,8 @@ if (process.env.SKIP_FORM) { flush(); process.exit(0); }
 {
   const body = {
     description: 'בדיקת חיבור — חיים דרך מספרים (לא לתשלום)', type: 320, lang: 'he', currency: 'ILS', vatType: 0,
-    amount: 29.90, maxPayments: 1, pluginId: process.env.MORNING_PLUGIN_ID || undefined, group: 100,
+    amount: 29.90, maxPayments: 1,
+    income: [{ description: 'מנוי בסיסי חודשי', quantity: 1, price: 29.90, currency: 'ILS', vatType: 1 }], pluginId: process.env.MORNING_PLUGIN_ID || undefined, group: 100,
     client: { name: 'לקוח בדיקה', emails: [], add: false },
     successUrl: 'https://haim-derech-misparim.pages.dev/?billing=return&ck=probe',
     failureUrl: 'https://haim-derech-misparim.pages.dev/?billing=failed&ck=probe',
