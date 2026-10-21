@@ -1,6 +1,4 @@
-# חיים דרך מספרים — בדיקת חיבור ל-Morning, קריאה בלבד (בלי מסמכים, בלי דפי תשלום, בלי חיובים).
-# רץ רק ב-push לענף morning-probe/run. המפתחות: Environment Secrets בסביבת GitHub "production":
-#   MORNING_CLIENT_ID, MORNING_CLIENT_SECRET. לא מודפסים ולא נשלחים לשום מקום חוץ משרת האימות של Morning.
+# חיים דרך מספרים — בדיקת קיום מפתחות בסביבה production בלבד (בלי ערכים, בלי שינוי בשום מקום).
 name: Morning probe (read-only)
 on: { push: { branches: [ 'morning-probe/run' ] } }
 permissions: { contents: read }
@@ -9,40 +7,22 @@ jobs:
   probe:
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/morning-probe/run'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 3
     environment: production
     steps:
       - uses: actions/checkout@v5
         with: { persist-credentials: false }
-      - name: Auth diagnostics (no charges, no documents)
-        if: always()
-        continue-on-error: true
+      - name: Presence only
         env:
+          NAMES: 'MORNING_CLIENT_ID MORNING_CLIENT_SECRET PRODUCTION_SUPABASE_TOKEN SUPABASE_ACCESS_TOKEN PRODUCTION_DB_URL BREVO_API_KEY BREVO_SMTP_KEY STAGING_FUNCTIONS_TOKEN MORNING_SANDBOX_CLIENT_ID MORNING_SANDBOX_CLIENT_SECRET'
           MORNING_CLIENT_ID: ${{ secrets.MORNING_CLIENT_ID }}
           MORNING_CLIENT_SECRET: ${{ secrets.MORNING_CLIENT_SECRET }}
-        run: |
-          echo "::notice title=morning-auth-start::node $(node --version)"
-          node scripts/morning/auth_diag.mjs; echo "::notice title=morning-auth-exit::$?"
-      - name: No-charge checks (invoice preview, payment link, saved cards)
-        if: always()
-        continue-on-error: true
-        env:
-          MORNING_CLIENT_ID: ${{ secrets.MORNING_CLIENT_ID }}
-          MORNING_CLIENT_SECRET: ${{ secrets.MORNING_CLIENT_SECRET }}
-          MORNING_PLUGIN_ID: 53ed9395-02de-4902-a1dd-28dd3f74a5fa
-        run: |
-          command -v pdftotext || (sudo apt-get update -q && sudo apt-get install -y -q poppler-utils) >/dev/null
-          node scripts/morning/nocharge_e2e.mjs
-      - uses: denoland/setup-deno@v2
-        with: { deno-version: v2.x }
-      - name: Unit tests (no network)
-        run: deno test --no-check supabase/functions/_shared/morning_test.ts
-      - name: Probe Morning (GET only)
-        env:
-          MORNING_CLIENT_ID: ${{ secrets.MORNING_CLIENT_ID }}
-          MORNING_CLIENT_SECRET: ${{ secrets.MORNING_CLIENT_SECRET }}
-          MORNING_PLUGIN_ID: 53ed9395-02de-4902-a1dd-28dd3f74a5fa
-        run: |
-          [ -n "$MORNING_CLIENT_ID" ] && [ -n "$MORNING_CLIENT_SECRET" ] || { echo "::notice title=morning-probe::חסרים MORNING_CLIENT_ID / MORNING_CLIENT_SECRET בסביבה production"; exit 1; }
-          echo "::add-mask::$MORNING_CLIENT_SECRET"
-          deno run --allow-net=api.morning.co,api.sandbox.morning.dev,api.greeninvoice.co.il,sandbox.d.greeninvoice.co.il --allow-env --allow-write scripts/morning/probe.ts
+          PRODUCTION_SUPABASE_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PRODUCTION_DB_URL: ${{ secrets.PRODUCTION_DB_URL }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
+          STAGING_FUNCTIONS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
+          MORNING_SANDBOX_CLIENT_ID: ${{ secrets.MORNING_SANDBOX_CLIENT_ID }}
+          MORNING_SANDBOX_CLIENT_SECRET: ${{ secrets.MORNING_SANDBOX_CLIENT_SECRET }}
+        run: bash scripts/production/secret_names.sh production
