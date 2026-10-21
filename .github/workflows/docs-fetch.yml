@@ -1,0 +1,39 @@
+# מוריד את התיעוד הציבורי של ה-API של Morning (בלי מפתחות, בלי סודות) ושומר אותו בענף docs-fetch/out לקריאה.
+name: Fetch Morning API docs (public, no secrets)
+on: { push: { branches: [ 'docs-fetch/run' ] } }
+permissions: { contents: write }
+jobs:
+  fetch:
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Download page, scripts and OpenAPI spec
+        run: |
+          set -x
+          mkdir -p out && cd out
+          curl -sSL -A 'Mozilla/5.0' https://developers.morning.co/api -o api.html
+          curl -sSL -A 'Mozilla/5.0' https://developers.morning.co/ -o index.html
+          grep -oE '(src|href)="[^"]+"' api.html index.html | sed -E 's/.*="([^"]+)"/\1/' | sort -u > links.txt
+          grep -oE '"[^"]*\.(ya?ml|json)"' api.html index.html | sort -u > spec_candidates.txt || true
+          i=0
+          for u in $(grep -E '\.js($|\?)' links.txt); do
+            case "$u" in http*) U="$u";; /*) U="https://developers.morning.co$u";; *) U="https://developers.morning.co/$u";; esac
+            i=$((i+1)); curl -sSL "$U" -o "js_$i.js"
+            grep -oE '"[^"]*(openapi|swagger|spec)[^"]*\.(ya?ml|json)"|/[A-Za-z0-9_./-]*(openapi|swagger)[A-Za-z0-9_.-]*' "js_$i.js" >> spec_candidates.txt || true
+          done
+          for p in openapi.json openapi.yaml api/openapi.json api/openapi.yaml swagger.json api.json api.yaml openapi/openapi.json spec.json; do
+            c=$(curl -s -o "try_$(echo $p | tr / _)" -w '%{http_code}' "https://developers.morning.co/$p"); echo "$p $c" >> tried.txt
+          done
+          for u in $(sort -u spec_candidates.txt | tr -d '"'); do
+            case "$u" in http*) U="$u";; /*) U="https://developers.morning.co$u";; *) U="https://developers.morning.co/$u";; esac
+            f="cand_$(echo "$u" | tr -c 'A-Za-z0-9._' '_' | cut -c1-60)"; c=$(curl -sSL -o "$f" -w '%{http_code}' "$U"); echo "$U $c $(wc -c < $f)" >> tried.txt
+          done
+          find . -size 0 -delete; ls -la
+      - name: Publish to branch docs-fetch/out
+        run: |
+          cd out
+          git init -q; git checkout -q -b docs-fetch/out
+          git -c user.name=bot -c user.email=bot@example.invalid add -A
+          git -c user.name=bot -c user.email=bot@example.invalid commit -qm "Morning public API docs snapshot"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" docs-fetch/out
