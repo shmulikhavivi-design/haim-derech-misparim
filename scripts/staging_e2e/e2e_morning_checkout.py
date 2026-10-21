@@ -69,18 +69,28 @@ def login(pg):
     except Exception: pass
     pg.wait_for_timeout(800); return pg.evaluate("() => myId")
 
+def step(name, fn):
+    try: return fn()
+    except Exception as e:
+        vis = ''
+        try: vis = pg_dbg[0].evaluate("() => Array.from(document.querySelectorAll('.signup,.about-screen,[id$=-screen]')).filter(e=>getComputedStyle(e).display!=='none' && e.offsetParent!==null || getComputedStyle(e).position==='fixed' && getComputedStyle(e).display!=='none').map(e=>e.id||e.className).slice(0,8).join(',')")
+        except Exception: pass
+        raise RuntimeError(f'{name}: {str(e)[:120]} | visible: {vis}')
+pg_dbg = [None]
 def checkout_and_pay(pg, plan):
+    pg_dbg[0] = pg
     pg.evaluate("() => { try { if (window.hdmEnt) hdmEnt.billing = null; } catch (e) {} }")
     pg.evaluate("() => hdmOpenPlans()")
     try: pg.wait_for_function("() => hdmEnt && hdmEnt.forId === myId && !hdmEnt.error && hdmEnt.billing", timeout=15000)
     except Exception: pass
     pg.wait_for_timeout(400)
-    pg.click(f'#hdm-plan-buy-{plan}'); pg.wait_for_timeout(500)
-    t0 = pg.inner_text('#hdm-checkout-body')
-    pg.click('#hdm-co-pay'); pg.wait_for_timeout(400)
+    step('כפתור הצטרפות במסך המנויים', lambda: pg.locator(f'#hdm-plan-buy-{plan}').click(timeout=8000, force=True))
+    pg.wait_for_timeout(600)
+    t0 = step('עמוד התשלום נפתח', lambda: pg.inner_text('#hdm-checkout-body', timeout=8000))
+    step('לחיצה על תשלום בלי סימון', lambda: pg.locator('#hdm-co-pay').click(timeout=8000, force=True)); pg.wait_for_timeout(400)
     blocked = pg.inner_text('#hdm-co-msg')
-    pg.check('#hdm-co-accept'); pg.wait_for_timeout(200)
-    pg.click('#hdm-co-pay')
+    step('סימון התקנון', lambda: pg.locator('#hdm-co-accept').check(timeout=8000, force=True)); pg.wait_for_timeout(300)
+    step('לחיצה על תשלום', lambda: pg.locator('#hdm-co-pay').click(timeout=8000, force=True))
     try: pg.wait_for_function("() => !hdmCo.busy && hdmCo.msg && !/פותחים/.test(hdmCo.msg)", timeout=20000)
     except Exception: pass
     pg.wait_for_timeout(300)
