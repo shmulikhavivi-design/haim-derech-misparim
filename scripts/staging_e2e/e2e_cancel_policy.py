@@ -184,7 +184,8 @@ def run_browser(pw, name, launcher, ctx_opts):
     # --- חינם ---
     c = ctx_new(); pg = new_page(c, APP)
     check(P + 'חינם: התחברות', login(pg, 'free') == IDS['free'])
-    check(P + 'מסך ראשי: קישור "ניהול מנוי"', 'ניהול מנוי' in pg.inner_text('#hdm-plans-link'))
+    wait_plan(pg)
+    check(P + 'מסך ראשי (חינם): קישור "הצטרפות למנוי"', 'הצטרפות למנוי' in pg.inner_text('#hdm-plans-link'))
     # האזור האישי ("הפרופיל שלי"): כפתור "ביטול מנוי" בולט
     # כמו משתמש: מחכים שמסך ההתאמות סיים להיטען (אחרי התחברות האפליקציה עוברת אליו בעצמה), ואז מקישים "הפרופיל שלי"
     try: pg.wait_for_selector('#screen-match.active', timeout=20000)
@@ -197,19 +198,21 @@ def run_browser(pw, name, launcher, ctx_opts):
         pg.wait_for_timeout(1000)
         if pg.locator('#screen-profile.active').count() == 1: break
         pg.evaluate("() => go('screen-match')"); pg.wait_for_timeout(1500)
-    check(P + 'הפרופיל שלי: יש "ניהול מנוי" ו"ביטול מנוי"', pg.locator('#profile-manage-sub').count() == 1 and pg.locator('#profile-cancel-sub').count() == 1)
+    check(P + 'הפרופיל שלי: יש "הצטרפות למנוי" ו"ביטול מנוי"', 'הצטרפות למנוי' in pg.inner_text('#profile-manage-sub') and pg.locator('#profile-cancel-sub').count() == 1)
     touch_ok(pg, '#profile-cancel-sub', P + 'כפתור "ביטול מנוי" בפרופיל', 48)
     tap(pg, '#profile-cancel-sub'); wait_plan(pg)
     check(P + 'הפרופיל: "ביטול מנוי" פותח ישר את שלב האישור', pg.locator('#hdm-cancel-info').count() == 1 and pg.locator('#hdm-cancel-confirm').is_visible())
     pg.evaluate("() => { hdmCloseLayer('hdm-plans-screen'); go('screen-match'); }")
     pg.evaluate("() => hdmOpenPlans()"); wait_plan(pg)
     t = pg.inner_text('#hdm-plans-body')
-    check(P + 'כותרת: "ניהול מנוי"', pg.inner_text('#hdm-plans-screen .about-title').strip() == 'ניהול מנוי')
-    check(P + 'יש כפתור "ביטול מנוי" בניהול המנוי', pg.locator('#hdm-bill-cancel').count() == 1)
-    touch_ok(pg, '#hdm-bill-cancel', P + 'כפתור "ביטול מנוי" בניהול המנוי', 48)
+    check(P + 'כותרת (חינם): "הצטרפות למנוי"', pg.inner_text('#hdm-plans-screen .about-title').strip() == 'הצטרפות למנוי')
+    check(P + 'חינם: אין כפתור "ביטול מנוי" במסך המנויים', pg.locator('#hdm-bill-cancel').count() == 0)
+    check(P + 'חינם: שלושת המסלולים בראש המסך עם כפתור הצטרפות', all(pg.locator(f'#hdm-plan-buy-{k}').count() == 1 for k in ('basic', 'plus', 'vip'))
+          and pg.evaluate("() => document.querySelector('#hdm-plans-body .hdm-plan').id") == 'hdm-plan-card-basic')
     check(P + 'לפני רכישה: הסבר חידוש וביטול + קישור למדיניות', pg.locator('#hdm-plans-policy a').count() == 2 and 'מתחדשים אוטומטית' in t, t[-300:])
-    check(P + 'אין אפשרות רכישה: כל כפתורי המסלולים כבויים', pg.locator('.hdm-plan-btn:not([disabled])').count() == 0 and 'בקרוב' in t)
-    tap(pg, '#hdm-bill-cancel')
+    # מאז עמוד התשלום (Grow): המסלולים בתשלום מובילים לעמוד התשלום; הסליקה כבויה ואין חיוב (נבדק ב-e2e_checkout.py)
+    check(P + 'מסלולים בתשלום מובילים לעמוד התשלום, בלי חיוב', pg.locator('.hdm-plan-btn.is-buy').count() >= 2 and pg.evaluate('HDM_CHECKOUT.live') is False)
+    pg.evaluate("() => { hdmCloseLayer('hdm-plans-screen'); hdmCancelEntry(); }"); wait_plan(pg)   # כמו "ביטול מנוי" בפרופיל
     t = pg.inner_text('#hdm-plans-body')
     check(P + 'שלב 1: מצב המנוי — אין מנוי בתשלום ולא בוצע חיוב', 'אין לך מנוי בתשלום' in t and 'לא בוצע שום חיוב' in t and 'חינם' in t, t[:400])
     check(P + 'שלב 1: מה קורה בביטול (חידוש נעצר, עד סוף התקופה, בלי החזר יחסי, זכויות החוק נשמרות, לא מוחק חשבון)',
@@ -237,6 +240,12 @@ def run_browser(pw, name, launcher, ctx_opts):
     # --- פלוס ידני (ללא תשלום) ---
     c = ctx_new(); pg = new_page(c, APP)
     check(P + 'ותיקה: התחברות', login(pg, 'plus') == IDS['plus'])
+    wait_plan(pg)
+    check(P + 'ותיקה (מנוי פעיל): "ניהול מנוי"', 'ניהול מנוי' in pg.inner_text('#hdm-plans-link'))
+    pg.evaluate("() => hdmOpenPlans()"); wait_plan(pg)
+    check(P + 'ותיקה: כפתור "ביטול מנוי" ושדרוג ל-VIP בלבד', pg.locator('#hdm-bill-cancel').count() == 1 and pg.locator('#hdm-plan-buy-vip').count() == 1
+          and pg.locator('#hdm-plan-buy-basic').count() == 0 and pg.locator('#hdm-plan-buy-plus').count() == 0)
+    pg.evaluate("() => hdmCloseLayer('hdm-plans-screen')")
     pg.evaluate("() => hdmCancelEntry()"); wait_plan(pg)
     t = pg.inner_text('#hdm-plans-body')
     check(P + 'ותיקה: "המסלול הוגדר ללא תשלום"', 'הוגדר לך ללא תשלום' in t and 'פלוס' in t, t[:400])

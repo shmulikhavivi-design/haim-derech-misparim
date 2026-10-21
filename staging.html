@@ -684,6 +684,38 @@
   .hdm-bill-row button.primary{ background:#E2B769; color:#1a1526; }
   .hdm-bill-row button:disabled{ opacity:.45; }
   .hdm-plan .hdm-plan-btn.buy{ color:#F2D59A; border-color:#E2B769; }
+  .hdm-plan .hdm-plan-btn.is-buy{ min-height:44px; color:#F2D59A; border-color:#E2B769; font-weight:600; cursor:pointer; touch-action:manipulation; }
+  /* עמוד תשלום (דרישת Grow): פרטי המנוי, המחיר, החידוש, תנאי הביטול ותיבת אישור תקנון חובה */
+  .signup.hdm-checkout{ z-index:140; }   /* מתחת למסמכים (150) — קישורי התקנון נפתחים מעליו */
+  #hdm-checkout-screen .signup-back{ min-height:44px; }
+  #hdm-checkout-screen .signup-inner{ padding-top:max(22px, env(safe-area-inset-top)); padding-bottom:max(36px, env(safe-area-inset-bottom)); }
+  .hdm-co-tabs{ display:flex; gap:8px; margin:0 0 14px; }
+  .hdm-co-tabs button{ flex:1; min-height:44px; border-radius:12px; border:1px solid rgba(226,183,105,.45); background:transparent; color:#E3D9CC;
+    font-family:'Heebo',sans-serif; font-size:14.5px; font-weight:500; cursor:pointer; touch-action:manipulation; }
+  .hdm-co-tabs button[aria-pressed="true"]{ background:#E2B769; color:#1a1526; border-color:#E2B769; font-weight:700; }
+  .hdm-co-box{ border:1px solid rgba(226,183,105,.55); border-radius:16px; padding:14px 16px; margin:0 0 14px; background:rgba(255,255,255,.04); color:#F2EADF; font-size:14.5px; line-height:1.7; }
+  .hdm-co-box h3{ font-family:'Frank Ruhl Libre',serif; color:#F2D59A; font-size:18px; margin:0 0 8px; }
+  .hdm-co-box b{ color:#F2D59A; }
+  .hdm-co-box ul{ margin:6px 0 0; padding:0 18px 0 0; color:#E3D9CC; font-size:14px; }
+  .hdm-co-row{ display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-bottom:1px solid rgba(226,183,105,.18); }
+  .hdm-co-row:last-child{ border-bottom:none; }
+  .hdm-co-row span:first-child{ color:#BFB4A6; }
+  .hdm-co-row span:last-child{ text-align:left; font-weight:500; }
+  .hdm-co-total{ font-size:17px; }
+  .hdm-co-box a, .hdm-co-check a, .hdm-co-links a{ color:#E2B769; text-decoration:underline; }
+  .hdm-co-check{ display:flex; gap:12px; align-items:flex-start; border:1.5px solid #E2B769; border-radius:14px; padding:14px; margin:0 0 12px;
+    background:rgba(226,183,105,.08); color:#F2EADF; font-size:14.5px; line-height:1.65; cursor:pointer; }
+  .hdm-co-check.is-error{ border-color:#E58B7B; background:rgba(214,92,74,.14); }
+  .hdm-co-check input{ width:26px; height:26px; min-width:26px; margin:2px 0 0; accent-color:#E2B769; cursor:pointer; }
+  .hdm-co-req{ color:#E58B7B; font-weight:700; }
+  .hdm-co-pay{ display:block; width:100%; min-height:52px; border-radius:14px; border:1px solid #E2B769; background:#E2B769; color:#1a1526;
+    font-family:'Heebo',sans-serif; font-size:16.5px; font-weight:700; cursor:pointer; touch-action:manipulation; -webkit-appearance:none; appearance:none; }
+  .hdm-co-pay[aria-disabled="true"]{ background:transparent; color:#A99E90; border-color:rgba(226,183,105,.45); }
+  .hdm-co-pay:focus-visible, .hdm-co-tabs button:focus-visible{ outline:2px solid #F8DFA4; outline-offset:2px; }
+  .hdm-co-msg{ margin:10px 0 0; font-size:14px; line-height:1.6; text-align:center; color:#F2D59A; }
+  .hdm-co-msg.is-error{ color:#F0A396; }
+  .hdm-co-links{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px 14px; margin:16px 0 6px; font-size:13.5px; }
+  .hdm-co-secure{ text-align:center; color:#BFB4A6; font-size:13px; margin:10px 0 0; }
   .hdm-badge{ display:inline-block; font-size:11.5px; color:#1a1526; background:#E2B769; border-radius:999px; padding:1px 9px; margin-inline-start:6px; vertical-align:middle; font-weight:600; }
   .hdm-vip-book{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
   .hdm-vip-book a{ flex:1; min-width:120px; text-align:center; text-decoration:none; border:1px solid #E2B769; color:#F2D59A; border-radius:12px; padding:10px; font-size:14px; }
@@ -785,7 +817,7 @@
     <div class="hint" id="match-hint">לחצו על המטרה אם יש עניין</div>
     <div class="my-chats-link" id="my-chats-link">💬 השיחות שלי<span class="unread-badge" id="my-chats-badge" style="display:none"></span></div>
     <div class="my-chats-link" id="my-profile-link">👤 הפרופיל שלי</div>
-    <div class="hdm-sub-links"><span id="hdm-liked-link" onclick="hdmOpenLikedMe()">🎯 מי סימן אותי</span><span aria-hidden="true">·</span><span id="hdm-plans-link" onclick="hdmOpenPlans()">💎 ניהול מנוי</span></div>
+    <div class="hdm-sub-links"><span id="hdm-liked-link" onclick="hdmOpenLikedMe()">🎯 מי סימן אותי</span><span aria-hidden="true">·</span><span id="hdm-plans-link" onclick="hdmOpenPlans()">💎 הצטרפות למנוי</span></div>
   </div>
 
   <!-- הגדרות, פרטיות ובטיחות -->
@@ -794,7 +826,7 @@
     <div class="lead" style="margin:12px 0 4px;"><h2>הגדרות ופרטיות</h2></div>
     <div class="set-group">
       <div class="set-title">מנוי</div>
-      <button type="button" class="set-row" onclick="hdmOpenPlans()"><span>💎 ניהול מנוי</span><b id="set-plan-name">‹</b></button>
+      <button type="button" class="set-row" onclick="hdmOpenPlans()"><span id="set-plans-label">💎 הצטרפות למנוי</span><b id="set-plan-name">‹</b></button>
       <button type="button" class="set-row" id="set-cancel-sub" onclick="hdmCancelEntry()"><span>✖️ ביטול מנוי</span><b>‹</b></button>
     </div>
     <div class="set-group">
@@ -865,7 +897,7 @@
     <div class="my-chats-link" onclick="openSettings()">☰ הגדרות, פרטיות ובטיחות</div>
     <div class="hdm-account-box" id="profile-account-box">
       <div class="set-title">החשבון והמנוי שלי</div>
-      <button type="button" class="hdm-acc-manage" id="profile-manage-sub" onclick="hdmOpenPlans()">💎 ניהול מנוי</button>
+      <button type="button" class="hdm-acc-manage" id="profile-manage-sub" onclick="hdmOpenPlans()">💎 הצטרפות למנוי</button>
       <button type="button" class="hdm-cancel-btn" id="profile-cancel-sub" onclick="hdmCancelEntry()">ביטול מנוי</button>
       <p class="legal-links" style="text-align:center"><a href="#" onclick="openLegal('cancel');return false;">מדיניות ביטול מנוי</a> · <a href="#" onclick="openLegal('business');return false;">מחירים ופרטי העסק</a></p>
     </div>
@@ -1191,8 +1223,16 @@
   <div class="signup about hdm-layer" id="hdm-plans-screen" aria-hidden="true">
     <div class="signup-inner">
       <button type="button" class="signup-back" onclick="hdmCloseLayer('hdm-plans-screen')"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
-      <h2 class="about-title">ניהול מנוי</h2>
+      <h2 class="about-title" id="hdm-plans-title">הצטרפות למנוי</h2>
       <div id="hdm-plans-body"></div>
+    </div>
+  </div>
+  <!-- עמוד תשלום: פתוח גם בלי חשבון (#checkout, #checkout-basic, #checkout-plus, #checkout-vip) -->
+  <div class="signup about hdm-layer hdm-checkout" id="hdm-checkout-screen" aria-hidden="true" role="dialog" aria-labelledby="hdm-checkout-title">
+    <div class="signup-inner">
+      <button type="button" class="signup-back" onclick="hdmCloseCheckout()"><svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>חזרה</button>
+      <h2 class="about-title" id="hdm-checkout-title">הצטרפות למנוי — עמוד תשלום</h2>
+      <div id="hdm-checkout-body"></div>
     </div>
   </div>
   <div class="signup about hdm-layer" id="hdm-analysis-screen" aria-hidden="true">
@@ -4030,6 +4070,52 @@
   /* ביצועים באייפון: בלי טשטוש רקע ובלי אנימציות רקע */
   @media (prefers-reduced-motion: reduce){ .skip-btn, .target-btn{ transition:none; } }
 </style>
+<style id="hdm-rose">
+  /* ===== ורוד עתיק עמוק (#994F69) במקום הסגול — רק במסכים הפנימיים =====
+     שכבת צבע בלבד. לא חלה על מסך הפתיחה, מסך הבחירה הרשמה/התחברות, טופס ההרשמה, החלונות של התחברות/הרשמה ומסמכי התקנון.
+     הרקע הכחול-לילי, הזהב והגלגל הנומרולוגי נשארים כמו שהם. */
+  :root{ --rose-deep:#994F69; --rose-deep-rgb:153,79,105; }
+  .phone:not(:has(#screen-register.active)){
+    --muted:#BFA2AD;
+    background:
+      url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20600%20600%22%20fill%3D%22none%22%20stroke%3D%22%23E2B769%22%20stroke-opacity%3D%22.09%22%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%22292%22%20stroke-width%3D%221.4%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%22268%22%20stroke-width%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%22214%22%20stroke-width%3D%221.1%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%22150%22%20stroke-width%3D%220.8%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%2292%22%20stroke-width%3D%221%22%2F%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%22300%22%20r%3D%2240%22%20stroke-width%3D%220.8%22%2F%3E%3Cline%20x1%3D%22568.0%22%20y1%3D%22300.0%22%20x2%3D%22592.0%22%20y2%3D%22300.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22571.8%22%20y1%3D%22347.9%22%20x2%3D%22581.7%22%20y2%3D%22349.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22559.4%22%20y1%3D%22394.4%22%20x2%3D%22568.8%22%20y2%3D%22397.8%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22539.0%22%20y1%3D%22438.0%22%20x2%3D%22547.7%22%20y2%3D%22443.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22505.3%22%20y1%3D%22472.3%22%20x2%3D%22523.7%22%20y2%3D%22487.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22477.4%22%20y1%3D%22511.4%22%20x2%3D%22483.8%22%20y2%3D%22519.1%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22438.0%22%20y1%3D%22539.0%22%20x2%3D%22443.0%22%20y2%3D%22547.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22394.4%22%20y1%3D%22559.4%22%20x2%3D%22397.8%22%20y2%3D%22568.8%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22346.5%22%20y1%3D%22563.9%22%20x2%3D%22350.7%22%20y2%3D%22587.6%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22300.0%22%20y1%3D%22576.0%22%20x2%3D%22300.0%22%20y2%3D%22586.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22252.1%22%20y1%3D%22571.8%22%20x2%3D%22250.3%22%20y2%3D%22581.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22205.6%22%20y1%3D%22559.4%22%20x2%3D%22202.2%22%20y2%3D%22568.8%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22166.0%22%20y1%3D%22532.1%22%20x2%3D%22154.0%22%20y2%3D%22552.9%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22122.6%22%20y1%3D%22511.4%22%20x2%3D%22116.2%22%20y2%3D%22519.1%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2288.6%22%20y1%3D%22477.4%22%20x2%3D%2280.9%22%20y2%3D%22483.8%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2261.0%22%20y1%3D%22438.0%22%20x2%3D%2252.3%22%20y2%3D%22443.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2248.2%22%20y1%3D%22391.7%22%20x2%3D%2225.6%22%20y2%3D%22399.9%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2228.2%22%20y1%3D%22347.9%22%20x2%3D%2218.3%22%20y2%3D%22349.7%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2224.0%22%20y1%3D%22300.0%22%20x2%3D%2214.0%22%20y2%3D%22300.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2228.2%22%20y1%3D%22252.1%22%20x2%3D%2218.3%22%20y2%3D%22250.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2248.2%22%20y1%3D%22208.3%22%20x2%3D%2225.6%22%20y2%3D%22200.1%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2261.0%22%20y1%3D%22162.0%22%20x2%3D%2252.3%22%20y2%3D%22157.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%2288.6%22%20y1%3D%22122.6%22%20x2%3D%2280.9%22%20y2%3D%22116.2%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22122.6%22%20y1%3D%2288.6%22%20x2%3D%22116.2%22%20y2%3D%2280.9%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22166.0%22%20y1%3D%2267.9%22%20x2%3D%22154.0%22%20y2%3D%2247.1%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22205.6%22%20y1%3D%2240.6%22%20x2%3D%22202.2%22%20y2%3D%2231.2%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22252.1%22%20y1%3D%2228.2%22%20x2%3D%22250.3%22%20y2%3D%2218.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22300.0%22%20y1%3D%2224.0%22%20x2%3D%22300.0%22%20y2%3D%2214.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22346.5%22%20y1%3D%2236.1%22%20x2%3D%22350.7%22%20y2%3D%2212.4%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22394.4%22%20y1%3D%2240.6%22%20x2%3D%22397.8%22%20y2%3D%2231.2%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22438.0%22%20y1%3D%2261.0%22%20x2%3D%22443.0%22%20y2%3D%2252.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22477.4%22%20y1%3D%2288.6%22%20x2%3D%22483.8%22%20y2%3D%2280.9%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22505.3%22%20y1%3D%22127.7%22%20x2%3D%22523.7%22%20y2%3D%22112.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22539.0%22%20y1%3D%22162.0%22%20x2%3D%22547.7%22%20y2%3D%22157.0%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22559.4%22%20y1%3D%22205.6%22%20x2%3D%22568.8%22%20y2%3D%22202.2%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22571.8%22%20y1%3D%22252.1%22%20x2%3D%22581.7%22%20y2%3D%22250.3%22%20stroke-width%3D%22.7%22%2F%3E%3Cline%20x1%3D%22300.0%22%20y1%3D%22208.0%22%20x2%3D%22300.0%22%20y2%3D%2286.0%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22300.0%22%20y%3D%2268.0%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E1%3C%2Ftext%3E%3Cline%20x1%3D%22359.1%22%20y1%3D%22229.5%22%20x2%3D%22437.6%22%20y2%3D%22136.1%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22454.9%22%20y%3D%22124.4%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E2%3C%2Ftext%3E%3Cline%20x1%3D%22390.6%22%20y1%3D%22284.0%22%20x2%3D%22510.7%22%20y2%3D%22262.8%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22537.3%22%20y%3D%22267.2%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E3%3C%2Ftext%3E%3Cline%20x1%3D%22379.7%22%20y1%3D%22346.0%22%20x2%3D%22485.3%22%20y2%3D%22407.0%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22508.7%22%20y%3D%22429.5%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E4%3C%2Ftext%3E%3Cline%20x1%3D%22331.5%22%20y1%3D%22386.5%22%20x2%3D%22373.2%22%20y2%3D%22501.1%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22382.4%22%20y%3D%22535.5%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E5%3C%2Ftext%3E%3Cline%20x1%3D%22268.5%22%20y1%3D%22386.5%22%20x2%3D%22226.8%22%20y2%3D%22501.1%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22217.6%22%20y%3D%22535.5%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E6%3C%2Ftext%3E%3Cline%20x1%3D%22220.3%22%20y1%3D%22346.0%22%20x2%3D%22114.7%22%20y2%3D%22407.0%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%2291.3%22%20y%3D%22429.5%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E7%3C%2Ftext%3E%3Cline%20x1%3D%22209.4%22%20y1%3D%22284.0%22%20x2%3D%2289.3%22%20y2%3D%22262.8%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%2262.7%22%20y%3D%22267.2%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E8%3C%2Ftext%3E%3Cline%20x1%3D%22240.9%22%20y1%3D%22229.5%22%20x2%3D%22162.4%22%20y2%3D%22136.1%22%20stroke-width%3D%22.7%22%2F%3E%3Ctext%20x%3D%22145.1%22%20y%3D%22124.4%22%20text-anchor%3D%22middle%22%20font-family%3D%22Georgia%2Cserif%22%20font-size%3D%2226%22%20fill%3D%22%23E2B769%22%20fill-opacity%3D%22.11%22%20stroke%3D%22none%22%3E9%3C%2Ftext%3E%3Cpolygon%20points%3D%22300.0%2C150.0%20351.3%2C441.0%20203.6%2C185.1%20429.9%2C375.0%20152.3%2C274.0%20447.7%2C274.0%20170.1%2C375.0%20396.4%2C185.1%20248.7%2C441.0%22%20stroke-width%3D%22.6%22%2F%3E%3C%2Fsvg%3E") center 46% / 132% auto no-repeat,
+      radial-gradient(ellipse 80% 45% at 50% 0%, rgba(153,79,105,.30), transparent 70%),
+      radial-gradient(ellipse 70% 40% at 50% 100%, rgba(102,44,68,.45), transparent 75%),
+      linear-gradient(180deg,#0A0F26 0%,#0B1028 45%,#1A0F1E 100%);
+  }
+  .hdm-layer{ --muted:#BFA2AD; background:linear-gradient(180deg,#070c1f 0%,#0c1330 60%,#1E1020 100%); }
+  /* טקסט כהה על כפתורי זהב (היה סגול-כהה) */
+  .hdm-plan.is-current .hdm-plan-btn, .hdm-co-tabs button[aria-pressed="true"], .hdm-co-pay, .hdm-badge{ color:#26101B; }
+  .hdm-co-pay[aria-disabled="true"]{ color:#A99E90; }
+  .screen:not(#screen-register) .field input::placeholder, .composer input::placeholder,
+  .screen:not(#screen-register) .field textarea::placeholder{ color:#9C7E8A; }
+  .photo{ background-image:linear-gradient(160deg,#1E2552,#2A1424); }
+  .why{ color:#E6CCD5; }
+  .hdm-sheet p, .hdm-sheet ul{ color:#E6CCD5; }
+  .skip-btn{ border-color:rgba(153,79,105,.85); }
+  .conn .glow{ background:radial-gradient(circle,rgba(226,183,105,.38),rgba(153,79,105,.26) 55%,transparent 72%); }
+  .hdm-liked-row .avatar{ background-color:#3A1D2B; }
+
+  /* ---- כפתורים והדגשות בוורוד עתיק (לפי ההדמיה המאושרת). מסגרות וכותרות נשארות זהב.
+         לא חל על מסך ההרשמה (#screen-register) ועל מסכי ההתחברות/ההרשמה (.auth-*, .signup שאינו שכבה פנימית) ---- */
+  :root{ --rose-btn:linear-gradient(180deg,#B0607F 0%,#994F69 55%,#7C3E56 100%); --rose-ink:#FFF3EE; --rose-edge:rgba(242,213,154,.55); }
+  .screen:not(#screen-register) .btn, .composer button, .sheet-btn.primary, .msg.me,
+  .hdm-plan .hdm-plan-btn.is-buy, .hdm-co-pay:not([aria-disabled="true"]), .hdm-co-tabs button[aria-pressed="true"]{
+    background:var(--rose-btn); color:var(--rose-ink); border:1px solid var(--rose-edge);
+    box-shadow:0 6px 18px rgba(153,79,105,.35), inset 0 1px 0 rgba(255,255,255,.14);
+  }
+  .msg.me{ box-shadow:0 4px 12px rgba(153,79,105,.28); }
+  .hdm-plan .hdm-plan-btn.is-buy{ font-weight:700; }
+  /* ❌ ו-🎯: עיגולים בוורוד עתיק עם מסגרת זהב דקה (האייקונים עצמם לא משתנים) */
+  .skip-btn{ background:radial-gradient(circle at 35% 30%,#B0607F,#7C3E56 78%); border:1.5px solid var(--rose-edge); box-shadow:0 6px 18px rgba(153,79,105,.35), 0 6px 18px rgba(0,0,0,.35); }
+  .target-btn{ background:radial-gradient(circle at 35% 30%,#B0607F,#7C3E56 78%); border:2px solid #E2B769;
+    box-shadow:0 0 0 5px rgba(153,79,105,.16), 0 0 24px rgba(153,79,105,.45), 0 8px 22px rgba(0,0,0,.5); }
+  /* הדגשות: שורת תפריט בלחיצה, תגית "לא נקראו", תגית מנוי, כפתור ביטול מנוי */
+  .set-row:active, .set-row:focus-visible{ background:rgba(153,79,105,.55); }
+  .unread-badge, .hdm-badge{ background:#994F69; color:var(--rose-ink); }
+  .hdm-cancel-btn{ background:var(--rose-btn); color:var(--rose-ink); border:1px solid var(--rose-edge); }
+  .hdm-co-check input{ accent-color:#994F69; }
+</style>
 <script>
   (function keepChatAboveKeyboard(){
     // תיקון מקלדת ל-Safari באייפון:
@@ -5277,6 +5363,7 @@
     if(window.__hdmRecoveryMode || !h) return;
     if(HDM_DOC_HASH[h]) openLegal(HDM_DOC_HASH[h]);
     else if(h === 'cancel') hdmCancelEntry();
+    else if(/^checkout(-(basic|plus|vip))?$/.test(h)) hdmOpenCheckout(h.split('-')[1] || 'plus');
   }
   window.addEventListener('hashchange', hdmOpenDocFromHash);
   window.addEventListener('load', function(){ setTimeout(hdmOpenDocFromHash, 0); });
@@ -6022,6 +6109,15 @@
     try{ if(hdmIsActive('screen-chat')) hdmApplyChatPlan(); }catch(e){}
     try{ if(hdmIsActive('screen-chats') && typeof lastListDocs !== 'undefined' && lastListDocs) renderConversations(lastListDocs); }catch(e){}
     try{ if(hdmLayerOpen('hdm-plans-screen')) hdmRenderPlans(); }catch(e){}
+    try{ hdmApplyPlansLabels(); }catch(e){}
+  }
+  // מנוי פעיל = מסלול בתשלום (בסיסי/פלוס/VIP). בלי מנוי פעיל: "הצטרפות למנוי"; עם מנוי פעיל: "ניהול מנוי"
+  var HDM_PLAN_RANK = { free: 0, basic: 1, plus: 2, vip: 3 };
+  function hdmHasActiveSub(){ var p = hdmPlanId(); return !!(p && p !== 'free'); }
+  function hdmApplyPlansLabels(){
+    var sub = hdmHasActiveSub(), label = sub ? '💎 ניהול מנוי' : '💎 הצטרפות למנוי';
+    ['hdm-plans-link', 'set-plans-label', 'profile-manage-sub'].forEach(function(id){ var el = document.getElementById(id); if(el) el.textContent = label; });
+    var t = document.getElementById('hdm-plans-title'); if(t) t.textContent = sub ? 'ניהול מנוי' : 'הצטרפות למנוי';
   }
 
   // ---- מסך המנויים ----
@@ -6034,48 +6130,204 @@
     html += '<a href="mailto:' + HDM_LIMOR_EMAIL + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body) + '">✉️ אימייל</a>';
     return html + '</div>';
   }
+  function hdmPlanCardHtml(k, btn){
+    var info = HDM_PLAN_INFO[k], cur = hdmPlanId() === k;
+    var html = '<div class="hdm-plan' + (cur ? ' is-current' : '') + '" id="hdm-plan-card-' + k + '">';
+    html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
+    html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
+    if(k === 'vip' && cur) html += hdmVipBookingHtml();
+    return html + btn + '</div>';
+  }
+  function hdmBuyBtn(k, text){ return '<button type="button" class="hdm-plan-btn is-buy" id="hdm-plan-buy-' + k + '" onclick="hdmOpenCheckout(\'' + k + '\')">' + text + '</button>'; }
+  function hdmOffBtn(text){ return '<button type="button" class="hdm-plan-btn" disabled>' + text + '</button>'; }
   function hdmRenderPlans(){
     var body = document.getElementById('hdm-plans-body');
     if(!body) return;
-    var e = hdmPlanKnown() ? hdmEnt : null, plan = hdmPlanId();
+    try{ hdmApplyPlansLabels(); }catch(x){}
+    var e = hdmPlanKnown() ? hdmEnt : null, plan = hdmPlanId(), sub = hdmHasActiveSub();
     var html = '';
     if(hdmPlansMsg) html += '<p class="hdm-note" style="color:#F2D59A">' + hdmEsc(hdmPlansMsg) + '</p>';
-    html += '<div class="hdm-current">';
-    if(!myId) html += 'יש להתחבר כדי לראות את המנוי.';
-    else if(!e) html += 'בודקים את המנוי שלך…';
-    else if(e.error) html += 'לא הצלחנו לבדוק את המנוי כרגע. נסו שוב בעוד רגע.';
-    else if(!e.installed) html += 'מערכת המנויים עדיין לא הופעלה. בינתיים כל האפשרויות הקיימות פתוחות, בדיוק כמו היום.';
+    var cur = '<div class="hdm-current" id="hdm-plans-status">';
+    if(!myId) cur += 'כדי שהמנוי יופעל בחשבון שלך, יש להתחבר לפני התשלום.';
+    else if(!e) cur += 'בודקים את המנוי שלך…';
+    else if(e.error) cur += 'לא הצלחנו לבדוק את המנוי כרגע. נסו שוב בעוד רגע.';
+    else if(!e.installed) cur += 'מערכת המנויים עדיין לא הופעלה. בינתיים כל האפשרויות הקיימות פתוחות, בדיוק כמו היום.';
     else{
-      html += 'המסלול שלך: <b>' + hdmEsc(HDM_PLAN_INFO[plan].name) + '</b>' + (e.source === 'test' ? '<span class="hdm-badge">מנוי בדיקה</span>' : '');
+      cur += 'המסלול שלך: <b>' + hdmEsc(HDM_PLAN_INFO[plan].name) + '</b>' + (e.source === 'test' ? '<span class="hdm-badge">מנוי בדיקה</span>' : '');
       if(plan === 'basic'){
-        html += '<br>שיחות חדשות החודש: נותרו <b>' + (e.chatsLeft == null ? '—' : e.chatsLeft) + '</b> מתוך ' + (e.chatsLimit || 5);
-        if(e.periodReset) html += '<br>המכסה מתחדשת ב־' + hdmFmtDate(e.periodReset);
+        cur += '<br>שיחות חדשות החודש: נותרו <b>' + (e.chatsLeft == null ? '—' : e.chatsLeft) + '</b> מתוך ' + (e.chatsLimit || 5);
+        if(e.periodReset) cur += '<br>המכסה מתחדשת ב־' + hdmFmtDate(e.periodReset);
       }
-      if(e.periodEnd) html += '<br>בתוקף עד ' + hdmFmtDate(e.periodEnd);
+      if(e.periodEnd) cur += '<br>בתוקף עד ' + hdmFmtDate(e.periodEnd);
     }
-    html += '</div>';
-    var billHtml = hdmBillingHtml(e, plan);
-    html += billHtml || hdmManageHtml(e, plan);
-    var bl = e && !e.error && e.billing, canBuy = !!(bl && (HDM_BILLING_LIVE || HDM_BILLING_PREVIEW) && !bl.paid && !bl.pendingCheckout);
-    var canUp = !!(bl && (HDM_BILLING_LIVE || HDM_BILLING_PREVIEW) && bl.paid && bl.autoRenew && bl.status === 'active' && !bl.pendingCheckout);
-    HDM_PLAN_ORDER.forEach(function(k){
-      var info = HDM_PLAN_INFO[k], cur = plan === k;
-      html += '<div class="hdm-plan' + (cur ? ' is-current' : '') + '">';
-      html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
-      html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
-      if(k === 'vip' && cur) html += hdmVipBookingHtml();
-      if(canUp && HDM_PLAN_ORDER.indexOf(k) > HDM_PLAN_ORDER.indexOf(plan))
-        html += '<button type="button" class="hdm-plan-btn buy" onclick="hdmBillOpenUpgrade(\'' + k + '\')">שדרוג ל' + info.name + '</button>';
-      else if(k !== 'free' && canBuy && !(cur && bl.paid))
-        html += '<button type="button" class="hdm-plan-btn buy" onclick="hdmBillOpenBuy(\'' + k + '\')">הצטרפות למסלול ' + info.name + '</button>';
-      else
-        html += '<button type="button" class="hdm-plan-btn" disabled>' + (cur ? 'המסלול שלך' : (k === 'free' ? 'מסלול חינם' : 'בקרוב')) + '</button>';
-      html += '</div>';
-    });
-    if(HDM_BILLING_LIVE) html += '<p class="hdm-note">המנויים מתחדשים אוטומטית מדי חודש עד לביטול. אפשר לבטל בכל עת מהמסך הזה. לשאלות: life.through.numbers333@gmail.com</p>';
-    else html += '<p class="hdm-note">המסלולים בתשלום יופעלו בקרוב. כרגע אי אפשר לרכוש מסלול, ולא מתבצע שום חיוב. לשאלות: life.through.numbers333@gmail.com</p>';
+    cur += '</div>';
+    var bl = e && !e.error && e.billing;
+    var canUp = !!(bl && HDM_CHECKOUT.live && bl.paid && bl.autoRenew && bl.status === 'active' && !bl.pendingCheckout);
+    if(sub){
+      // מנוי פעיל: המצב, שדרוג למסלול גבוה יותר, וביטול
+      html += cur;
+      html += '<p class="hdm-note" style="margin-bottom:10px"><b style="color:#F2D59A">שדרוג מסלול</b></p>';
+      HDM_CHECKOUT.order.forEach(function(k){
+        var r = HDM_PLAN_RANK[k] - HDM_PLAN_RANK[plan], info = HDM_PLAN_INFO[k];
+        // מנוי בתשלום: שדרוג בחיוב יחסי בכרטיס השמור (מסך השדרוג של ניהול מנוי); אחרת — עמוד התשלום
+        var upBtn = canUp ? '<button type="button" class="hdm-plan-btn is-buy" id="hdm-plan-buy-' + k + '" onclick="hdmBillOpenUpgrade(\'' + k + '\')">שדרוג ל־' + info.name + ' — ' + info.price + ' לחודש</button>'
+                          : hdmBuyBtn(k, 'שדרוג ל־' + info.name + ' — ' + info.price + ' לחודש');
+        html += hdmPlanCardHtml(k, r === 0 ? hdmOffBtn('המסלול שלך') : r > 0 ? upBtn : hdmOffBtn('מסלול נמוך מהמסלול שלך'));
+      });
+      html += hdmBillingHtml(e, plan) || hdmManageHtml(e, plan);
+    }else{
+      // בלי מנוי פעיל: קודם שלושת המסלולים בתשלום, עם כפתור הצטרפות לכל אחד. בלי כפתור "ביטול מנוי"
+      // (אם הגיעו מכפתור "ביטול מנוי" בפרופיל/בהגדרות — מוצג ההסבר שאין מנוי בתשלום לבטל, בראש המסך)
+      var billNote = hdmBillingHtml(e, plan);   // תשלום בתהליך / ביטול עסקה לפי החוק
+      if(billNote) html += billNote;
+      if(myId && hdmCancelStep > 0) html += hdmManageHtml(e, plan);
+      html += '<p class="hdm-note" style="margin-bottom:10px">בחרו מסלול ולחצו "הצטרפות". המנוי חודשי ומתחדש אוטומטית, ואפשר לבטל בכל עת.</p>';
+      HDM_CHECKOUT.order.forEach(function(k){
+        var info = HDM_PLAN_INFO[k];
+        html += hdmPlanCardHtml(k, hdmBuyBtn(k, 'הצטרפות — ' + info.price + ' לחודש'));
+      });
+      html += hdmPlanCardHtml('free', hdmOffBtn(plan === 'free' ? 'המסלול שלך' : 'מסלול חינם'));
+      if(myId) html += cur;
+    }
+    html += '<p class="hdm-note">' + (HDM_CHECKOUT.live ? 'התשלום מתבצע בעמוד מאובטח של ספק הסליקה Grow.' : 'הסליקה דרך Grow בתהליך הפעלה — עד להפעלתה לא מתבצע שום חיוב.') + ' לשאלות: life.through.numbers333@gmail.com</p>';
     html += '<p class="hdm-note" id="hdm-plans-policy">לפני רכישת מנוי: המסלולים בתשלום מתחדשים אוטומטית מדי חודש עד לביטול, ואפשר לבטל בכל עת. הפרטים ב<a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a> וב<a href="#" id="hdm-plans-business" onclick="openLegal(\'business\');return false;">מחירים, אספקת השירות ופרטי העסק</a>.</p>';
     body.innerHTML = html;
+  }
+
+  // ---- עמוד תשלום (דרישות Grow: אישור תקנון חובה, קישור לתקנון, פרטי מנוי, מחיר, חידוש אוטומטי ותנאי ביטול) ----
+  // live=false: אין שום חיוב ואין מעבר לתשלום. ההפעלה — רק באישור מפורש, אחרי שהתקבלו מ-Grow פרטי החיבור
+  // (ראו docs/grow-checkout.md). המעבר לתשלום עצמו ייעשה דרך פונקציית שרת שיוצרת דף תשלום ב-Grow לכל רכישה.
+  var HDM_CHECKOUT = { live: HDM_BILLING_LIVE || (HDM_BILLING_PREVIEW && /staging\.html$/.test(location.pathname)), plans: { basic: 2990, plus: 4890, vip: 7990 }, order: ['basic', 'plus', 'vip'] };
+  var hdmCo = { plan: 'plus', accepted: false, msg: '', err: false };
+  function hdmCoMoney(agorot){ return '₪' + (agorot / 100).toFixed(2); }
+  // תאריך החיוב הבא: אותו יום בחודש הבא; בחודש בלי היום הזה — היום האחרון של החודש
+  function hdmCoNextCharge(from){
+    var y = from.getFullYear(), m = from.getMonth() + 1, d = from.getDate();
+    var last = new Date(y, m + 1, 0).getDate();
+    return new Date(y, m, Math.min(d, last));
+  }
+  function hdmCoToday(){
+    try{ var p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).split('-');
+         return new Date(+p[0], +p[1] - 1, +p[2]); }catch(e){ var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+  }
+  function hdmCoDate(d){ try{ return d.toLocaleDateString('he-IL'); }catch(e){ return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear(); } }
+  function hdmCoLink(kind, text){ return '<a href="#" onclick="openLegal(\'' + kind + '\');return false;">' + text + '</a>'; }
+  function hdmRenderCheckout(){
+    var body = document.getElementById('hdm-checkout-body');
+    if(!body) return;
+    var k = hdmCo.plan, info = HDM_PLAN_INFO[k], price = hdmCoMoney(HDM_CHECKOUT.plans[k]);
+    var today = hdmCoToday(), next = hdmCoNextCharge(today);
+    var tel = '<a href="tel:+972546628866" dir="ltr">' + hdmEsc(HDM_BUSINESS.phone) + '</a>';
+    var html = '<div class="hdm-co-tabs" role="group" aria-label="בחירת מסלול">';
+    HDM_CHECKOUT.order.forEach(function(p){
+      html += '<button type="button" id="hdm-co-tab-' + p + '" aria-pressed="' + (p === k) + '" onclick="hdmCoSelect(\'' + p + '\')">' + HDM_PLAN_INFO[p].name + '<br><small>' + hdmCoMoney(HDM_CHECKOUT.plans[p]) + '</small></button>';
+    });
+    html += '</div>';
+    // 1. פרטי המנוי והמחיר
+    html += '<div class="hdm-co-box" id="hdm-co-summary"><h3>פרטי המנוי</h3>';
+    html += '<div class="hdm-co-row"><span>מסלול</span><span id="hdm-co-plan">' + hdmEsc(info.name) + '</span></div>';
+    html += '<div class="hdm-co-row"><span>סוג העסקה</span><span>מנוי חודשי מתחדש אוטומטית</span></div>';
+    html += '<div class="hdm-co-row"><span>חיוב ראשון</span><span id="hdm-co-first">' + price + ' · היום, ' + hdmCoDate(today) + '</span></div>';
+    html += '<div class="hdm-co-row"><span>חיוב הבא</span><span id="hdm-co-next">' + price + ' · ' + hdmCoDate(next) + '</span></div>';
+    html += '<div class="hdm-co-row hdm-co-total"><span>סה״כ לתשלום היום</span><span id="hdm-co-price"><b>' + price + '</b></span></div>';
+    html += '<div style="font-size:13px;color:#BFB4A6;margin-top:6px">המחיר בשקלים חדשים וכולל מע"מ.</div>';
+    html += '<div style="margin-top:10px"><b>מה כלול במסלול ' + hdmEsc(info.name) + ':</b><ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul></div></div>';
+    // 2. חידוש אוטומטי ותנאי ביטול
+    html += '<div class="hdm-co-box" id="hdm-co-renewal"><h3>חידוש אוטומטי וביטול</h3>';
+    html += '<b>חידוש אוטומטי:</b> המנוי מתחדש אוטומטית בכל חודש באותו תאריך, ב־' + price + ', באותו אמצעי תשלום, עד לביטולו. בחודש שאין בו תאריך כזה — ביום האחרון של החודש. קבלה נשלחת באימייל על כל חיוב.<br><br>';
+    html += '<b>ביטול:</b> אפשר לבטל בכל עת, בלי נימוק ובלי דמי ביטול — באפליקציה ב"ניהול מנוי" ← "ביטול מנוי", בטלפון ' + tel + ' או באימייל ' + hdmEsc(HDM_CONTACT_EMAIL) + '. ';
+    html += 'החידוש נעצר מיד ולא יתבצעו חיובים נוספים; המנוי נשאר פעיל עד סוף התקופה ששולמה, ואחריה החשבון עובר למסלול החינמי. ביטול חידוש רגיל אינו מזכה בהחזר יחסי, אלא אם הדין מחייב אחרת.<br><br>';
+    html += '<b>זכויות לפי חוק הגנת הצרכן:</b> זכות ביטול עסקה מרחוק והחזר לפי החוק נשמרות במלואן. הפרטים המלאים ב' + hdmCoLink('cancel', 'מדיניות ביטול מנוי') + '.</div>';
+    // 3. אמצעי תשלום ופרטי העסק
+    html += '<div class="hdm-co-box" id="hdm-co-merchant"><h3>תשלום ופרטי העסק</h3>';
+    html += 'התשלום בכרטיס אשראי, בעמוד תשלום מאובטח של ספק הסליקה Grow. איננו שומרים את פרטי כרטיס האשראי. השירות דיגיטלי, ללא משלוח, ומופעל מיד לאחר אישור התשלום.<br>';
+    html += hdmEsc(HDM_BUSINESS.name) + ' · ' + hdmEsc(HDM_BUSINESS.owners) + ' · עוסק מורשה ' + hdmEsc(HDM_BUSINESS.legalId) + '<br>' + hdmEsc(HDM_BUSINESS.address) + ' · ' + tel + ' · ' + hdmEsc(HDM_CONTACT_EMAIL) + '<br>השירות לבני 18 ומעלה בלבד.</div>';
+    // 4. אישור תקנון — חובה, לא מסומן מראש
+    html += '<label class="hdm-co-check' + (hdmCo.err ? ' is-error' : '') + '" id="hdm-co-check-box" for="hdm-co-accept">'
+          + '<input type="checkbox" id="hdm-co-accept" required aria-required="true"' + (hdmCo.accepted ? ' checked' : '') + ' onchange="hdmCoAccept(this.checked)">'
+          + '<span><span class="hdm-co-req" aria-hidden="true">*</span> קראתי ואני מאשר/ת את ' + hdmCoLink('terms', 'תקנון / תנאי השימוש') + ', את ' + hdmCoLink('cancel', 'מדיניות ביטול מנוי') + ' ואת ' + hdmCoLink('privacy', 'מדיניות הפרטיות') + ', '
+          + 'ומסכים/ה לחיוב של <b>' + price + '</b> היום ולחידוש אוטומטי חודשי באותו סכום עד לביטול. אני בן/בת 18 ומעלה.</span></label>';
+    html += '<button type="button" class="hdm-co-pay" id="hdm-co-pay" aria-disabled="' + (!hdmCo.accepted) + '" aria-describedby="hdm-co-msg" onclick="hdmCoPay()">המשך לתשלום מאובטח — ' + price + '</button>';
+    var msg = hdmCo.msg || (hdmCo.accepted ? '' : 'יש לסמן את אישור התקנון כדי להמשיך לתשלום.');
+    html += '<p class="hdm-co-msg' + (hdmCo.err ? ' is-error' : '') + '" id="hdm-co-msg" role="status" aria-live="polite">' + hdmEsc(msg) + '</p>';
+    html += '<p class="hdm-co-secure">🔒 תשלום מאובטח דרך Grow · ללא שמירת פרטי אשראי</p>';
+    html += '<div class="hdm-co-links" id="hdm-co-links">' + hdmCoLink('terms', 'תקנון ותנאי שימוש') + hdmCoLink('cancel', 'מדיניות ביטול מנוי') + hdmCoLink('privacy', 'מדיניות פרטיות') + hdmCoLink('business', 'מחירים ופרטי העסק') + '</div>';
+    body.innerHTML = html;
+  }
+  function hdmCoSelect(p){ if(!HDM_CHECKOUT.plans[p]) return; hdmCo.plan = p; hdmCo.msg = ''; hdmCo.err = false; hdmRenderCheckout(); }
+  function hdmCoAccept(v){ hdmCo.accepted = !!v; hdmCo.err = false; hdmCo.msg = ''; hdmRenderCheckout(); var c = document.getElementById('hdm-co-accept'); if(c) c.focus(); }
+  function hdmCoPay(){
+    var c = document.getElementById('hdm-co-accept');
+    if(!c || !c.checked || !hdmCo.accepted){
+      hdmCo.err = true; hdmCo.msg = 'לא ניתן להמשיך לתשלום בלי לאשר את התקנון ואת מדיניות ביטול מנוי.';
+      hdmRenderCheckout();
+      var b = document.getElementById('hdm-co-check-box'); if(b && b.scrollIntoView) b.scrollIntoView({ block: 'center' });
+      return;
+    }
+    hdmCo.err = false;
+    if(!HDM_CHECKOUT.live){
+      hdmCo.msg = 'האישור נקלט. החיבור לעמוד התשלום של Grow יופעל מיד עם השלמת ההגדרה מול Grow — כרגע לא בוצע ולא יבוצע שום חיוב.';
+      hdmRenderCheckout(); return;
+    }
+    if(!myId){ hdmCo.msg = 'כדי לשלם יש להתחבר לחשבון, כך שהמנוי יופעל בחשבון שלך.'; hdmRenderCheckout(); return; }
+    if(typeof window.hdmGrowStartCheckout === 'function') window.hdmGrowStartCheckout(hdmCo.plan);
+  }
+  // ---- מעבר לתשלום דרך Morning (Grow): ניסיון תשלום במסד → פונקציית השרת morning-checkout → עמוד התשלום המאובטח ----
+  // המנוי מופעל רק כשהשרת מאמת את התשלום מול Morning (morning-webhook). פרטי הכרטיס לא עוברים דרך האפליקציה.
+  async function hdmMorningPay(checkoutId){
+    var r = await window.__sb.functions.invoke('morning-checkout', { body: { checkoutId: checkoutId } });
+    if(r && r.error) throw { hint: 'לא הצלחנו לפתוח את עמוד התשלום. לא בוצע חיוב. נסו שוב בעוד רגע.' };
+    var d = (r && r.data) || {};
+    if(d.mode === 'redirect' && /^https:\/\//.test(d.url || '')){ location.href = d.url; return 'redirect'; }
+    if(d.mode === 'charged') return String(d.result || 'charged');
+    throw { hint: 'לא הצלחנו לפתוח את עמוד התשלום. לא בוצע חיוב. נסו שוב בעוד רגע.' };
+  }
+  window.hdmGrowStartCheckout = async function(plan){
+    if(hdmCo.busy) return;
+    hdmCo.busy = true; hdmCo.err = false; hdmCo.msg = 'פותחים את עמוד התשלום המאובטח…'; hdmRenderCheckout();
+    try{
+      await hdmRefreshPlan(true).catch(function(){});
+      var b = hdmEnt && hdmEnt.forId === myId && hdmEnt.billing;
+      if(!b || !b.termsVersion) throw { hint: 'לא הצלחנו לטעון את פרטי המנוי. לא בוצע חיוב. נסו שוב בעוד רגע.' };
+      var r = await window.__sb.rpc('hdm_billing_start_checkout', { p_plan: plan, p_terms_version: b.termsVersion, p_accept: true });
+      if(r && r.error) throw r.error;
+      if(await hdmMorningPay(r.data.checkoutId) === 'redirect') return;   // הדף עובר לעמוד התשלום
+    }catch(e){
+      hdmCo.err = true; hdmCo.msg = (e && e.hint) ? e.hint : 'לא הצלחנו לפתוח את עמוד התשלום. לא בוצע חיוב. נסו שוב בעוד רגע.';
+    }
+    hdmCo.busy = false; hdmRenderCheckout();
+  };
+  // חזרה מעמוד התשלום: לא מסמנים "שולם" לפי הכתובת — רק מרעננים עד שהשרת מאשר
+  (function hdmBillingReturn(){
+    var m = /[?&]billing=(return|failed)\b/.exec(location.search); if(!m) return;
+    try{ history.replaceState(null, '', location.pathname + location.hash); }catch(x){}
+    setTimeout(function(){
+      var ok = m[1] === 'return';
+      try{ hdmToast(ok ? 'אם התשלום הושלם, המנוי יופעל מיד עם האישור מספק הסליקה (בדרך כלל עד דקה). קבלה תישלח באימייל.'
+                       : 'התשלום לא הושלם, ולא בוצע חיוב. אפשר לנסות שוב.'); }catch(x){}
+      if(!ok) return;
+      var n = 0, t = setInterval(function(){
+        if(++n > 24){ clearInterval(t); return; }
+        if(!myId) return;
+        hdmRefreshPlan(true).then(function(){ if(hdmHasActiveSub()){ clearInterval(t); try{ hdmApplyPlansLabels(); hdmToast('המנוי הופעל. תודה!'); }catch(x){} } }).catch(function(){});
+      }, 5000);
+    }, 1500);
+  })();
+  // עמוד התשלום נפתח במקום מסך המנויים (ולא מתחתיו), ו"חזרה" מחזיר אליו
+  function hdmOpenCheckout(plan){
+    hdmCo.fromPlans = hdmLayerOpen('hdm-plans-screen');
+    if(hdmCo.fromPlans) hdmCloseLayer('hdm-plans-screen');
+    if(HDM_CHECKOUT.plans[plan]) hdmCo.plan = plan;
+    hdmCo.accepted = false; hdmCo.msg = ''; hdmCo.err = false;   // תמיד מתחילים בלי סימון
+    hdmRenderCheckout();
+    hdmOpenLayer('hdm-checkout-screen');
+  }
+  function hdmCloseCheckout(){
+    var back = hdmCo.fromPlans && hdmLayerOpen('hdm-checkout-screen');
+    hdmCloseLayer('hdm-checkout-screen');
+    hdmCo.fromPlans = false;
+    if(back){ hdmRenderPlans(); hdmOpenLayer('hdm-plans-screen'); }
+    if(/^#checkout(-(basic|plus|vip))?$/.test(location.hash || '')){ try{ history.replaceState(null, '', location.pathname + location.search); }catch(x){} }
   }
   // ---- ניהול מנוי: כפתור "ביטול מנוי". עד שהסליקה מחוברת אין מנויים בתשלום — מוצג הסבר, ולעולם לא "בוטל" ----
   // שלבים: 0 = כפתור "ביטול מנוי"; 1 = מסך אישור (מה יקרה); 2 = אישור על הבקשה, מועד הטיפול ומועד סיום המנוי.
@@ -6262,7 +6514,7 @@
       if(r && r.error) throw r.error;
       if(r.data && r.data.upgraded){ hdmBillUI = null; hdmToast('המסלול שודרג.'); }
       // Morning (Grow): פונקציית השרת מחייבת את הכרטיס השמור בסכום הזה, והמסלול מתעדכן רק אחרי אישור מ-Morning
-      else if(HDM_BILLING_LIVE){
+      else if(HDM_CHECKOUT.live){
         hdmBillUI.msg = 'מבצעים את החיוב…'; hdmRenderPlans();
         var fx = await window.__sb.functions.invoke('morning-checkout', { body: { checkoutId: r.data.checkoutId } });
         var fd = (fx && fx.data) || {};
