@@ -6197,7 +6197,8 @@
   // ---- עמוד תשלום (דרישות Grow: אישור תקנון חובה, קישור לתקנון, פרטי מנוי, מחיר, חידוש אוטומטי ותנאי ביטול) ----
   // live=false: אין שום חיוב ואין מעבר לתשלום. ההפעלה — רק באישור מפורש, אחרי שהתקבלו מ-Grow פרטי החיבור
   // (ראו docs/grow-checkout.md). המעבר לתשלום עצמו ייעשה דרך פונקציית שרת שיוצרת דף תשלום ב-Grow לכל רכישה.
-  var HDM_CHECKOUT = { live: HDM_BILLING_LIVE || (HDM_BILLING_PREVIEW && /staging\.html$/.test(location.pathname)), plans: { basic: 2990, plus: 4890, vip: 7990 }, order: ['basic', 'plus', 'vip'] };
+  var HDM_CHECKOUT = { live: HDM_BILLING_LIVE || (HDM_BILLING_PREVIEW && /staging\.html$/.test(location.pathname)) || /[?&]billing=owner\b/.test(location.search),   // owner = חיוב בדיקה של הבעלים; השרת מתיר רק משתמשים ב-HDM_BILLING_ALLOWED_USERS
+  plans: { basic: 2990, plus: 4890, vip: 7990 }, order: ['basic', 'plus', 'vip'] };
   var hdmCo = { plan: 'plus', accepted: false, msg: '', err: false };
   function hdmCoMoney(agorot){ return '₪' + (agorot / 100).toFixed(2); }
   // תאריך החיוב הבא: אותו יום בחודש הבא; בחודש בלי היום הזה — היום האחרון של החודש
