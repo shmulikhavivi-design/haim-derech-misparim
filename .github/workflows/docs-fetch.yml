@@ -35,6 +35,9 @@ jobs:
             case "$u" in http*) U="$u";; *) U="https://developers.morning.co$u";; esac
             f="spec_$(basename "$u")"; c=$(curl -sSL -o "$f" -w '%{http_code}' "$U"); echo "$U $c $(wc -c < $f)" >> tried.txt
           done
+          for U in https://developers.morning.co/docs/openapi.bundled.json https://developers.morning.co/api/docs/openapi.bundled.json https://developers.morning.co/assets/docs/openapi.bundled.json; do
+            f="openapi_$(echo $U | cut -d/ -f4 | tr -c 'a-z' '_').json"; c=$(curl -sSL -o "$f" -w '%{http_code}' "$U"); echo "$U $c $(wc -c < $f)" >> tried.txt
+          done
           rm -f try_* ; find . -size 0 -delete; ls -la
       - name: Publish to branch docs-fetch/out
         run: |
