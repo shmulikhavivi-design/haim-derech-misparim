@@ -1,5 +1,4 @@
-# חיים דרך מספרים — בדיקת קיום מפתחות בלבד (בלי ערכים, בלי חיבור לשום שירות).
-# רץ רק ב-push לענף morning-probe/run. סביבת GitHub "staging".
+# חיים דרך מספרים — בדיקת קיום מפתחות בלבד (בלי ערכים, בלי חיבור לשום שירות). סביבת GitHub "staging".
 name: Morning probe (read-only)
 on: { push: { branches: [ 'morning-probe/run' ] } }
 permissions: { contents: read }
@@ -11,11 +10,6 @@ jobs:
     timeout-minutes: 3
     environment: staging
     steps:
-      - name: All secret names (names + length, values never printed)
-        env: { S: '${{ toJSON(secrets) }}' }
-        run: |
-          L=$(printf '%s' "$S" | jq -r 'to_entries | map(select(.key!="github_token")) | map("\(.key)=\(.value|length)") | join(" ")'); unset S
-          echo "::notice title=staging-env-names::$L"
       - name: Key presence only (values never printed)
         env:
           A1: ${{ secrets.MORNING_SANDBOX_CLIENT_ID }}
@@ -26,9 +20,29 @@ jobs:
           A6: ${{ secrets.MORNING_SANDBOX_API_KEY }}
           A7: ${{ secrets.MORNING_SANDBOX_SECRET }}
           A8: ${{ secrets.MORNING_SANDBOX_ID }}
+          A9: ${{ secrets.MORNING_SANDBOX_KEY }}
+          A10: ${{ secrets.MORNING_SANDBOX_API_SECRET }}
+          A11: ${{ secrets.MORNING_SANDBOX_API_ID }}
+          A12: ${{ secrets.MORNING_SANDBOX_CLIENTID }}
+          A13: ${{ secrets.MORNING_SANDBOX_CLIENT }}
+          A14: ${{ secrets.SANDBOX_CLIENT_ID }}
+          A15: ${{ secrets.SANDBOX_CLIENT_SECRET }}
+          A16: ${{ secrets.MORNING_SANBOX_CLIENT_ID }}
+          A17: ${{ secrets.MORNING_SANBOX_CLIENT_SECRET }}
+          A18: ${{ secrets.MORNING_SANDBOX_CLIENT_ID_ }}
+          A19: ${{ secrets.MORNING_SANDBOX_CLIENT_SECRET_ }}
+          A20: ${{ secrets.MORNING_SANDBOX_CLIENT_SECERT }}
+          A21: ${{ secrets.MORNING_SANDBOX_CLIENT_SECRETS }}
+          A22: ${{ secrets.GREENINVOICE_SANDBOX_CLIENT_ID }}
+          A23: ${{ secrets.GREEN_INVOICE_SANDBOX_CLIENT_ID }}
+          A24: ${{ secrets.MORNING_API_KEY }}
+          A25: ${{ secrets.MORNING_API_SECRET }}
+          A26: ${{ secrets.MORNING_SANDBOX_CLIEN_ID }}
+          A27: ${{ secrets.MORNING_SANDBOX_CLINET_ID }}
+          A28: ${{ secrets.MORNING_SANDBOX_CLIENT_ID1 }}
         run: |
           L=""; i=0
-          for n in MORNING_SANDBOX_CLIENT_ID MORNING_SANDBOX_CLIENT_SECRET STAGING_FUNCTIONS_TOKEN MORNING_CLIENT_ID MORNING_CLIENT_SECRET MORNING_SANDBOX_API_KEY MORNING_SANDBOX_SECRET MORNING_SANDBOX_ID; do
-            i=$((i+1)); v=$(eval echo "\${A$i:-}"); [ -n "$v" ] && L="$L $n=✅(${#v})" || L="$L $n=—"
+          for n in MORNING_SANDBOX_CLIENT_ID MORNING_SANDBOX_CLIENT_SECRET STAGING_FUNCTIONS_TOKEN MORNING_CLIENT_ID MORNING_CLIENT_SECRET MORNING_SANDBOX_API_KEY MORNING_SANDBOX_SECRET MORNING_SANDBOX_ID MORNING_SANDBOX_KEY MORNING_SANDBOX_API_SECRET MORNING_SANDBOX_API_ID MORNING_SANDBOX_CLIENTID MORNING_SANDBOX_CLIENT SANDBOX_CLIENT_ID SANDBOX_CLIENT_SECRET MORNING_SANBOX_CLIENT_ID MORNING_SANBOX_CLIENT_SECRET MORNING_SANDBOX_CLIENT_ID_ MORNING_SANDBOX_CLIENT_SECRET_ MORNING_SANDBOX_CLIENT_SECERT MORNING_SANDBOX_CLIENT_SECRETS GREENINVOICE_SANDBOX_CLIENT_ID GREEN_INVOICE_SANDBOX_CLIENT_ID MORNING_API_KEY MORNING_API_SECRET MORNING_SANDBOX_CLIEN_ID MORNING_SANDBOX_CLINET_ID MORNING_SANDBOX_CLIENT_ID1; do
+            i=$((i+1)); v=$(eval echo "\${A$i:-}"); [ -n "$v" ] && L="$L $n=✅(${#v})"
           done
-          echo "::notice title=staging-env-keys::$L"
+          echo "::notice title=staging-env-keys::found:${L:- none}"
