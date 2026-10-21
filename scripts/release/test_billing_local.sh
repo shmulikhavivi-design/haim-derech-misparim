@@ -82,5 +82,15 @@ for t in 18_staging_billing_tests 20_staging_billing_upgrade_tests 22_staging_bi
 done
 check "הבדיקות לא השאירו נתונים" "0" "$(q prod "select (select count(*) from public.hdm_payments)+(select count(*) from public.hdm_checkouts)")"
 
+# ---------- 5. גרסת תנאים חדשה (09) ----------
+F09="$ROOT/supabase/production/09_production_terms_paid_plans.sql"
+OUT=$("${P[@]}" -d stg -f "$F09" 2>&1) || true
+check "09: על מסד Staging — נעצר" "1" "$(echo "$OUT" | grep -c 'לא מסד ה-Production')"
+if "${P[@]}" -d prod -f "$F09" >"$WORK/09.out" 2>&1; then ok "09: גרסת התנאים 2026-10-21 נוספה"; else bad "09 עבר" "$(grep -E 'ERROR|עצירה' "$WORK/09.out" | head -2)"; fi
+check "09: הגרסה הנדרשת עכשיו 2026-10-21 (כולם יאשרו מחדש)" "2026-10-21" "$(q prod "select public.hdm_required_terms_version()")"
+check "09: מסלולים ומשתמשים ללא שינוי" "$SUBS_BEFORE" "$(q prod "select string_agg(p||'='||public.hdm_plan_of(p), ',' order by p) from unnest(array['shmulik1','noa2','free3']) p")"
+OUT=$("${P[@]}" -d prod -f "$F09" 2>&1) || true
+check "09: הרצה חוזרת נעצרת" "1" "$(echo "$OUT" | grep -c 'כבר קיימת')"
+
 echo; echo "סיכום: עברו $PASS מתוך $((PASS+FAIL))"
 [ "$FAIL" = 0 ]
