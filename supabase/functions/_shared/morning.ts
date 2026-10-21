@@ -193,6 +193,8 @@ export function pickDocumentId(body: Record<string, unknown>): string {
   }
   const d = body.document as Record<string, unknown> | undefined;
   if (d && typeof d.id === 'string') return d.id;
+  // אירוע document/created של Morning (Webhooks בממשק Morning): מזהה המסמך בשדה id. נבדק מחדש מול Morning בכל מקרה.
+  if (typeof body.id === 'string' && body.id && (body.type !== undefined || body.number !== undefined)) return body.id;
   return '';
 }
 
@@ -216,6 +218,7 @@ export function verifyDocumentAgainstCheckout(doc: Record<string, unknown>, ck: 
   const amt = documentAmountAgorot(doc);
   if (Number(doc.type) !== 320 && Number(doc.type) !== 400) problems.push(`סוג מסמך ${doc.type}`);
   if (doc.currency && doc.currency !== 'ILS') problems.push(`מטבע ${doc.currency}`);
+  if (Number(doc.status) === 3 || Number(doc.status) === 4) problems.push(`מסמך מבוטל (סטטוס ${doc.status})`);
   const client = (doc.client ?? {}) as Record<string, unknown>;
   const emails = ([] as unknown[]).concat(client.emails ?? []).map((e) => String(e).toLowerCase());
   if (!ck) problems.push('אין ניסיון תשלום');
@@ -244,14 +247,32 @@ export function verifyDocumentAgainstCheckout(doc: Record<string, unknown>, ck: 
 /** הטוקן של הכרטיס ששולם עכשיו (לחידושים). מחזיר null אם Morning לא שמרה טוקן. */
 export async function findCardToken(m: MorningClient, clientId: string | undefined, sinceMs: number) {
   if (!clientId) return null;
-  const res = await m.searchTokens({ clientId, page: 1, pageSize: 10 }) as Record<string, unknown>;
+  // לפי התיעוד הרשמי (developers.morning.co): הסינון לפי לקוח הוא externalKey; סטטוס 1/2 = תקף; 4 הספרות ב-number
+  const res = await m.searchTokens({ externalKey: clientId, page: 1, pageSize: 10 }) as Record<string, unknown>;
   const items = (Array.isArray(res.items) ? res.items : Array.isArray(res) ? res : []) as Record<string, unknown>[];
   const fresh = items
-    .filter((t) => t && typeof t.id === 'string' && t.active !== false)
+    .filter((t) => t && typeof t.id === 'string' && (t.status === undefined || t.status === 1 || t.status === 2))
+    .filter((t) => !t.externalKey || t.externalKey === clientId)
     .sort((a, b) => Number(b.creationDate ?? 0) - Number(a.creationDate ?? 0))
     .filter((t) => !t.creationDate || Number(t.creationDate) * 1000 >= sinceMs - 10 * 60_000);
   if (!fresh.length) return null;
   const t = fresh[0];
-  const digits = String(t.cardNum ?? t.last4 ?? t.lastDigits ?? '').replace(/\D/g, '').slice(-4);
+  const digits = String(t.number ?? t.cardNum ?? t.last4 ?? '').replace(/\D/g, '').slice(-4);
   return { id: String(t.id), last4: digits.length === 4 ? digits : null };
+}
+
+/** מזהה ניסיון התשלום מתוך custom (מחרוזת, או אובייקט לפי אירועי Morning Webhooks). */
+export function pickCheckoutId(body: Record<string, unknown>): string {
+  const c = body.custom;
+  const m = (typeof c === 'string' ? c : JSON.stringify(c ?? '')).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return m ? m[0] : '';
+}
+
+/** אימות חתימה של Morning Webhooks: HMAC-SHA256 על הגוף הגולמי, hex (x-webhook-signature). */
+export async function verifyMorningSignature(rawBody: string, signature: string, secret: string): Promise<boolean> {
+  if (!secret || secret.length < 16 || !signature) return false;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody)));
+  const hex = Array.from(mac, (b) => b.toString(16).padStart(2, '0')).join('');
+  return safeEqual(hex, signature.trim().toLowerCase());
 }
