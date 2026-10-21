@@ -23,7 +23,7 @@ on:
         required: true
         default: 'check'
         type: choice
-        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, install08, tests09, install10, tests11, e2eadmin, audit, install12, tests13, mailnet, hookwire, authcfg, perms, install14, tests15, install16, install17, tests18, e2ebilling, install19, tests20, install21, tests22, install23, install24, tests25, install26, tests27, install28, tests29, growsecrets, e2egrow, growperms, keynames, vaultnames, e2ecancellive, e2esignup, e2esignupreal, e2edesign ]
+        options: [ check, install03, install04, install05, tests02, e2e, smtp, smtpfix, authflow, advisors, sslfix, install06, tests07, install08, tests09, install10, tests11, e2eadmin, audit, install12, tests13, mailnet, hookwire, authcfg, perms, install14, tests15, install16, install17, tests18, e2ebilling, install19, tests20, install21, tests22, install23, install24, tests25, install26, tests27, install28, tests29, growsecrets, e2egrow, growperms, keynames, e2emorning, vaultnames, e2ecancellive, e2esignup, e2esignupreal, e2edesign ]
 
 permissions:
   contents: read
@@ -58,7 +58,7 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in keynames|check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in keynames|e2emorning|check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
@@ -113,6 +113,65 @@ jobs:
           rm -f "$F"
           OUT=$(supabase functions deploy grow-checkout grow-webhook grow-renewals grow-mock --project-ref "$REF" --use-api --no-verify-jwt 2>&1) || { report deploy "$OUT"; exit 1; }
           echo "::notice title=e2egrow-deploy::$(printf '%s' "$OUT" | grep -iE 'deployed|function' | tail -n 6 | tr '\n' ' ' | cut -c1-500)"
+      # ---- e2emorning: פריסת פונקציות Morning ל-Staging (הסליקה כבויה) + בדיקות כניסה + Sandbox של Morning אם יש מפתחות ----
+      - name: Morning e2e — setup CLI
+        if: steps.mode.outputs.mode == 'e2emorning'
+        uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - name: Morning e2e — deploy to Staging (charging off)
+        if: steps.mode.outputs.mode == 'e2emorning'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
+          SBX_ID: ${{ steps.mode.outputs.mode == 'e2emorning' && secrets.MORNING_SANDBOX_CLIENT_ID || '' }}
+          SBX_SECRET: ${{ steps.mode.outputs.mode == 'e2emorning' && secrets.MORNING_SANDBOX_CLIENT_SECRET || '' }}
+        run: |
+          set -euo pipefail
+          REF=ousepgdvzammgkxkweze
+          [ "$REF" != "qtspzigjlbtckqfyaubp" ] || exit 1
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error title=e2emorning::חסר STAGING_FUNCTIONS_TOKEN בסביבה staging"; exit 1; }
+          WT=$(openssl rand -hex 32); CS=$(openssl rand -hex 32)
+          for v in "$WT" "$CS"; do echo "::add-mask::$v"; done
+          [ -n "$SBX_SECRET" ] && echo "::add-mask::$SBX_SECRET"
+          echo "MORNING_WEBHOOK_TOKEN=$WT" >> "$GITHUB_ENV"; echo "HDM_CRON_SECRET=$CS" >> "$GITHUB_ENV"
+          umask 077; F=$(mktemp)
+          {
+            echo "HDM_ENV=staging"
+            echo "MORNING_LIVE=0"
+            echo "MORNING_API_BASE=https://sandbox.d.greeninvoice.co.il/api/v1"
+            echo "MORNING_WEBHOOK_TOKEN=$WT"
+            echo "HDM_CRON_SECRET=$CS"
+            echo "HDM_APP_URL=https://haim-derech-misparim.pages.dev"
+            # רק מפתחות Sandbox נכנסים ל-Staging. מפתחות ה-Production של Morning לא מועברים לכאן בכלל.
+            if [ -n "$SBX_ID" ] && [ -n "$SBX_SECRET" ]; then echo "MORNING_CLIENT_ID=$SBX_ID"; echo "MORNING_CLIENT_SECRET=$SBX_SECRET"; fi
+          } > "$F"
+          report(){ printf '::error title=e2emorning-%s::%s\n' "$1" "$(printf '%s' "$2" | grep -vE 'eyJ|sb_secret|sbp_' | tail -n 8 | tr '\n' ' ' | cut -c1-600)"; }
+          OUT=$(supabase secrets set --project-ref "$REF" --env-file "$F" 2>&1) || { rm -f "$F"; report secrets "$OUT"; exit 1; }
+          rm -f "$F"
+          OUT=$(supabase functions deploy morning-checkout morning-webhook morning-renewals --project-ref "$REF" --use-api --no-verify-jwt 2>&1) || { report deploy "$OUT"; exit 1; }
+          echo "::notice title=e2emorning-deploy::$(printf '%s' "$OUT" | grep -iE 'deployed|function' | tail -n 6 | tr '\n' ' ' | cut -c1-500)"
+          sleep 5
+      - uses: denoland/setup-deno@v2
+        if: steps.mode.outputs.mode == 'e2emorning'
+        with: { deno-version: v2.x }
+      - name: Morning e2e — unit tests + Staging guards + Sandbox
+        if: steps.mode.outputs.mode == 'e2emorning'
+        env:
+          MORNING_SANDBOX_CLIENT_ID: ${{ steps.mode.outputs.mode == 'e2emorning' && secrets.MORNING_SANDBOX_CLIENT_ID || '' }}
+          MORNING_SANDBOX_CLIENT_SECRET: ${{ steps.mode.outputs.mode == 'e2emorning' && secrets.MORNING_SANDBOX_CLIENT_SECRET || '' }}
+        run: |
+          [ -n "$MORNING_SANDBOX_CLIENT_SECRET" ] && echo "::add-mask::$MORNING_SANDBOX_CLIENT_SECRET"
+          U=$(deno test --no-check supabase/functions/_shared/morning_test.ts 2>&1 | tail -n 3 | tr '\n' ' ')
+          echo "::notice title=e2emorning-unit::$U"
+          deno run --allow-net --allow-env --allow-write scripts/morning/sandbox_e2e.ts
+      - name: Morning e2e — rotate test secrets, charging stays off (always)
+        if: always() && steps.mode.outputs.mode == 'e2emorning'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
+        run: |
+          REF=ousepgdvzammgkxkweze
+          OUT=$(supabase secrets set --project-ref "$REF" MORNING_LIVE=0 HDM_ENV=staging MORNING_WEBHOOK_TOKEN=$(openssl rand -hex 32) HDM_CRON_SECRET=$(openssl rand -hex 32) 2>&1) \
+            && echo "::notice title=e2emorning-off::Staging: MORNING_LIVE=0, סודות הבדיקה הוחלפו" \
+            || echo "::error title=e2emorning-off::$(printf '%s' "$OUT" | grep -vE 'eyJ|sbp_' | tail -n 4 | tr '\n' ' ' | cut -c1-300)"
       # ---- keynames: מחפש באילו שמות נשמרו מפתחות ה-Sandbox (קיום/אורך בלבד, בלי ערכים) ----
       - name: Key names (presence only)
         if: steps.mode.outputs.mode == 'keynames'
@@ -160,7 +219,7 @@ jobs:
           echo "::notice title=staging-result::סודות שנמצאו:${L:- אף אחד} | משתנים (Variables):${V:- אף אחד}"
           exit 0
       - name: Run on Staging
-        if: steps.mode.outputs.mode != 'keynames'
+        if: steps.mode.outputs.mode != 'keynames' && steps.mode.outputs.mode != 'e2emorning'
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
           STAGING_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
