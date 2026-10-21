@@ -40,3 +40,12 @@ jobs:
 
       - name: Preflight, migration, legacy accounts, rollback, Staging SQL tests
         run: sudo bash scripts/release/test_migration_local.sh
+
+      - name: Billing migration (08) is up to date with its generator
+        run: |
+          python3 scripts/release/build_production_billing_sql.py
+          git diff --exit-code -- supabase/production/08_production_billing.sql \
+            || { echo "::error::08_production_billing.sql לא תואם ל-build_production_billing_sql.py"; exit 1; }
+
+      - name: Paid subscriptions for Production (08) — local DB only, no secrets
+        run: sudo bash scripts/release/test_billing_local.sh

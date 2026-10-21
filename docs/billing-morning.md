@@ -1,39 +1,36 @@
-# סליקה דרך Morning (חשבונית ירוקה) + Grow — מצב והוראות
+# סליקה דרך Morning (חשבונית ירוקה) + Grow — מצב והפעלה
 
-**מצב:** Staging בלבד. הסליקה כבויה (`MORNING_LIVE` לא מוגדר, `HDM_BILLING_LIVE = false`). אין חיובים, אין שינוי ב-Production, ושום דבר לא מוזג.
+**מצב (21.10.2026):** הכול מוכן ונבדק ב-Staging. הסליקה כבויה (`HDM_BILLING_LIVE = false`, `MORNING_LIVE=0`).
+אין חיובים, אין שינוי ב-Production, ושום דבר לא מוזג.
 
-## איך זה עובד
+## איך זה עובד (לפי התיעוד הרשמי — developers.morning.co)
 | שלב | מה קורה | איפה |
 |---|---|---|
-| הצטרפות | הלקוח מאשר תנאים → `hdm_billing_start_checkout` → `morning-checkout` יוצרת דף תשלום מאובטח של Morning (Grow) ומעבירה אליו | פרטי הכרטיס לא עוברים דרכנו |
-| אישור תשלום | Morning שולחת הודעה ל-`morning-webhook`. ההודעה לא חתומה, ולכן: טוקן סודי בכתובת + שליפת המסמך מחדש מ-Morning והשוואה (סוג, מטבע, מייל, זמן, סכום) | המנוי מופעל **רק** אחרי האימות הזה, פעם אחת לכל מסמך |
-| חידוש חודשי | `morning-renewals` (משימה מתוזמנת) תופסת חיוב אחד לכל תקופה ומחייבת את הכרטיס השמור (`/payments/tokens/{id}/charge`) | הארכה רק אחרי תשובה חיובית; כישלון = עד 3 ניסיונות, 48 שעות ביניהם |
-| שדרוג | חיוב יחסי מיידי בכרטיס השמור; המסלול מתעדכן רק אחרי אישור; תאריך החיוב לא משתנה | נגד לחיצה כפולה: "תפיסה" חד-פעמית של הניסיון |
-| ביטול חידוש | `hdm_billing_cancel` מכבה את החידוש; המנוי פעיל עד סוף התקופה ששולמה | אין "הוראת קבע" אצל Morning/Grow, ולכן אין מה לבטל אצלם — השרת פשוט לא מחייב. הביטול מאושר מיד |
+| הצטרפות | עמוד התשלום הקיים (אישור תקנון חובה) → `hdm_billing_start_checkout` → `morning-checkout` → `POST /payments/form` → דף התשלום המאובטח של Grow | פרטי הכרטיס לא עוברים דרכנו |
+| אישור תשלום | Morning מודיעה ל-`morning-webhook` (notifyUrl עם טוקן סודי, או Webhook חתום HMAC-SHA256 מממשק Morning). בכל מקרה המסמך נשלף מחדש מ-Morning (`GET /documents/{id}`) ומושווה: סוג, מטבע, מייל, זמן, סכום, לא מבוטל | המנוי מופעל **רק** אחרי האימות, פעם אחת לכל מסמך |
+| שמירת כרטיס | אחרי תשלום ראשון: `POST /payments/tokens/search` לפי `externalKey` (מזהה הלקוח), טוקן בסטטוס תקף | לחידושים |
+| חידוש חודשי | `morning-renewals` (משימה מתוזמנת) תופסת חיוב אחד לכל תקופה ומחייבת `POST /payments/tokens/{id}/charge` | הארכה רק אחרי תשובה חיובית; כישלון = עד 3 ניסיונות, 48 שעות ביניהם |
+| שדרוג | חיוב יחסי מיידי בכרטיס השמור; המסלול מתעדכן רק אחרי אישור; תאריך החיוב לא משתנה | נגד לחיצה כפולה |
+| ביטול חידוש | `hdm_billing_cancel` מכבה את החידוש; המנוי פעיל עד סוף התקופה ששולמה | ב-API של Morning אין "הוראת קבע" ואין API לביטול/החזר — השרת פשוט לא מחייב. החזר לפי החוק — ידנית בממשק Morning/Grow |
 
 ## קבצים
-- `supabase/functions/_shared/morning.ts` — לקוח Morning: אימות OAuth, חסימת חיובים (כבוי כברירת מחדל; חשבון Production חסום מחוץ ל-Production), אימות מסמך.
-- `supabase/functions/morning-checkout`, `morning-webhook`, `morning-renewals` — טרם נפרסו.
-- `supabase/staging_secure/24_staging_billing_morning.sql` — **הותקן ב-Staging** (פונקציות שרת בלבד).
-- `supabase/staging_secure/25_staging_billing_morning_tests.sql` — 41 בדיקות (תוצאות Morning מדומות).
-- `scripts/morning/probe.ts` + `.github/workflows/morning-probe.yml` — בדיקת חיבור **קריאה בלבד**.
+- `supabase/functions/_shared/morning.ts` + `morning-checkout`, `morning-webhook`, `morning-renewals` — **פרוסות ב-Staging** (כבויות).
+- `supabase/production/08_production_billing.sql` — המעבר ל-Production, נבנה אוטומטית מ-17+19+21+23+24 (`scripts/release/build_production_billing_sql.py`). "הכול או כלום"; לא משנה מסלולים, מחירים או משתמשים.
+- `scripts/release/test_billing_local.sh` — בודק את 08 על מסד מקומי שמדמה את Production (רץ אוטומטית ב-PR).
 
-## בדיקות
-- יחידה (בלי רשת): 13/13 ✅ · מסד מקומי: 17/19/21/23/24 + בדיקות 18 (83/83), 20 (59/59), 22 (68/68), 25 (41/41) ✅
-- Staging: install24 ✅ · tests25 41/41 ✅ (בוטל בסוף, לא נשמר כלום)
+## בדיקות (21.10.2026)
+- יחידה: 17/17 · שמירה על הפונקציות החיות ב-Staging: 12/12 (כולל Webhook חתום)
+- מסד Staging: 18 (83/83), 20 (59/59), 22 (68/68), 25 (41/41)
+- דפדפן מול Staging: כפתור "המשך לתשלום מאובטח" — 24/24 (שלושת המסלולים, לחיצה כפולה, חזרה מעמוד התשלום)
+- 08 על מסד מקומי בדמות Production: 20/20 (כולל 251 בדיקות המנויים)
+- Morning אמיתי, בלי חיוב: אימות, תצוגת חשבונית 29.90/48.90/79.90 כולל מע"מ 18%, דפי תשלום לשלושת המסלולים, חיפוש כרטיסים
 
-## איפה שומרים את המפתחות (בלי להדביק אותם בצ'אט)
-GitHub ← הריפו ← **Settings** ← **Environments** ← **production** ← **Add environment secret**:
-- `MORNING_CLIENT_ID` — המזהה של המפתח (Client ID)
-- `MORNING_CLIENT_SECRET` — הסוד של המפתח (מה שנקרא "מפתח API" / Secret)
-
-בשימוש רק לבדיקה לקריאה בלבד. לא נפרסים ל-Supabase Staging: מפתחות של חשבון אמיתי לא נכנסים לסביבת בדיקות.
-
-## חסר לפני בדיקה מקצה לקצה
-1. אישור Grow לשמירת כרטיס (Token) ולחיובים חוזרים ביוזמת העסק — עד היום אושרה סליקה רגילה בלבד.
-2. איך שומרים טוקן בטופס התשלום של Morning (שם השדה) — לא מופיע בתיעוד הציבורי.
-3. חשבון Sandbox של Morning עם תוסף בדיקה (סביבה נפרדת; מפתחות Production לא עובדים בה), כדי לבדוק בלי כסף אמיתי.
-4. לאמת ב-Sandbox: החשבונית יוצאת בדיוק על 29.90/48.90/79.90 (מע"מ כלול), ושדות ה-webhook.
+## הפעלה (כל שלב רק באישור מפורש)
+1. חיוב בדיקה אחד קטן בכרטיס של הבעלים (סכום, אמצעי, החזר — מוצגים לאישור לפני).
+2. טוקן Supabase זמני לפרויקט ה-Production בלבד: Database read-write + Edge Functions (+ Secrets). נשמר כ-`PRODUCTION_SUPABASE_TOKEN` בסביבה production, ונמחק אחרי ההפעלה.
+3. גיבוי מלא של Production → 08 → בדיקה.
+4. פריסת הפונקציות ל-Production עם המפתחות שכבר שמורים (`MORNING_CLIENT_ID/SECRET`), `HDM_ENV=production`, משימת חידוש מתוזמנת.
+5. `HDM_BILLING_LIVE = true` ומיזוג PR #38.
 
 ## לא נעשה בלי אישור מפורש
-פריסה עם `MORNING_LIVE=1`, חיוב אמיתי, כל שינוי ב-Production, מיזוג.
+חיוב אמיתי, כל שינוי ב-Production, מיזוג.
