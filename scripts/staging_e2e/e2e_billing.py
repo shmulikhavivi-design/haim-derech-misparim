@@ -114,6 +114,8 @@ def login(pg, k):
     return pg.evaluate("() => myId")
 
 def open_plans(pg):
+    # מאפסים את מצב המנוי השמור בדף, כדי לחכות לנתונים טריים מהשרת ולא לקרוא מצב קודם
+    pg.evaluate("() => { try { if (window.hdmEnt) hdmEnt.billing = null; } catch (e) {} }")
     pg.evaluate("() => hdmOpenPlans()")
     try: pg.wait_for_function("() => hdmEnt && hdmEnt.forId === myId && !hdmEnt.error && hdmEnt.billing", timeout=15000)
     except Exception: pass
