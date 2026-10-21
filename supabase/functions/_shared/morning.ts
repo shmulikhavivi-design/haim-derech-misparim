@@ -71,7 +71,10 @@ export class MorningClient {
 
   private async accessToken(): Promise<string> {
     if (this.token && this.now() < this.tokenExp - 60_000) return this.token;
-    const id = this.env('MORNING_CLIENT_ID'), secret = this.env('MORNING_CLIENT_SECRET');
+    // ה-ID נשמר לפעמים עם טקסט שהועתק לידו (תווית/תאריך) — משתמשים רק ב-UUID שבתוכו.
+    const rawId = this.env('MORNING_CLIENT_ID').trim();
+    const id = rawId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? rawId;
+    const secret = this.env('MORNING_CLIENT_SECRET').trim();
     if (!id || !secret) throw new MorningError('NO_CREDENTIALS', 'חסרים MORNING_CLIENT_ID / MORNING_CLIENT_SECRET בסודות הפונקציה');
     const url = `${authBase(this.api)}/idp/v1/oauth/token`;
     const form = new URLSearchParams({ grant_type: 'client_credentials', client_id: id, client_secret: secret });
@@ -141,6 +144,11 @@ export interface CheckoutInfo {
 }
 
 /** גוף הבקשה לדף התשלום. המחירים כוללים מע"מ, ולכן נשלח רק amount (בלי income) — Morning בונה שורה אחת. */
+/** שורת הכנסה במחיר כולל מע"מ (vatType 1 בשורה), בדיוק בסכום המסלול. */
+export function incomeRow(description: string, amountAgorot: number): Record<string, unknown> {
+  return { description, quantity: 1, price: toShekels(amountAgorot), currency: 'ILS', vatType: 1 };
+}
+
 export function paymentFormBody(env: EnvFn, ck: CheckoutInfo, notifyUrl: string): Record<string, unknown> {
   const app = (env('HDM_APP_URL') || '').replace(/\/+$/, '');
   const plan = PLAN_HE[ck.plan] ?? ck.plan;
@@ -149,8 +157,11 @@ export function paymentFormBody(env: EnvFn, ck: CheckoutInfo, notifyUrl: string)
     type: 320,                 // חשבונית מס/קבלה (עוסק מורשה)
     lang: 'he',
     currency: 'ILS',
-    vatType: 1,                // הסכום כולל מע"מ — לאמת ב-Sandbox שהחשבונית יוצאת בדיוק על הסכום
+    // מע"מ: vatType ברמת המסמך = 0 (לפי העסק — עוסק מורשה). vatType 1 ברמת המסמך = פטור (0%) — נבדק בתצוגה מקדימה 21.10.
+    // השורה עצמה: vatType 1 = המחיר כולל מע"מ → 29.90 = 25.34 + 4.56 (18%). מאומת ב-documents/preview.
+    vatType: 0,
     amount: toShekels(ck.amountAgorot),
+    income: [incomeRow(ck.kind === 'upgrade' ? `שדרוג למסלול ${plan}` : `מנוי ${plan} חודשי`, ck.amountAgorot)],
     maxPayments: 1,
     pluginId: env('MORNING_PLUGIN_ID') || undefined,
     group: 100,                // כרטיס אשראי (נדרש בתוסף Grow)
@@ -168,7 +179,8 @@ export function notifyUrlFor(env: EnvFn, checkoutId: string): string {
 }
 
 export function tokenChargeBody(description: string, amountAgorot: number): Record<string, unknown> {
-  return { type: 320, lang: 'he', currency: 'ILS', vatType: 0, amount: toShekels(amountAgorot), description, maxPayments: 1 };
+  return { type: 320, lang: 'he', currency: 'ILS', vatType: 0, amount: toShekels(amountAgorot), description, maxPayments: 1,
+           income: [incomeRow(description, amountAgorot)] };
 }
 
 // ---------------------------------------------------------------------

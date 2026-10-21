@@ -19,7 +19,7 @@ async function assertRejects(fn: () => Promise<unknown>, cls?: any, includes?: s
 }
 import {
   CheckoutInfo, MorningClient, MorningError, PROD_API, SANDBOX_API, apiBase, assertMoneyAllowed, authBase, findCardToken,
-  paymentFormBody, pickDocumentId, safeEqual, toAgorot, toShekels, verifyDocumentAgainstCheckout,
+  paymentFormBody, pickDocumentId, tokenChargeBody, safeEqual, toAgorot, toShekels, verifyDocumentAgainstCheckout,
 } from './morning.ts';
 
 const envOf = (o: Record<string, string>) => (k: string) => o[k] ?? '';
@@ -97,16 +97,23 @@ Deno.test('שגיאה עסקית בתוך 201 נחשבת שגיאה', async () =
   assertEquals(e.code, 'REJECTED');
 });
 
-Deno.test('דף תשלום: סכום כולל מע"מ בשקלים, בלי income, עם תוסף, notify והפניות', () => {
+Deno.test('דף תשלום: סכום כולל מע"מ, שורת הכנסה כוללת מע"מ, עם תוסף, notify והפניות', () => {
   const b = paymentFormBody(envOf({ MORNING_PLUGIN_ID: 'plug', HDM_APP_URL: 'https://app.example/' }), CK, 'https://n');
   assertEquals(b.amount, 29.9);
   assertEquals(b.type, 320);
   assertEquals(b.pluginId, 'plug');
-  assertEquals(b.income, undefined);
+  assertEquals(b.vatType, 0);    // 1 ברמת המסמך = פטור ממע"מ — אסור
+  assertEquals(b.income, [{ description: 'מנוי בסיסי חודשי', quantity: 1, price: 29.9, currency: 'ILS', vatType: 1 }]);
   assertEquals(b.notifyUrl, 'https://n');
   assertEquals(b.custom, CK.id);
   assertEquals(b.successUrl, `https://app.example/?billing=return&ck=${CK.id}`);
   assertEquals((b.client as Record<string, unknown>).emails, ['noa@example.com']);
+});
+
+Deno.test('חיוב חידוש: מסמך vatType 0, שורה כוללת מע"מ בסכום המסלול', () => {
+  const b = tokenChargeBody('מנוי פלוס חודשי', 4890);
+  assertEquals(b.vatType, 0);
+  assertEquals(b.income, [{ description: 'מנוי פלוס חודשי', quantity: 1, price: 48.9, currency: 'ILS', vatType: 1 }]);
 });
 
 Deno.test('המרות סכום ואגורות', () => {
