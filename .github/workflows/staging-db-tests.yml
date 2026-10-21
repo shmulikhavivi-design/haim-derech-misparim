@@ -169,16 +169,6 @@ jobs:
           echo "::notice title=e2emorning-unit::$(echo "$UO" | sed 's/\x1b\[[0-9;]*m//g' | grep -E 'passed|failed|FAILED|=>' | tail -n 8 | tr '\n' ' ')"
           deno run --allow-net --allow-env --allow-write scripts/morning/sandbox_e2e.ts; RC=$?
           [ "$URC" = 0 ] && [ "$RC" = 0 ]
-      - name: Morning e2e — rotate test secrets, charging stays off (always)
-        if: always() && contains(fromJSON('["e2emorning","e2eflow"]'), steps.mode.outputs.mode)
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
-        run: |
-          REF=ousepgdvzammgkxkweze
-          OUT=$(supabase secrets set --project-ref "$REF" MORNING_LIVE=0 HDM_ENV=staging MORNING_WEBHOOK_TOKEN=$(openssl rand -hex 32) MORNING_WEBHOOK_SECRET=$(openssl rand -hex 32) HDM_CRON_SECRET=$(openssl rand -hex 32) 2>&1) \
-            && echo "::notice title=e2emorning-off::Staging: MORNING_LIVE=0, סודות הבדיקה הוחלפו" \
-            || echo "::error title=e2emorning-off::$(printf '%s' "$OUT" | grep -vE 'eyJ|sbp_' | tail -n 4 | tr '\n' ' ' | cut -c1-300)"
-      # ---- keynames: מחפש באילו שמות נשמרו מפתחות ה-Sandbox (קיום/אורך בלבד, בלי ערכים) ----
       - name: Key names (presence only)
         if: steps.mode.outputs.mode == 'keynames'
         env:
@@ -266,6 +256,16 @@ jobs:
           STAGING_FUNCTIONS_TOKEN: ${{ steps.mode.outputs.mode == 'growsecrets' && secrets.STAGING_FUNCTIONS_TOKEN || '' }}
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
 
+      - name: Morning e2e — rotate test secrets, charging stays off (always)
+        if: always() && contains(fromJSON('["e2emorning","e2eflow"]'), steps.mode.outputs.mode)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
+        run: |
+          REF=ousepgdvzammgkxkweze
+          OUT=$(supabase secrets set --project-ref "$REF" MORNING_LIVE=0 HDM_ENV=staging MORNING_WEBHOOK_TOKEN=$(openssl rand -hex 32) MORNING_WEBHOOK_SECRET=$(openssl rand -hex 32) HDM_CRON_SECRET=$(openssl rand -hex 32) 2>&1) \
+            && echo "::notice title=e2emorning-off::Staging: MORNING_LIVE=0, סודות הבדיקה הוחלפו" \
+            || echo "::error title=e2emorning-off::$(printf '%s' "$OUT" | grep -vE 'eyJ|sbp_' | tail -n 4 | tr '\n' ' ' | cut -c1-300)"
+      # ---- keynames: מחפש באילו שמות נשמרו מפתחות ה-Sandbox (קיום/אורך בלבד, בלי ערכים) ----
       - name: Grow e2e — switch functions off (always)
         if: always() && steps.mode.outputs.mode == 'e2egrow'
         env:

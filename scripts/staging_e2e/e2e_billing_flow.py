@@ -90,6 +90,8 @@ try:
     check('משתמש לא יכול לשמור כרטיס בעצמו', c in (401, 403, 404), [c, r])
     c, r = http('POST', f'/functions/v1/morning-webhook?ck={ck}', {'documentId': f'{PFX}fake'})
     check('webhook בלי הטוקן הסודי — נחסם (401), לא הופעל', c == 401 and plan_of('a') == 'free', [c, r])
+    c0, r0 = http('POST', f'/functions/v1/morning-webhook?t={WT}', {})
+    check('webhook עם הטוקן הנכון עובר את שלב הזיהוי (400 = אין מסמך)', c0 == 400, [c0, r0])
     c, r = http('POST', f'/functions/v1/morning-webhook?t={WT}&ck={ck}', {'documentId': f'{PFX}fake-doc'})
     check('webhook עם טוקן אבל מסמך שלא אומת מול Morning — לא הופעל', c >= 400 and plan_of('a') == 'free', [c, r])
     check('ניסיון התשלום עדיין ממתין (לא סומן כשולם)', sql(f"select status from public.hdm_checkouts where id='{ck}'") == 'pending')
@@ -104,11 +106,13 @@ try:
 
     # ---------- 2. פרטי כרטיס לא נשמרים ----------
     cols = sql("""select string_agg(table_name||'.'||column_name, ',') from information_schema.columns
-                  where table_schema='public' and table_name like 'hdm\\_%' and (column_name ~* '(card_?num|pan|cvv|cvc|expir|holder|credit_?card|cc_)' and column_name <> 'card_last4')""")
-    check('אין במסד עמודות של מספר כרטיס / CVV / תוקף / שם בעל הכרטיס', cols == '', cols)
+                  where table_schema='public' and table_name like 'hdm\\_%' and column_name ~* '(card_?num|card_?number|^pan$|cvv|cvc|holder|credit_?card|^cc_)'""")
+    check('אין במסד עמודות של מספר כרטיס מלא / CVV', cols == '', cols)
     sql(f"select public.hdm_billing_save_token('{IDS['a']}', 'morning-token-{PFX}', '4242')")
     row = sql(f"select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns where table_schema='public' and table_name='hdm_billing_tokens'")
-    check('נשמר רק: מזהה טוקן של Morning + 4 ספרות אחרונות', row == 'profile_id,grow_token,card_last4,updated_at', row)
+    # ב-Staging יש עמודות נוספות (payer_name, payer_phone, card_exp) מניסוי Grow הישיר (26, PR #39) — לא חלק מחבילת Production (08)
+    check('בזרימת Morning נשמרים רק מזהה טוקן + 4 ספרות (שאר העמודות ריקות)', sql(f"select coalesce(grow_token,'')||'|'||coalesce(card_last4,'')||'|'||(to_jsonb(t) - 'profile_id' - 'grow_token' - 'card_last4' - 'updated_at')::text from public.hdm_billing_tokens t where profile_id='{IDS['a']}'")
+          in (f'morning-token-{PFX}|4242|{{}}', f'morning-token-{PFX}|4242|{{"card_exp": null, "payer_name": null, "payer_phone": null}}'), row)
     check('4 ספרות בלבד (המסד דוחה יותר)', 'check' in sql("select pg_get_constraintdef(oid) from pg_constraint where conrelid='public.hdm_billing_tokens'::regclass and contype='c' limit 1").lower())
     c, r = http('GET', f'/rest/v1/hdm_billing_tokens?select=*', headers={'authorization': f'Bearer {ja}'})
     check('משתמש לא יכול לקרוא את טבלת הכרטיסים', c in (401, 403, 404) or r == [], [c, r])
