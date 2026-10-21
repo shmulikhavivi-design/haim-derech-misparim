@@ -29,7 +29,13 @@ jobs:
             case "$u" in http*) U="$u";; /*) U="https://developers.morning.co$u";; *) U="https://developers.morning.co/$u";; esac
             f="cand_$(echo "$u" | tr -c 'A-Za-z0-9._' '_' | cut -c1-60)"; c=$(curl -sSL -o "$f" -w '%{http_code}' "$U"); echo "$U $c $(wc -c < $f)" >> tried.txt
           done
-          find . -size 0 -delete; ls -la
+          curl -sSL https://developers.morning.co/assets/app-DUVqvdUr.js -o app.js
+          grep -oE '"[^"]{0,120}\.(ya?ml|json)[^"]{0,20}"|fetch\([^)]{0,200}\)|specUrl[^,]{0,200}' app.js | sort -u > app_refs.txt || true
+          for u in $(grep -oE '"(/|https://)[^"]+\.(ya?ml|json)"' app.js | tr -d '"' | sort -u); do
+            case "$u" in http*) U="$u";; *) U="https://developers.morning.co$u";; esac
+            f="spec_$(basename "$u")"; c=$(curl -sSL -o "$f" -w '%{http_code}' "$U"); echo "$U $c $(wc -c < $f)" >> tried.txt
+          done
+          rm -f try_* ; find . -size 0 -delete; ls -la
       - name: Publish to branch docs-fetch/out
         run: |
           cd out
