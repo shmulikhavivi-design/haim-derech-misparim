@@ -1,21 +1,29 @@
-# חיים דרך מספרים — בדיקת שמות סודות בלבד (בלי ערכים, בלי חיבור לשום שירות).
-# רץ רק ב-push לענף morning-probe/run.
+# חיים דרך מספרים — בדיקת קיום מפתחות בלבד (בלי ערכים, בלי חיבור לשום שירות).
+# רץ רק ב-push לענף morning-probe/run. סביבת GitHub "production".
 name: Morning probe (read-only)
 on: { push: { branches: [ 'morning-probe/run' ] } }
 permissions: { contents: read }
 concurrency: { group: morning-probe, cancel-in-progress: false }
 jobs:
-  names:
+  probe:
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/morning-probe/run'
-    strategy: { matrix: { envname: [ production, staging ] } }
     runs-on: ubuntu-24.04
     timeout-minutes: 3
-    environment: ${{ matrix.envname }}
+    environment: production
     steps:
-      - name: Secret names only (values never printed)
-        env: { S: '${{ toJSON(secrets) }}' }
+      - name: Key presence only (values never printed)
+        env:
+          A1: ${{ secrets.MORNING_SANDBOX_CLIENT_ID }}
+          A2: ${{ secrets.MORNING_SANDBOX_CLIENT_SECRET }}
+          A3: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
+          A4: ${{ secrets.MORNING_CLIENT_ID }}
+          A5: ${{ secrets.MORNING_CLIENT_SECRET }}
+          A6: ${{ secrets.MORNING_SANDBOX_API_KEY }}
+          A7: ${{ secrets.MORNING_SANDBOX_SECRET }}
+          A8: ${{ secrets.MORNING_SANDBOX_ID }}
         run: |
-          N=$(printf '%s' "$S" | jq -r 'keys - ["github_token"] | map(. + "(" + "len" + ")") | join(" ")' 2>/dev/null)
-          L=$(printf '%s' "$S" | jq -r 'to_entries | map(select(.key!="github_token")) | map("\(.key)=\(.value|length)") | join(" ")')
-          unset S
-          echo "::notice title=secret-names-${{ matrix.envname }}::$L"
+          L=""; i=0
+          for n in MORNING_SANDBOX_CLIENT_ID MORNING_SANDBOX_CLIENT_SECRET STAGING_FUNCTIONS_TOKEN MORNING_CLIENT_ID MORNING_CLIENT_SECRET MORNING_SANDBOX_API_KEY MORNING_SANDBOX_SECRET MORNING_SANDBOX_ID; do
+            i=$((i+1)); v=$(eval echo "\${A$i:-}"); [ -n "$v" ] && L="$L $n=✅(${#v})" || L="$L $n=—"
+          done
+          echo "::notice title=production-env-keys::$L"
