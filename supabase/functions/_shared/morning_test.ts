@@ -19,7 +19,7 @@ async function assertRejects(fn: () => Promise<unknown>, cls?: any, includes?: s
 }
 import {
   CheckoutInfo, MorningClient, MorningError, PROD_API, SANDBOX_API, apiBase, assertMoneyAllowed, authBase, findCardToken,
-  paymentFormBody, pickDocumentId, tokenChargeBody, safeEqual, toAgorot, toShekels, verifyDocumentAgainstCheckout,
+  paymentFormBody, pickCheckoutId, pickDocumentId, tokenChargeBody, verifyMorningSignature, safeEqual, toAgorot, toShekels, verifyDocumentAgainstCheckout,
 } from './morning.ts';
 
 const envOf = (o: Record<string, string>) => (k: string) => o[k] ?? '';
@@ -161,15 +161,39 @@ Deno.test('אימות מסמך: מייל אחר / מסמך ישן / אין ני�
   assertThrows(() => verifyDocumentAgainstCheckout({}, CK), MorningError);
 });
 
-Deno.test('טוקן כרטיס: הטוקן הפעיל והחדש ביותר, 4 ספרות אחרונות בלבד', async () => {
-  const { f, calls } = fakeFetch((c) => c.url.includes('oauth') ? json({ accessToken: 'AT', expiresAt: 9e9 }) : json({ items: [
-    { id: 'old', active: true, creationDate: 1, cardNum: '1111' },
-    { id: 'off', active: false, creationDate: 2e9, cardNum: '2222' },
-    { id: 'new', active: true, creationDate: Date.parse('2026-10-20T10:06:00Z') / 1000, cardNum: '****4242' },
+Deno.test('טוקן כרטיס (לפי התיעוד הרשמי): externalKey, סטטוס תקף בלבד, 4 ספרות מ-number', async () => {
+  const { f, calls } = fakeFetch((c) => c.url.includes('oauth') ? json({ accessToken: 'AT', expiresAt: 9e9 }) : json({ total: 4, items: [
+    { id: 'old', externalKey: 'cl-1', status: 1, creationDate: 1, number: '1111' },
+    { id: 'revoked', externalKey: 'cl-1', status: 3, creationDate: 2e9, number: '2222' },
+    { id: 'other', externalKey: 'cl-2', status: 1, creationDate: 2e9, number: '3333' },
+    { id: 'new', externalKey: 'cl-1', status: 2, creationDate: Date.parse('2026-10-20T10:06:00Z') / 1000, number: '4242' },
   ] }));
   const m = new MorningClient(envOf(BASE), f);       // חיפוש טוקנים לא מזיז כסף — עובד גם כשהסליקה כבויה
   const t = await findCardToken(m, 'cl-1', Date.parse(CK.createdAt));
   assertEquals(t, { id: 'new', last4: '4242' });
-  assertEquals(JSON.parse(String(calls[1].init?.body)).clientId, 'cl-1');
+  assertEquals(JSON.parse(String(calls[1].init?.body)).externalKey, 'cl-1');
   assertEquals(await findCardToken(m, undefined, 0), null);
+});
+
+Deno.test('Morning Webhooks: מזהה מסמך מאירוע document/created, custom → ניסיון התשלום', () => {
+  assertEquals(pickDocumentId({ id: 'doc-9', type: 320, number: 17 }), 'doc-9');
+  assertEquals(pickDocumentId({ id: 'pay-req-1', total: 10 }), '');   // payment/received — לא מסמך
+  assertEquals(pickCheckoutId({ custom: CK.id }), CK.id);
+  assertEquals(pickCheckoutId({ custom: { custom: CK.id } }), CK.id);
+  assertEquals(pickCheckoutId({}), '');
+});
+
+Deno.test('Morning Webhooks: חתימת HMAC-SHA256 על הגוף הגולמי', async () => {
+  const body = '{"id":"doc-9","type":320}', secret = 'whsec-0123456789abcdef';
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const hex = Array.from(new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))), (b) => b.toString(16).padStart(2, '0')).join('');
+  assert(await verifyMorningSignature(body, hex, secret));
+  assert(!await verifyMorningSignature(body + ' ', hex, secret));        // גוף ששונה
+  assert(!await verifyMorningSignature(body, hex, 'other-secret-xxxxxx'));
+  assert(!await verifyMorningSignature(body, hex, ''));                  // בלי סוד מוגדר — נדחה
+});
+
+Deno.test('אימות מסמך: מסמך מבוטל לא מפעיל מנוי', () => {
+  const v = verifyDocumentAgainstCheckout({ id: 'd1', type: 320, currency: 'ILS', amount: 48.9, status: 4, client: { emails: [CK.email] } }, CK);
+  assert(!v.bound); assert(v.problems.some((p) => p.includes('מבוטל')));
 });

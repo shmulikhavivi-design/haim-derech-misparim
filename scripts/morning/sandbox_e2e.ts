@@ -38,6 +38,22 @@ const WT = E('MORNING_WEBHOOK_TOKEN'), CS = E('HDM_CRON_SECRET');
   ok('webhook בלי מסמך נדחה', r.status === 400, `HTTP ${r.status}`);
   r = await hit(`/morning-webhook?t=${WT}&ck=00000000-0000-0000-0000-000000000000`, { method: 'POST', body: '{"documentId":"not-a-real-doc"}' });
   ok('webhook עם מסמך מזויף — לא מפעיל מנוי (Morning לא מאשרת את המסמך)', r.status >= 400 && r.j.result === undefined, `HTTP ${r.status} ${scrub(r.j.error ?? '')}`);
+  // Morning Webhooks (מוגדרים בממשק Morning) — חתימת HMAC-SHA256 על הגוף
+  const WS = E('MORNING_WEBHOOK_SECRET');
+  const sign = async (body: string, secret: string) => {
+    const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(body))), (b) => b.toString(16).padStart(2, '0')).join('');
+  };
+  const docEv = JSON.stringify({ id: 'not-a-real-doc', type: 320, number: 1, custom: '00000000-0000-0000-0000-000000000000' });
+  r = await hit('/morning-webhook', { method: 'POST', body: docEv, headers: { 'x-webhook-topic': 'document/created', 'x-webhook-signature': await sign(docEv, 'wrong-secret-0000000000') } });
+  ok('Webhook של Morning עם חתימה שגויה נחסם', r.status === 401, `HTTP ${r.status}`);
+  r = await hit('/morning-webhook', { method: 'POST', body: docEv + ' ', headers: { 'x-webhook-topic': 'document/created', 'x-webhook-signature': await sign(docEv, WS) } });
+  ok('Webhook של Morning שגופו שונה אחרי החתימה נחסם', r.status === 401, `HTTP ${r.status}`);
+  const payEv = JSON.stringify({ id: 'pay-1', total: 29.9 });
+  r = await hit('/morning-webhook', { method: 'POST', body: payEv, headers: { 'x-webhook-topic': 'payment/received', 'x-webhook-signature': await sign(payEv, WS) } });
+  ok('Webhook חתום מסוג אחר (payment/received) — מאושר ומתעלמים, בלי לגעת במנוי', r.status === 200 && r.j.ignored === 'payment/received', `HTTP ${r.status} ${JSON.stringify(r.j)}`);
+  r = await hit('/morning-webhook', { method: 'POST', body: docEv, headers: { 'x-webhook-topic': 'document/created', 'x-webhook-signature': await sign(docEv, WS) } });
+  ok('Webhook חתום עם מסמך מזויף — נבדק מול Morning ולא מפעיל מנוי', r.status >= 400 && r.j.result === undefined, `HTTP ${r.status} ${scrub(r.j.error ?? '')}`);
   r = await hit('/morning-checkout', { method: 'POST', body: '{}' });
   ok('checkout בלי משתמש מחובר נחסם', r.status === 401, `HTTP ${r.status}`);
   r = await hit('/morning-checkout', { method: 'GET' });

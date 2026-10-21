@@ -10,14 +10,13 @@
 //   4. אחרי הצטרפות מוצלחת: שמירת הטוקן של הכרטיס לחידושים (אם Morning שמרה טוקן).
 // =====================================================================
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { CheckoutInfo, MorningClient, MorningError, findCardToken, pickDocumentId, safeEqual, verifyDocumentAgainstCheckout } from '../_shared/morning.ts';
+import { CheckoutInfo, MorningClient, MorningError, findCardToken, pickCheckoutId, pickDocumentId, safeEqual, verifyDocumentAgainstCheckout, verifyMorningSignature } from '../_shared/morning.ts';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
 const ok = (body: unknown = { ok: true }, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-async function readBody(req: Request): Promise<Record<string, unknown>> {
-  const text = await req.text();
+function parseBody(text: string): Record<string, unknown> {
   if (!text) return {};
   try { return JSON.parse(text); } catch { /* form-urlencoded */ }
   const out: Record<string, unknown> = {};
@@ -28,14 +27,22 @@ async function readBody(req: Request): Promise<Record<string, unknown>> {
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return ok({ error: 'method' }, 405);
   const u = new URL(req.url);
+  const raw = await req.text();
+  // שתי דרכים מותרות להיכנס: (1) notifyUrl של דף התשלום עם טוקן סודי בכתובת;
+  // (2) Webhook שהוגדר בממשק Morning עם סוד — חתימת HMAC-SHA256 על הגוף (x-webhook-signature).
   const expected = env('MORNING_WEBHOOK_TOKEN');
-  if (!expected || expected.length < 32 || !safeEqual(u.searchParams.get('t') ?? '', expected)) return ok({ error: 'auth' }, 401);
+  const byToken = !!expected && expected.length >= 32 && safeEqual(u.searchParams.get('t') ?? '', expected);
+  const sig = req.headers.get('x-webhook-signature') ?? '';
+  const bySig = !byToken && !!sig && await verifyMorningSignature(raw, sig, env('MORNING_WEBHOOK_SECRET'));
+  if (!byToken && !bySig) return ok({ error: 'auth' }, 401);
+  const topic = req.headers.get('x-webhook-topic') ?? '';
+  if (bySig && topic && topic !== 'document/created') return ok({ ignored: topic });   // 2xx כדי ש-Morning לא תספור כישלון
 
   try {
-    const body = await readBody(req);
+    const body = parseBody(raw);
     const docId = pickDocumentId(body);
     if (!docId) return ok({ error: 'no_document' }, 400);
-    const ckId = u.searchParams.get('ck') ?? String(body.custom ?? '');
+    const ckId = u.searchParams.get('ck') || pickCheckoutId(body);
 
     let ck: CheckoutInfo | null = null;
     if (/^[0-9a-f-]{36}$/i.test(ckId)) {
