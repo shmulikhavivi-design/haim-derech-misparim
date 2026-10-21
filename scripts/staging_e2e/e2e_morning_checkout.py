@@ -60,7 +60,7 @@ srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(http.s
 srv.RequestHandlerClass.log_message = lambda *a: None
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 APP = f'http://127.0.0.1:{srv.server_address[1]}/{os.path.basename(PAGE)}'
-errors, fn_calls = [], []
+errors, fn_calls, fn_status = [], [], []
 
 def login(pg):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
@@ -120,13 +120,14 @@ try:
             fn_calls.clear()
             c = ctx(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
             pg.on('request', lambda r: fn_calls.append(r.url) if '/functions/v1/' in r.url else None)
+            pg.on('response', lambda r: fn_status.append(r.status) if '/functions/v1/morning-checkout' in r.url and r.request.method == 'POST' else None)
             pg.goto(APP + '?billing=preview'); pg.wait_for_timeout(2500); login(pg)
             sql(f"update public.hdm_checkouts set status='expired', closed_at=now() where profile_id='{IDS['buyer']}' and status='pending'")
             t0, blocked, msg = checkout_and_pay(pg, plan)
             check(f'{plan}: הכפתור קרא לפונקציית התשלום morning-checkout', any('/functions/v1/morning-checkout' in u for u in fn_calls), fn_calls)
             row = sql(f"select plan || '|' || amount_agorot || '|' || status || '|' || terms_version from public.hdm_checkouts where profile_id='{IDS['buyer']}' and status='pending' order by created_at desc limit 1")
             check(f'{plan}: נפתח ניסיון תשלום אחד בסכום ₪{amt/100:.2f} עם גרסת התנאים', row.startswith(f'{plan}|{amt}|pending|'), row)
-            check(f'{plan}: השרת סירב (הסליקה כבויה) — מוצג שלא בוצע חיוב', 'לא בוצע חיוב' in msg, msg)
+            check(f'{plan}: השרת סירב — משתמש שלא ברשימת הבדיקה (403) — מוצג שלא בוצע חיוב', 'לא בוצע חיוב' in msg and 403 in fn_status, [msg, fn_status])
             check(f'{plan}: לא הייתה הפניה לדף תשלום', pg.url.startswith(APP), pg.url)
             check(f'{plan}: המסלול לא השתנה (עדיין חינם)', sql(f"select public.hdm_plan_of('{IDS['buyer']}')") == 'free')
             c.close()

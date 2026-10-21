@@ -36,6 +36,10 @@ Deno.serve(async (req) => {
     const { data: who } = await admin.auth.getUser(jwt);
     if (!who?.user) return reply(401, { error: 'auth' });
 
+    // שלב בדיקה: כשמוגדר HDM_BILLING_ALLOWED_USERS (רשימת מזהי משתמש), רק הם יכולים לשלם. כל השאר — 403, בלי לגעת ב-Morning.
+    const allowed = env('HDM_BILLING_ALLOWED_USERS').split(',').map((x) => x.trim()).filter(Boolean);
+    if (allowed.length && !allowed.includes(who.user.id)) return reply(403, { error: 'not_open' });
+
     const { checkoutId } = await req.json().catch(() => ({}));
     if (typeof checkoutId !== 'string' || !/^[0-9a-f-]{36}$/i.test(checkoutId)) return reply(400, { error: 'checkout' });
     const { data: ck, error } = await admin.rpc('hdm_billing_checkout_lookup', { p_checkout: checkoutId });

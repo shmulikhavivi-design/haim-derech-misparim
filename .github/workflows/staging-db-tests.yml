@@ -143,6 +143,8 @@ jobs:
             echo "MORNING_WEBHOOK_SECRET=$WS"
             echo "HDM_CRON_SECRET=$CS"
             echo "HDM_APP_URL=https://haim-derech-misparim.pages.dev"
+            # שלב בדיקה: רק המשתמש ברשימה יכול לשלם (מזהה אקראי — אף משתמש אמיתי לא ברשימה)
+            echo "HDM_BILLING_ALLOWED_USERS=$(cat /proc/sys/kernel/random/uuid)"
             # רק מפתחות Sandbox נכנסים ל-Staging. מפתחות ה-Production של Morning לא מועברים לכאן בכלל.
             if [ -n "$SBX_ID" ] && [ -n "$SBX_SECRET" ]; then echo "MORNING_CLIENT_ID=$SBX_ID"; echo "MORNING_CLIENT_SECRET=$SBX_SECRET"; fi
           } > "$F"
