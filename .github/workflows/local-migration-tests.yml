@@ -49,3 +49,14 @@ jobs:
 
       - name: Paid subscriptions for Production (08) — local DB only, no secrets
         run: sudo bash scripts/release/test_billing_local.sh
+
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.x }
+
+      - name: Billing functions — unit tests with simulated Morning (no network, no charges)
+        run: |
+          deno test --no-check supabase/functions/_shared/morning_test.ts supabase/functions/_shared/card_flow_test.ts
+
+      - name: Billing functions — type check
+        run: |
+          deno check supabase/functions/_shared/card_flow.ts supabase/functions/morning-checkout/index.ts supabase/functions/morning-webhook/index.ts supabase/functions/morning-renewals/index.ts

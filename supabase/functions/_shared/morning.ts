@@ -125,9 +125,15 @@ export class MorningClient {
   businessMe() { return this.request('GET', '/businesses/me'); }
   // חיפוש טוקנים הוא POST אבל לא מזיז כסף
   searchTokens(filter: Record<string, unknown>) { return this.request('POST', '/payments/tokens/search', filter, false); }
+  searchDocuments(filter: Record<string, unknown>) { return this.request('POST', '/documents/search', filter, false); }
+  // לקוחות: לא מזיז כסף
+  searchClients(filter: Record<string, unknown>) { return this.request('POST', '/clients/search', filter, false); }
+  addClient(body: Record<string, unknown>) { return this.request('POST', '/clients', body, false); }
 
   // ---- פעולות כסף (חסומות עד MORNING_LIVE=1, ו-Production חסום מחוץ ל-Production) ----
   createPaymentForm(body: Record<string, unknown>) { return this.request('POST', '/payments/form', body, true); }
+  // קישור מאובטח של Grow לשמירת כרטיס (לא מחייב, אבל מוביל לחיוב — לכן חסום כמו פעולות כסף)
+  createTokenLink(body: Record<string, unknown>) { return this.request('POST', '/payments/tokens/url', body, true); }
   chargeToken(tokenId: string, body: Record<string, unknown>) {
     return this.request('POST', `/payments/tokens/${encodeURIComponent(tokenId)}/charge`, body, true);
   }
@@ -275,4 +281,59 @@ export async function verifyMorningSignature(rawBody: string, signature: string,
   const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody)));
   const hex = Array.from(mac, (b) => b.toString(16).padStart(2, '0')).join('');
   return safeEqual(hex, signature.trim().toLowerCase());
+}
+
+// ---------------------------------------------------------------------
+// אפשרות 2 (22.10): הלקוח מזין כרטיס פעם אחת — שמירת כרטיס בדף של Grow, ואז השרת מחייב את החודש הראשון
+// ואת החידושים בכרטיס השמור. אצלנו נשמרים רק מזהה הטוקן ו-4 ספרות אחרונות.
+// ---------------------------------------------------------------------
+/** לקוח קיים ב-Morning לפי אימייל, או לקוח חדש. מחזיר את מזהה הלקוח. */
+export async function ensureMorningClient(m: MorningClient, email: string | null, name: string): Promise<string> {
+  const em = (email ?? '').trim().toLowerCase();
+  if (em) {
+    const r = await m.searchClients({ email: em, page: 1, pageSize: 10 }) as Record<string, unknown>;
+    const items = (Array.isArray(r.items) ? r.items : []) as Record<string, unknown>[];
+    const hit = items.find((c) => c.active !== false && ([] as unknown[]).concat(c.emails ?? []).some((e) => String(e).toLowerCase() === em));
+    if (hit && typeof hit.id === 'string') return hit.id;
+  }
+  const c = await m.addClient({ name: (name || em || 'לקוח').slice(0, 80), emails: em ? [em] : [], send: true }) as Record<string, unknown>;
+  if (typeof c.id !== 'string' || !c.id) throw new MorningError('NO_CLIENT', 'Morning לא החזירה מזהה לקוח');
+  return c.id;
+}
+
+/** גוף הבקשה לקישור שמירת הכרטיס. externalKey חייב להיות מזהה תקין — מזהה הלקוח ב-Morning (נבדק מול Production 22.10). */
+export function tokenLinkBody(env: EnvFn, clientId: string, ck: { id: string }): Record<string, unknown> {
+  const app = (env('HDM_APP_URL') || '').replace(/\/+$/, '');
+  return {
+    lang: 'he',
+    pluginId: env('MORNING_PLUGIN_ID') || undefined,
+    channel: 1,                       // החזרת קישור בלבד (בלי מייל)
+    client: { id: clientId },
+    externalKey: clientId,
+    successUrl: `${app}/?billing=card&ck=${ck.id}`,
+  };
+}
+
+/** אימות המסמך שחזר מחיוב בכרטיס השמור מול ניסיון התשלום: סוג, מטבע, לא מבוטל, סכום. */
+export function verifyChargeDocument(doc: Record<string, unknown>, ck: CheckoutInfo): VerifiedPayment {
+  const problems: string[] = [];
+  const docId = String(doc.id ?? '');
+  if (!docId) throw new MorningError('NO_DOCUMENT', 'Morning לא החזירה מסמך לחיוב');
+  if (Number(doc.type) !== 320 && Number(doc.type) !== 400) problems.push(`סוג מסמך ${doc.type}`);
+  if (doc.currency && doc.currency !== 'ILS') problems.push(`מטבע ${doc.currency}`);
+  if (Number(doc.status) === 3 || Number(doc.status) === 4) problems.push(`מסמך מבוטל (סטטוס ${doc.status})`);
+  const amt = documentAmountAgorot(doc);
+  if (Number.isFinite(amt) && amt !== ck.amountAgorot) problems.push(`סכום ${amt} במקום ${ck.amountAgorot}`);
+  const blocking = problems.filter((p) => !p.startsWith('סכום'));
+  const bound = blocking.length === 0;
+  const client = (doc.client ?? {}) as Record<string, unknown>;
+  return {
+    bound, problems, clientId: typeof client.id === 'string' ? client.id : undefined,
+    event: {
+      transactionId: `morning:${docId}`, kind: ck.kind === 'upgrade' ? 'upgrade' : 'initial', outcome: 'approved',
+      amountAgorot: Number.isFinite(amt) ? amt : ck.amountAgorot,
+      ...(bound ? { checkoutId: ck.id } : {}),
+      raw: { provider: 'morning', flow: 'card-then-charge', documentId: docId, number: doc.number ?? null, problems },
+    },
+  };
 }

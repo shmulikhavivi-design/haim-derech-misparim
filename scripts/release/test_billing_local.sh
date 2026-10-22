@@ -115,5 +115,15 @@ done
 "${P[@]}" -d prod -c "update public.hdm_plan_sale set on_sale = false where plan = 'vip'"
 check "14: אחרי הבדיקות — VIP שוב בקרוב, בלי נתוני בדיקה" "f|0" "$(q prod "select (select on_sale::text from public.hdm_plan_sale where plan='vip')||'|'||((select count(*) from public.hdm_payments)+(select count(*) from public.hdm_checkouts))" | sed 's/false/f/')"
 
+# ---------- 7. אפשרות 2: לקוחות Morning (17) ----------
+F17="$ROOT/supabase/production/17_production_billing_customers.sql"
+OUT=$("${P[@]}" -d stg -f "$F17" 2>&1) || true
+check "17: על מסד Staging — נעצר" "1" "$(echo "$OUT" | grep -c 'לא Production')"
+if "${P[@]}" -d prod -f "$F17" >"$WORK/17.out" 2>&1; then ok "17: טבלת לקוחות Morning הותקנה"; else bad "17 עבר" "$(grep -E 'ERROR|עצירה' "$WORK/17.out" | head -2)"; fi
+check "17: האפליקציה לא קוראת את הטבלה" "permission denied" "$(q prod "begin; set local role authenticated; select count(*) from public.hdm_billing_customers; rollback;" | grep -o 'permission denied' | head -1)"
+check "17: מסלולים ומשתמשים ללא שינוי" "$SUBS_BEFORE" "$(q prod "select string_agg(p||'='||public.hdm_plan_of(p), ',' order by p) from unnest(array['shmulik1','noa2','free3']) p")"
+OUT=$("${P[@]}" -d prod -f "$F17" 2>&1) || true
+check "17: הרצה חוזרת נעצרת" "1" "$(echo "$OUT" | grep -c 'כבר מותקן')"
+
 echo; echo "סיכום: עברו $PASS מתוך $((PASS+FAIL))"
 [ "$FAIL" = 0 ]

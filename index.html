@@ -6237,7 +6237,7 @@
     html += '<button type="button" class="hdm-co-pay" id="hdm-co-pay" aria-disabled="' + (!hdmCo.accepted) + '" aria-describedby="hdm-co-msg" onclick="hdmCoPay()">המשך לתשלום מאובטח — ' + price + '</button>';
     var msg = hdmCo.msg || (hdmCo.accepted ? '' : 'יש לסמן את אישור התקנון כדי להמשיך לתשלום.');
     html += '<p class="hdm-co-msg' + (hdmCo.err ? ' is-error' : '') + '" id="hdm-co-msg" role="status" aria-live="polite">' + hdmEsc(msg) + '</p>';
-    html += '<p class="hdm-co-secure">🔒 תשלום מאובטח דרך Grow · ללא שמירת פרטי אשראי</p>';
+    html += '<p class="hdm-co-secure">🔒 בשלב הבא מזינים את פרטי הכרטיס פעם אחת, בדף מאובטח של Grow. הכרטיס נשמר אצל Grow לחיוב החודשי — לא אצלנו. מיד אחרי השמירה מתבצע החיוב הראשון, והמנוי מופעל רק אחרי אישור התשלום.</p>';
     html += '<div class="hdm-co-links" id="hdm-co-links">' + hdmCoLink('terms', 'תקנון ותנאי שימוש') + hdmCoLink('cancel', 'מדיניות ביטול מנוי') + hdmCoLink('privacy', 'מדיניות פרטיות') + hdmCoLink('business', 'מחירים ופרטי העסק') + '</div>';
     body.innerHTML = html;
   }
@@ -6261,33 +6261,72 @@
   }
   // ---- מעבר לתשלום דרך Morning (Grow): ניסיון תשלום במסד → פונקציית השרת morning-checkout → עמוד התשלום המאובטח ----
   // המנוי מופעל רק כשהשרת מאמת את התשלום מול Morning (morning-webhook). פרטי הכרטיס לא עוברים דרך האפליקציה.
-  async function hdmMorningPay(checkoutId){
-    var r = await window.__sb.functions.invoke('morning-checkout', { body: { checkoutId: checkoutId } });
-    if(r && r.error) throw { hint: 'לא הצלחנו לפתוח את עמוד התשלום. לא בוצע חיוב. נסו שוב בעוד רגע.' };
+  // אפשרות 2 (22.10): הלקוח מזין כרטיס פעם אחת בדף מאובטח של Grow (שמירת כרטיס) → השרת מחייב את החודש הראשון בכרטיס השמור.
+  // אם כבר יש כרטיס שמור — השרת מחייב מיד. המנוי מופעל רק אחרי שהשרת קיבל אישור חיוב ואימת את המסמך מול Morning.
+  var HDM_PAY_ERR = 'לא הצלחנו לפתוח את הדף המאובטח לשמירת הכרטיס. לא בוצע חיוב. נסו שוב בעוד רגע.';
+  async function hdmMorningPay(checkoutId, step){
+    var r = await window.__sb.functions.invoke('morning-checkout', { body: step ? { checkoutId: checkoutId, step: step } : { checkoutId: checkoutId } });
+    if(r && r.error) throw { hint: HDM_PAY_ERR };
     var d = (r && r.data) || {};
     if(d.mode === 'redirect' && /^https:\/\//.test(d.url || '')){ location.href = d.url; return 'redirect'; }
-    if(d.mode === 'charged') return String(d.result || 'charged');
-    throw { hint: 'לא הצלחנו לפתוח את עמוד התשלום. לא בוצע חיוב. נסו שוב בעוד רגע.' };
+    if(d.mode === 'charged' || d.mode === 'processing' || d.mode === 'waiting' || d.mode === 'card_saved') return d.mode;
+    if(d.mode === 'failed') throw { hint: 'החיוב בכרטיס נדחה, ולכן המנוי לא הופעל. אפשר לנסות שוב עם כרטיס אחר.' };
+    throw { hint: HDM_PAY_ERR };
   }
+  async function hdmPaidOk(){
+    try{ await hdmRefreshPlan(true); }catch(x){}
+    try{ hdmCloseLayer('hdm-checkout-screen'); }catch(x){}
+    try{ hdmApplyPlansLabels(); hdmRenderPlans(); }catch(x){}
+    try{ hdmToast('התשלום אושר והמנוי הופעל. קבלה נשלחה באימייל.'); }catch(x){}
+  }
+  // אחרי שמירת הכרטיס אצל Grow: השלמת התשלום (וגם לחיצה ידנית על "השלמת התשלום"). בטוח ללחיצה חוזרת — השרת מחייב פעם אחת בלבד.
+  var hdmCardBusy = false;
+  window.hdmCardComplete = async function(ck){
+    if(hdmCardBusy) return; hdmCardBusy = true;
+    try{ hdmToast('הכרטיס נשמר אצל Grow. משלימים את התשלום…'); }catch(x){}
+    var n = 0, last = '';
+    while(n++ < 30){
+      if(!myId){ await new Promise(function(r){ setTimeout(r, 2000); }); continue; }
+      try{
+        if(!ck){   // מנוי בתשלום קיים בלי כרטיס שמור (קישור שמירת כרטיס לחידוש) — רק קישור הכרטיס, בלי חיוב
+          var sy = await window.__sb.functions.invoke('morning-checkout', { body: { step: 'sync' } });
+          var sd = (sy && sy.data) || {};
+          if(sd.mode === 'card_saved'){ try{ hdmToast('הכרטיס נשמר לחידוש החודשי' + (sd.last4 ? ' (מסתיים ב-' + sd.last4 + ')' : '') + '. לא בוצע חיוב.'); }catch(x){} break; }
+        }
+        last = await hdmMorningPay(ck, 'complete');
+        if(last === 'charged'){ await hdmPaidOk(); break; }
+      }catch(e){ try{ hdmToast((e && e.hint) || HDM_PAY_ERR); }catch(x){} break; }
+      await new Promise(function(r){ setTimeout(r, 4000); });
+    }
+    if(last === 'processing') try{ hdmToast('התשלום בבדיקה מול ספק הסליקה. לא יבוצע חיוב נוסף. נעדכן כאן כשהמנוי יופעל.'); }catch(x){}
+    else if(last === 'waiting') try{ hdmToast('עוד לא קיבלנו מ-Grow את שמירת הכרטיס. אם סיימת, נסו "השלמת התשלום" שוב בעוד דקה.'); }catch(x){}
+    hdmCardBusy = false;
+    try{ await hdmRefreshPlan(true); hdmRenderPlans(); }catch(x){}
+  };
   window.hdmGrowStartCheckout = async function(plan){
     if(hdmCo.busy) return;
-    hdmCo.busy = true; hdmCo.err = false; hdmCo.msg = 'פותחים את עמוד התשלום המאובטח…'; hdmRenderCheckout();
+    hdmCo.busy = true; hdmCo.err = false; hdmCo.msg = 'פותחים את הדף המאובטח של Grow…'; hdmRenderCheckout();
     try{
       await hdmRefreshPlan(true).catch(function(){});
       var b = hdmEnt && hdmEnt.forId === myId && hdmEnt.billing;
       if(!b || !b.termsVersion) throw { hint: 'לא הצלחנו לטעון את פרטי המנוי. לא בוצע חיוב. נסו שוב בעוד רגע.' };
       var r = await window.__sb.rpc('hdm_billing_start_checkout', { p_plan: plan, p_terms_version: b.termsVersion, p_accept: true });
       if(r && r.error) throw r.error;
-      if(await hdmMorningPay(r.data.checkoutId) === 'redirect') return;   // הדף עובר לעמוד התשלום
+      var res = await hdmMorningPay(r.data.checkoutId);
+      if(res === 'redirect') return;   // הדף עובר לדף שמירת הכרטיס של Grow
+      if(res === 'charged'){ hdmCo.busy = false; hdmCo.msg = ''; await hdmPaidOk(); return; }   // כרטיס שמור קיים — חויב מיד
+      hdmCo.msg = 'התשלום בבדיקה מול ספק הסליקה. לא יבוצע חיוב נוסף.';
     }catch(e){
-      hdmCo.err = true; hdmCo.msg = (e && e.hint) ? e.hint : 'לא הצלחנו לפתוח את עמוד התשלום. לא בוצע חיוב. נסו שוב בעוד רגע.';
+      hdmCo.err = true; hdmCo.msg = (e && e.hint) ? e.hint : HDM_PAY_ERR;
     }
     hdmCo.busy = false; hdmRenderCheckout();
   };
   // חזרה מעמוד התשלום: לא מסמנים "שולם" לפי הכתובת — רק מרעננים עד שהשרת מאשר
   (function hdmBillingReturn(){
-    var m = /[?&]billing=(return|failed)\b/.exec(location.search); if(!m) return;
+    var m = /[?&]billing=(return|failed|card)\b/.exec(location.search); if(!m) return;
+    var ckm = /[?&]ck=([0-9a-f-]{36})\b/i.exec(location.search);
     try{ history.replaceState(null, '', location.pathname + location.hash); }catch(x){}
+    if(m[1] === 'card'){ setTimeout(function(){ window.hdmCardComplete(ckm ? ckm[1] : null); }, 1500); return; }
     setTimeout(function(){
       var ok = m[1] === 'return';
       try{ hdmToast(ok ? 'אם התשלום הושלם, המנוי יופעל מיד עם האישור מספק הסליקה (בדרך כלל עד דקה). קבלה תישלח באימייל.'
@@ -6423,7 +6462,8 @@
       if(hdmBillUI.msg) html += '<p class="hdm-note" style="margin:10px 0 0">' + hdmEsc(hdmBillUI.msg) + '</p>';
       html += '</div>';
     }else if(b.pendingCheckout){
-      html += '<div class="hdm-bill">יש תשלום שנמצא בתהליך. אם לא השלמת אותו, אפשר לנסות שוב בעוד כחצי שעה.</div>';
+      html += '<div class="hdm-bill">יש תשלום שנמצא בתהליך. אם כבר שמרת את הכרטיס בדף של Grow, אפשר להשלים את התשלום — יבוצע חיוב אחד בלבד.'
+            + '<div class="hdm-bill-row"><button type="button" class="primary" id="hdm-card-complete" onclick="hdmCardComplete(null)">השלמת התשלום</button></div></div>';
     }
     return html;
   }
@@ -6554,11 +6594,11 @@
       if(r && r.error) throw r.error;
       // Morning (Grow): פונקציית השרת יוצרת דף תשלום מאובטח לניסיון הזה. המנוי מופעל רק כשהשרת מאמת את התשלום מול Morning.
       if(HDM_BILLING_LIVE){
-        hdmBillUI.msg = 'מעבירים לתשלום מאובטח…'; hdmRenderPlans();
-        var fx = await window.__sb.functions.invoke('morning-checkout', { body: { checkoutId: r.data.checkoutId } });
-        var fd = (fx && fx.data) || {};
-        if(fd.mode === 'redirect' && /^https:\/\//.test(fd.url || '')){ location.href = fd.url; return; }
-        hdmBillUI.msg = 'לא הצלחנו לפתוח את דף התשלום. לא בוצע חיוב. נסו שוב בעוד כמה דקות.';
+        hdmBillUI.msg = 'מעבירים לדף המאובטח של Grow…'; hdmRenderPlans();
+        var res2 = await hdmMorningPay(r.data.checkoutId);
+        if(res2 === 'redirect') return;
+        if(res2 === 'charged'){ hdmBillUI = null; hdmBillBusy = false; await hdmPaidOk(); return; }
+        hdmBillUI.msg = 'התשלום בבדיקה מול ספק הסליקה. לא יבוצע חיוב נוסף.';
       }
       else hdmBillUI.msg = 'ההסכמה נשמרה. חיבור התשלום עדיין לא הופעל — לא בוצע שום חיוב.';
     }catch(e){

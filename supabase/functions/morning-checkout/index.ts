@@ -2,15 +2,17 @@
 // חיים דרך מספרים — morning-checkout (Staging בלבד עד אישור)
 //
 // הדפדפן קורא לפונקציה אחרי hdm_billing_start_checkout / hdm_billing_start_upgrade, עם ה-checkoutId והטוקן של המשתמש.
-//   * הצטרפות → דף תשלום מאובטח של Morning (Grow). המנוי מופעל רק כש-morning-webhook מאמת את המסמך מול Morning.
+//   * הצטרפות (אפשרות 2, 22.10): הלקוח מזין כרטיס פעם אחת בדף מאובטח של Grow (שמירת כרטיס, בלי חיוב) →
+//     step:'complete' — השרת מוצא את הכרטיס השמור, "תופס" את ניסיון התשלום (פעם אחת בלבד) ומחייב את החודש הראשון.
+//     המנוי מופעל רק אחרי שחיוב אושר ומסמך Morning אומת (_shared/card_flow.ts). החידושים — באותו כרטיס (morning-renewals).
+//   * step:'sync' — מנוי בתשלום קיים בלי כרטיס שמור: קישור הכרטיס שהלקוח שמר אצל Grow למנוי (בלי חיוב).
 //   * שדרוג עם כרטיס שמור → חיוב יחסי בכרטיס השמור מהשרת, והפעלה רק אחרי תשובה חיובית מ-Morning.
 // פרטי הכרטיס לא עוברים דרכנו. המפתחות של Morning נקראים רק מסודות הפונקציה.
 // כבוי עד MORNING_LIVE=1. מול חשבון ה-Production של Morning — חסום מחוץ ל-HDM_ENV=production.
 // =====================================================================
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import {
-  CheckoutInfo, MorningClient, MorningError, PLAN_HE, assertMoneyAllowed, notifyUrlFor, paymentFormBody, tokenChargeBody,
-} from '../_shared/morning.ts';
+import { CheckoutInfo, MorningClient, MorningError, PLAN_HE, assertMoneyAllowed, findCardToken, tokenChargeBody } from '../_shared/morning.ts';
+import { FlowDb, runCardCheckout } from '../_shared/card_flow.ts';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
@@ -28,6 +30,39 @@ async function claim(id: string, ref: string): Promise<boolean> {
   return data === true;
 }
 
+const flowDb: FlowDb = {
+  async customerId(pid) { const { data } = await admin.from('hdm_billing_customers').select('morning_client_id').eq('profile_id', pid).maybeSingle(); return (data?.morning_client_id as string) ?? null; },
+  async saveCustomer(pid, id) { const { error } = await admin.from('hdm_billing_customers').upsert({ profile_id: pid, morning_client_id: id }); if (error) throw error; },
+  async profileName(pid) { const { data } = await admin.from('docs').select('data').eq('collection', 'profiles').eq('id', pid).maybeSingle(); return String(((data?.data ?? {}) as Record<string, unknown>).currentName ?? '').trim(); },
+  async saveToken(pid, tok, last4) { const { error } = await admin.rpc('hdm_billing_save_token', { p_profile: pid, p_token: tok, p_last4: last4 }); if (error) throw error; },
+  claim,
+  async applyEvent(ev) { const { data, error } = await admin.rpc('hdm_billing_apply_grow_event', { p: ev }); if (error) throw error; return ((data as Record<string, unknown>)?.result as string) ?? null; },
+  log(msg) { console.error('morning-checkout:', msg); },
+};
+
+// מנוי בתשלום קיים בלי כרטיס שמור (למשל תשלום ראשון בדף תשלום): מקשר את הכרטיס שהלקוח שמר אצל Grow. בלי חיוב.
+async function syncCard(userId: string): Promise<Response> {
+  const { data: acc } = await admin.from('hdm_accounts').select('profile_id').eq('auth_user_id', userId).maybeSingle();
+  const pid = acc?.profile_id as string | undefined;
+  if (!pid) return reply(404, { error: 'profile' });
+  const { data: sub } = await admin.from('hdm_subscriptions').select('source').eq('profile_id', pid).maybeSingle();
+  if (!sub || sub.source !== 'payment') return reply(409, { error: 'no_paid_subscription' });
+  const m = new MorningClient(env, fetch);
+  let cid = await flowDb.customerId(pid) ?? undefined;
+  if (!cid) {   // לקוח Morning מהמסמך של התשלום האחרון
+    const { data: pay } = await admin.from('hdm_payments').select('raw').eq('profile_id', pid).eq('outcome', 'approved')
+      .order('received_at', { ascending: false }).limit(1).maybeSingle();
+    const docId = String(((pay?.raw ?? {}) as Record<string, unknown>).documentId ?? '');
+    if (docId) cid = String((((await m.getDocument(docId)) as Record<string, unknown>).client as Record<string, unknown> | undefined)?.id ?? '') || undefined;
+    if (cid) await flowDb.saveCustomer(pid, cid);
+  }
+  if (!cid) return reply(409, { error: 'no_customer' });
+  const t = await findCardToken(m, cid, 0);
+  if (!t) return reply(202, { mode: 'waiting' });
+  await flowDb.saveToken(pid, t.id, t.last4);
+  return reply(200, { mode: 'card_saved', last4: t.last4 });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (req.method !== 'POST') return reply(405, { error: 'method' });
@@ -40,15 +75,25 @@ Deno.serve(async (req) => {
     const allowed = env('HDM_BILLING_ALLOWED_USERS').split(',').map((x) => x.trim()).filter(Boolean);
     if (allowed.length && !allowed.includes(who.user.id)) return reply(403, { error: 'not_open' });
 
-    const { checkoutId } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const step = body.step === 'complete' ? 'complete' : body.step === 'sync' ? 'sync' : 'start';
+    if (step === 'sync') return await syncCard(who.user.id);
+    let checkoutId = body.checkoutId;
+    if (step === 'complete' && typeof checkoutId !== 'string') {   // חזרה מהדף בלי מזהה — הניסיון האחרון של המשתמש
+      const { data: last } = await admin.from('hdm_checkouts').select('id').eq('user_id', who.user.id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      checkoutId = last?.id;
+    }
     if (typeof checkoutId !== 'string' || !/^[0-9a-f-]{36}$/i.test(checkoutId)) return reply(400, { error: 'checkout' });
     const { data: ck, error } = await admin.rpc('hdm_billing_checkout_lookup', { p_checkout: checkoutId });
     if (error) throw error;
     const c = ck as CheckoutInfo | null;
     if (!c || c.userId !== who.user.id) return reply(404, { error: 'checkout' });
+    if (c.status === 'paid') return reply(200, { mode: 'charged', result: 'already_paid' });
+    if (c.status === 'failed') return reply(200, { mode: 'failed' });
     if (c.status !== 'pending' || c.expired) return reply(409, { error: 'not_pending', status: c.status });
     const processId = String((c as unknown as Record<string, unknown>).processId ?? '');
-    if (processId.startsWith('morning-charge:')) return reply(409, { error: 'in_progress' });   // חיוב כבר נשלח
+    if (processId.startsWith('morning-charge:')) return reply(202, { mode: 'processing' });   // חיוב כבר נשלח — לא שולחים שוב
 
     const m = new MorningClient(env, fetch);
 
@@ -77,13 +122,9 @@ Deno.serve(async (req) => {
       return reply(200, { mode: 'charged', result: (res as Record<string, unknown>)?.result ?? null });
     }
 
-    // הצטרפות (או שדרוג בלי כרטיס שמור): דף תשלום
-    // דף תשלום חדש מותר גם בניסיון חוזר (הלקוח סגר את הדף). תשלום שני לאותו ניסיון נתפס במסד כ-duplicate ומסומן להחזר.
-    assertMoneyAllowed(env);
-    const form = await m.createPaymentForm(paymentFormBody(env, c, notifyUrlFor(env, c.id))) as Record<string, unknown>;
-    const url = typeof form.url === 'string' ? form.url : String((form.url as Record<string, string>)?.he ?? '');
-    if (!/^https:\/\//.test(url)) throw new MorningError('NO_URL', 'Morning לא החזירה כתובת דף תשלום');
-    return reply(200, { mode: 'redirect', url });
+    // הצטרפות (או שדרוג בלי כרטיס שמור): כרטיס שמור → חיוב מהשרת; אין כרטיס → קישור שמירת כרטיס של Grow
+    const r = await runCardCheckout(step, c, m, env, flowDb);
+    return reply(r.status, r.body);
   } catch (e) {
     const code = e instanceof MorningError ? e.code : 'ERROR';
     console.error('morning-checkout', code, e instanceof Error ? e.message.slice(0, 300) : '');
