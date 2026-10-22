@@ -22,7 +22,9 @@ Q="select json_build_object(
  'auth_users_triggers', (select coalesce(json_agg(tgname), '[]') from pg_trigger where tgrelid = 'auth.users'::regclass and not tgisinternal),
  'auth_hooks_fns', (select coalesce(json_agg(proname), '[]') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and proname ilike '%hook%')
 ) r"
-ann notice "i2-db" "$(roq "$Q" | jq -c '.[0].r // .' | clean | cut -c1-2000)"
+DBR=$(roq "$Q"); echo "$DBR" | head -c 3000 | clean
+ann notice "i2-db" "$(echo "$DBR" | jq -c '.[0].r // .' 2>&1 | clean | tr -d ':' | cut -c1-2000)"
+case "${COMMIT_MSG:-}" in *dbonly*) ann notice "prod-result" "incident2 dbonly הסתיים"; exit 0;; esac
 # משתמש בדיקה מאושר — נוצר כמו ש-Auth יוצר (כל עמודות הטוקנים ריקות ולא NULL, וזהות email)
 T="${GITHUB_RUN_ID:-x}"; EM="life.through.numbers333+incb$T@gmail.com"; PW="Hdm-$(openssl rand -hex 8)-Aa1!"; echo "::add-mask::$PW"
 U=$(cat /proc/sys/kernel/random/uuid)
