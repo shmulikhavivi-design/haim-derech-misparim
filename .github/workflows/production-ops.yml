@@ -20,7 +20,7 @@ jobs:
         env: { COMMIT_MSG: '${{ github.event.head_commit.message }}' }
         run: |
           mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[prod:\([a-z]*\)\].*/\1/p'); mode="${mode:-check}"
-          case "$mode" in cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
+          case "$mode" in ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
       - name: Secret names (presence only)
         if: steps.mode.outputs.mode == 'secrets'
@@ -74,8 +74,8 @@ jobs:
           PRODUCTION_SUPABASE_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_TOKEN }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
-          MORNING_CLIENT_ID: ${{ startsWith(steps.mode.outputs.mode, 'billingdeploy') && secrets.MORNING_CLIENT_ID || '' }}
-          MORNING_CLIENT_SECRET: ${{ startsWith(steps.mode.outputs.mode, 'billingdeploy') && secrets.MORNING_CLIENT_SECRET || '' }}
+          MORNING_CLIENT_ID: ${{ (startsWith(steps.mode.outputs.mode, 'billingdeploy') || steps.mode.outputs.mode == 'ownercheck') && secrets.MORNING_CLIENT_ID || '' }}
+          MORNING_CLIENT_SECRET: ${{ (startsWith(steps.mode.outputs.mode, 'billingdeploy') || steps.mode.outputs.mode == 'ownercheck') && secrets.MORNING_CLIENT_SECRET || '' }}
         run: bash scripts/production/run.sh "${{ steps.mode.outputs.mode }}"
       - name: Upload smoke screenshots
         if: always() && steps.mode.outputs.mode == 'smoke'
