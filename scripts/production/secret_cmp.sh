@@ -9,4 +9,4 @@ R="$(cmp1 MORNING_CLIENT_ID "${MORNING_CLIENT_ID:-}") | $(cmp1 MORNING_CLIENT_SE
 S=$(printf '%s' "${MORNING_CLIENT_SECRET:-}" | grep -o '[#$"'"'"'\\` ]' | sort -u | tr -d '\n' | sed 's/\$/dollar/;s/#/hash/;s/ /space/;s/"/dq/;s/'"'"'/sq/;s/`/bt/;s/\\/bs/')
 rm -f /tmp/sc.json
 ann notice "secret-cmp" "$R | סוגי תווים מיוחדים בסוד: ${S:-אין}"
-ann notice "prod-result" "secretcmp הסתיים — קריאה בלבד"
+ann notice "prod-result" "$MODE הסתיים"

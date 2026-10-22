@@ -24,11 +24,14 @@ WT=$(openssl rand -hex 32); CS=$(openssl rand -hex 32); WS=$(openssl rand -hex 3
 umask 077; F=$(mktemp)
 { echo "HDM_ENV=production"; echo "MORNING_LIVE=1"; echo "MORNING_API_BASE=https://api.greeninvoice.co.il/api/v1"
   echo "MORNING_PLUGIN_ID=53ed9395-02de-4902-a1dd-28dd3f74a5fa"
-  echo "MORNING_CLIENT_ID=$MORNING_CLIENT_ID"; echo "MORNING_CLIENT_SECRET=$MORNING_CLIENT_SECRET"
   echo "MORNING_WEBHOOK_TOKEN=$WT"; echo "MORNING_WEBHOOK_SECRET=$WS"; echo "HDM_CRON_SECRET=$CS"
   echo "HDM_APP_URL=https://haim-derech-misparim.pages.dev"; echo "HDM_BILLING_ALLOWED_USERS=$OID"; echo "DRY_RUN=1"; } > "$F"
 export SUPABASE_ACCESS_TOKEN="$TOK"
 OUT=$(cd "$ROOT" && supabase secrets set --project-ref "$PROD_REF" --env-file "$F" 2>&1); RC=$?; rm -f "$F"
+# מפתחות Morning עוברים ב-API כ-JSON (לא ב-env-file: ערך עם # נחתך שם) — תיקון 22.10
+if [ $RC = 0 ]; then jq -n --arg id "$MORNING_CLIENT_ID" --arg sec "$MORNING_CLIENT_SECRET" '[{name:"MORNING_CLIENT_ID",value:$id},{name:"MORNING_CLIENT_SECRET",value:$sec}]' > /tmp/sk.json
+  C=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/secrets" --data-binary @/tmp/sk.json || echo 000); shred -u /tmp/sk.json
+  [ "$C" = 200 ] || [ "$C" = 201 ] || RC=1; fi
 [ $RC = 0 ] || stop "קביעת סודות נכשלה: $(printf '%s' "$OUT" | grep -vE 'sbp_|eyJ' | tail -n 5 | tr '\n' ' ' | cut -c1-400)"
 OUT=$(cd "$ROOT" && supabase functions deploy morning-checkout morning-webhook morning-renewals --project-ref "$PROD_REF" --use-api --no-verify-jwt 2>&1) || stop "פריסה נכשלה: $(printf '%s' "$OUT" | tail -n 6 | tr '\n' ' ' | cut -c1-400)"
 ann notice "deploy-functions" "✅ $(printf '%s' "$OUT" | grep -iE 'deployed' | tail -n 4 | tr '\n' ' ' | cut -c1-400)"
