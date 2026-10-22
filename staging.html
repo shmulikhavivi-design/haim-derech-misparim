@@ -720,6 +720,32 @@
   .hdm-liked-row .avatar{ width:46px; height:46px; border-radius:50%; background:#2a2440 center/cover no-repeat; flex-shrink:0; }
   .hdm-liked-row h4{ margin:0; color:#F2EADF; font-size:15px; font-weight:500; }
   .hdm-liked-row p{ margin:2px 0 0; color:#A99E90; font-size:12.5px; }
+
+  /* ---- לוח ניהול למנהלים (22.10) ---- */
+  .signup.admin{ z-index:260; }
+  .adm-wrap{ padding:16px 14px 40px; max-width:560px; margin:0 auto; }
+  .adm-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .adm-head h2{ margin:0; font-size:22px; color:#F2D59A; }
+  .adm-close{ background:none; border:1px solid rgba(242,213,154,.4); color:#F2EADF; border-radius:12px; padding:6px 12px; font-size:14px; }
+  .adm-meta{ font-size:12.5px; color:#BFB4A6; margin:6px 0 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .adm-meta label{ display:flex; gap:6px; align-items:center; }
+  .adm-sec{ margin:16px 0 6px; font-size:15px; color:#F2D59A; font-weight:700; }
+  .adm-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .adm-card{ background:rgba(255,255,255,.05); border:1px solid rgba(242,213,154,.18); border-radius:14px; padding:10px 8px; text-align:center; }
+  .adm-card b{ display:block; font-size:22px; color:#F8DFA4; font-variant-numeric:tabular-nums; }
+  .adm-card span{ font-size:12px; color:#D9CFC2; }
+  .adm-table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  .adm-table th, .adm-table td{ padding:6px 4px; border-bottom:1px solid rgba(242,213,154,.15); text-align:right; }
+  .adm-table th{ color:#BFB4A6; font-weight:500; font-size:12.5px; }
+  .adm-filters{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+  .adm-filters input, .adm-filters select{ width:100%; box-sizing:border-box; background:rgba(255,255,255,.06); color:#F2EADF; border:1px solid rgba(242,213,154,.3); border-radius:10px; padding:8px; font-size:14px; }
+  .adm-filters .adm-wide{ grid-column:1 / -1; }
+  .adm-user{ border-bottom:1px solid rgba(242,213,154,.15); padding:8px 2px; font-size:13.5px; line-height:1.5; }
+  .adm-user .adm-u1{ display:flex; justify-content:space-between; gap:8px; }
+  .adm-user .adm-u2{ color:#BFB4A6; font-size:12.5px; direction:rtl; }
+  .adm-tag{ display:inline-block; font-size:11px; border-radius:8px; padding:0 6px; margin-inline-start:4px; background:rgba(242,213,154,.15); color:#F2D59A; }
+  .adm-more{ width:100%; margin-top:10px; background:rgba(242,213,154,.12); color:#F2EADF; border:1px solid rgba(242,213,154,.35); border-radius:12px; padding:10px; font-size:14px; }
+  .adm-err{ color:#F0A396; font-size:14px; margin:10px 0; }
 </style>
 </head>
 <body>
@@ -813,6 +839,10 @@
   <div class="screen" id="screen-settings">
     <div class="brand">חיים <b>דרך מספרים</b></div>
     <div class="lead" style="margin:12px 0 4px;"><h2>הגדרות ופרטיות</h2></div>
+    <div class="set-group" id="set-admin-group" hidden>
+      <div class="set-title">ניהול</div>
+      <button type="button" class="set-row" id="set-admin" onclick="hdmOpenAdmin()"><span>📊 לוח ניהול למנהלים</span><b>‹</b></button>
+    </div>
     <div class="set-group">
       <div class="set-title">מנוי</div>
       <button type="button" class="set-row" onclick="hdmOpenPlans()"><span id="set-plans-label">💎 הצטרפות למנוי</span><b id="set-plan-name">‹</b></button>
@@ -1176,6 +1206,27 @@
   </div>
 
   <!-- חובה להעלות תמונת פרופיל (משתמש בלי תמונה) -->
+
+  <div class="signup admin" id="admin-screen" aria-hidden="true" role="dialog" aria-label="לוח ניהול למנהלים">
+    <div class="adm-wrap">
+      <div class="adm-head"><h2>📊 לוח ניהול למנהלים</h2><button type="button" class="adm-close" onclick="hdmCloseAdmin()">סגירה</button></div>
+      <div class="adm-meta"><span id="adm-updated">טוען…</span>
+        <label><input type="checkbox" id="adm-tests" onchange="hdmAdminLoad(true)"> כולל משתמשי בדיקה</label>
+        <button type="button" class="adm-close" onclick="hdmAdminLoad(true)">רענון</button></div>
+      <div id="adm-body"></div>
+      <div class="adm-sec">משתמשים</div>
+      <div class="adm-filters">
+        <input class="adm-wide" type="search" id="adm-q" placeholder="חיפוש לפי שם, אימייל או עיר" oninput="hdmAdminUsersSoon()">
+        <select id="adm-g" onchange="hdmAdminUsers(true)"><option value="">כל המינים</option><option value="female">נשים</option><option value="male">גברים</option><option value="other">אחר</option></select>
+        <select id="adm-p" onchange="hdmAdminUsers(true)"><option value="">כל המסלולים</option><option value="free">חינם</option><option value="basic">בסיסי</option><option value="plus">פלוס</option><option value="vip">VIP</option></select>
+        <input type="number" inputmode="numeric" id="adm-a1" placeholder="מגיל" min="18" max="120" oninput="hdmAdminUsersSoon()">
+        <input type="number" inputmode="numeric" id="adm-a2" placeholder="עד גיל" min="18" max="120" oninput="hdmAdminUsersSoon()">
+      </div>
+      <div id="adm-users-count" class="adm-meta"></div>
+      <div id="adm-users"></div>
+      <button type="button" class="adm-more" id="adm-more" onclick="hdmAdminUsers(false)" hidden>עוד משתמשים</button>
+    </div>
+  </div>
   <div class="signup photo-gate" id="photo-gate-screen" aria-hidden="true">
     <div class="signup-inner">
       <h2 class="signup-title">תמונת פרופיל</h2>
@@ -5353,6 +5404,7 @@
   // ---------- הגדרות ----------
   async function openSettings(){
     go('screen-settings');
+    try{ hdmAdminCheck(); }catch(e){}
     var c = document.getElementById('set-blocked-count');
     if(c) c.textContent = '';
     try{ await loadBlocks(); }catch(e){}
@@ -5572,6 +5624,91 @@
   // =====================================================================
   function hdmOpenLayer(id){ var f = document.getElementById(id); if(!f) return; f.classList.add('open'); f.setAttribute('aria-hidden', 'false'); f.scrollTop = 0; }
   function hdmCloseLayer(id){ var f = document.getElementById(id); if(!f) return; f.classList.remove('open'); f.setAttribute('aria-hidden', 'true'); }
+
+  // ---------- לוח ניהול למנהלים (22.10) ----------
+  // הכפתור מופיע רק למי שהשרת מאשר כמנהל (hdm_am_i_admin). כל הנתונים נבדקים שוב בשרת בכל קריאה (HDM_NOT_ADMIN לכל אחר).
+  var hdmAdm = { isAdmin: false, checked: false, timer: null, offset: 0, rows: [], qTimer: null };
+  async function hdmAdminCheck(){
+    var g = document.getElementById('set-admin-group');
+    try{ hdmAdm.isAdmin = !!(window.__hdmRpc && myId && await window.__hdmRpc('hdm_am_i_admin')); }catch(e){ hdmAdm.isAdmin = false; }
+    hdmAdm.checked = true;
+    if(g) g.hidden = !hdmAdm.isAdmin;
+    return hdmAdm.isAdmin;
+  }
+  window.hdmOpenAdmin = async function(){
+    if(!(await hdmAdminCheck())) return;
+    hdmOpenLayer('admin-screen');
+    hdmAdminLoad(true); hdmAdminUsers(true);
+    clearInterval(hdmAdm.timer);
+    hdmAdm.timer = setInterval(function(){ if(!document.hidden) hdmAdminLoad(false); }, 60000);   // עדכון אוטומטי כל דקה
+  };
+  window.hdmCloseAdmin = function(){ clearInterval(hdmAdm.timer); hdmAdm.timer = null; hdmCloseLayer('admin-screen'); };
+  function hdmAdmIls(ag){ var n = Number(ag || 0) / 100; return '₪' + n.toLocaleString('he-IL', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }); }
+  function hdmAdmCard(v, label){ return '<div class="adm-card"><b>' + hdmEsc(v) + '</b><span>' + hdmEsc(label) + '</span></div>'; }
+  function hdmAdmDate(t){ if(!t) return '—'; try{ return new Date(t).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' }); }catch(e){ return '—'; } }
+  var HDM_ADM_PLAN = { free: 'חינם', basic: 'בסיסי', plus: 'פלוס', vip: 'VIP' };
+  var HDM_ADM_G = { male: 'גבר', female: 'אישה', other: 'אחר', unknown: '—' };
+  window.hdmAdminLoad = async function(){
+    var body = document.getElementById('adm-body'), up = document.getElementById('adm-updated');
+    var tests = !!(document.getElementById('adm-tests') || {}).checked;
+    var d;
+    try{ d = await window.__hdmRpc('hdm_admin_dashboard', { p_include_tests: tests }); }
+    catch(e){ body.innerHTML = '<div class="adm-err">' + (/HDM_NOT_ADMIN/.test(String(e && e.message || e)) ? 'אין הרשאת ניהול לחשבון הזה.' : 'לא הצלחנו לטעון את הנתונים. נסו שוב.') + '</div>'; return; }
+    var u = d.users || {}, pl = d.plans || {}, bp = pl.byPlan || {}, rv = d.revenue || {};
+    var h = '';
+    h += '<div class="adm-sec">משתמשים ' + (tests ? '(כולל בדיקה)' : '(אמיתיים בלבד)') + '</div><div class="adm-grid">'
+      + hdmAdmCard(u.total, 'נרשמים') + hdmAdmCard(u.real, 'אמיתיים') + hdmAdmCard(u.test, 'משתמשי בדיקה')
+      + hdmAdmCard(u.female, 'נשים') + hdmAdmCard(u.male, 'גברים') + hdmAdmCard((u.other || 0) + (u.genderUnknown || 0), 'אחר / לא צוין')
+      + hdmAdmCard(u.newToday, 'נרשמו היום') + hdmAdmCard(u.newWeek, 'השבוע') + hdmAdmCard(u.newMonth, 'החודש')
+      + hdmAdmCard(d.onlineNow, 'מחוברים עכשיו') + hdmAdmCard(u.active24h, 'פעילים 24 שעות') + hdmAdmCard((u.withoutProfile || 0) + (u.unconfirmed || 0), 'נרשמו בלי פרופיל')
+      + '</div>';
+    h += '<div class="adm-sec">מסלולים ומנויים</div><div class="adm-grid">'
+      + hdmAdmCard(bp.free || 0, 'חינם') + hdmAdmCard(bp.basic || 0, 'בסיסי') + hdmAdmCard(bp.plus || 0, 'פלוס')
+      + hdmAdmCard(bp.vip || 0, 'VIP') + hdmAdmCard(pl.payingActive || 0, 'משלמים פעילים') + hdmAdmCard(pl.autoRenewOn || 0, 'עם חידוש אוטומטי')
+      + hdmAdmCard(pl.canceledTotal || 0, 'מנויים שבוטלו') + hdmAdmCard(pl.canceledMonth || 0, 'בוטלו החודש') + hdmAdmCard(hdmAdmIls(pl.mrrAgorot), 'הכנסה חודשית צפויה')
+      + '</div>';
+    h += '<div class="adm-sec">הכנסות — רק תשלומים שאושרו בפועל</div><div class="adm-grid">'
+      + hdmAdmCard(hdmAdmIls(rv.todayAgorot), 'היום') + hdmAdmCard(hdmAdmIls(rv.weekAgorot), 'השבוע') + hdmAdmCard(hdmAdmIls(rv.monthAgorot), 'החודש')
+      + hdmAdmCard(hdmAdmIls(rv.totalAgorot), 'סה״כ') + hdmAdmCard(rv.count || 0, 'תשלומים שאושרו') + hdmAdmCard(rv.needsReview || 0, 'לבדיקה ידנית')
+      + '</div>';
+    var pm = d.payments || {}, rn = pm.renewals || {};
+    h += '<div class="adm-sec">סטטוס תשלומים וחידושים</div><div class="adm-grid">'
+      + hdmAdmCard(pm.approved || 0, 'תשלומים שאושרו') + hdmAdmCard(pm.failed || 0, 'תשלומים שנדחו') + hdmAdmCard(pm.needsReview || 0, 'לבדיקה ידנית')
+      + hdmAdmCard(pm.checkoutsPending || 0, 'ניסיונות תשלום פתוחים') + hdmAdmCard(rn.approved || 0, 'חידושים שאושרו') + hdmAdmCard((rn.failed || 0) + (rn.review || 0), 'חידושים שנכשלו / לבדיקה')
+      + hdmAdmCard(pm.renewalsNext7d || 0, 'חידושים ב-7 ימים') + hdmAdmCard(pm.nextRenewalAt ? hdmAdmDate(pm.nextRenewalAt) : '—', 'החידוש הבא') + hdmAdmCard(pm.lastPaymentAt ? hdmAdmDate(pm.lastPaymentAt) : '—', 'תשלום אחרון')
+      + '</div>';
+    h += '<div class="adm-sec">גיל ומין</div><table class="adm-table"><tr><th>גיל</th><th>נשים</th><th>גברים</th><th>אחר</th><th>סה״כ</th></tr>';
+    (d.ages || []).forEach(function(a){ h += '<tr><td>' + hdmEsc(a.key) + '</td><td>' + a.female + '</td><td>' + a.male + '</td><td>' + a.other + '</td><td><b>' + a.total + '</b></td></tr>'; });
+    h += '</table>' + (d.ageUnknown ? '<div class="adm-meta">בלי תאריך לידה: ' + d.ageUnknown + '</div>' : '');
+    body.innerHTML = h;
+    up.textContent = 'עודכן ' + new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) + ' · מתעדכן כל דקה';
+  };
+  window.hdmAdminUsersSoon = function(){ clearTimeout(hdmAdm.qTimer); hdmAdm.qTimer = setTimeout(function(){ hdmAdminUsers(true); }, 400); };
+  window.hdmAdminUsers = async function(reset){
+    if(reset){ hdmAdm.offset = 0; hdmAdm.rows = []; }
+    var v = function(id){ var e = document.getElementById(id); return e ? e.value.trim() : ''; };
+    var n = function(id){ var x = parseInt(v(id), 10); return isNaN(x) ? null : x; };
+    var box = document.getElementById('adm-users'), cnt = document.getElementById('adm-users-count'), more = document.getElementById('adm-more');
+    var r;
+    try{
+      r = await window.__hdmRpc('hdm_admin_users', { p_search: v('adm-q') || null, p_gender: v('adm-g') || null, p_min_age: n('adm-a1'), p_max_age: n('adm-a2'),
+            p_plan: v('adm-p') || null, p_include_tests: !!(document.getElementById('adm-tests') || {}).checked, p_limit: 50, p_offset: hdmAdm.offset });
+    }catch(e){ box.innerHTML = '<div class="adm-err">לא הצלחנו לטעון את רשימת המשתמשים.</div>'; more.hidden = true; return; }
+    hdmAdm.rows = hdmAdm.rows.concat(r.rows || []); hdmAdm.offset = hdmAdm.rows.length;
+    cnt.textContent = 'נמצאו ' + (r.total || 0) + ' · מוצגים ' + hdmAdm.rows.length;
+    box.innerHTML = hdmAdm.rows.map(function(x){
+      return '<div class="adm-user"><div class="adm-u1"><b>' + hdmEsc(x.name || 'ללא שם') + (x.test ? '<span class="adm-tag">בדיקה</span>' : '')
+        + '</b><span>' + hdmEsc(HDM_ADM_PLAN[x.plan] || x.plan || '') + (x.subStatus === 'canceled' ? '<span class="adm-tag">בוטל</span>' : '') + '</span></div>'
+        + '<div class="adm-u2">' + hdmEsc(HDM_ADM_G[x.gender] || '—') + ' · ' + (x.age == null ? 'גיל —' : 'גיל ' + x.age) + ' · ' + hdmEsc(x.city || '—')
+        + (x.occupation ? ' · ' + hdmEsc(x.occupation) : '') + (x.photo ? '' : ' · בלי תמונה') + '</div>'
+        + '<div class="adm-u2">נרשם/ה ' + hdmAdmDate(x.joined) + ' · פעיל/ה לאחרונה ' + hdmAdmDate(x.lastActive) + (x.email ? ' · <span dir="ltr">' + hdmEsc(x.email) + '</span>' : '') + '</div></div>';
+    }).join('') || '<div class="adm-meta">אין משתמשים שמתאימים לסינון.</div>';
+    more.hidden = hdmAdm.rows.length >= (r.total || 0);
+  };
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && hdmAdm.timer) hdmAdminLoad(false); });
+  // בדיקת הרשאת המנהל מיד אחרי הכניסה (לא רק בפתיחת ההגדרות), ושוב כשהמשתמש מתחלף
+  var hdmAdmFor = null;
+  setInterval(function(){ if(typeof myId !== 'undefined' && myId && myId !== hdmAdmFor && window.__hdmRpc){ hdmAdmFor = myId; hdmAdminCheck(); } }, 2000);
   function hdmSetStatus(id, text, ok){
     var s = document.getElementById(id); if(!s) return;
     s.className = 'su-status' + (ok ? ' ok' : ''); s.style.color = ok ? '' : '#F0A396'; s.textContent = text || '';
