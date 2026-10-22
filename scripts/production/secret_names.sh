@@ -14,6 +14,7 @@ for n in $NAMES; do
     P=$(curl -sS -m 20 -H "Authorization: Bearer $v" https://api.supabase.com/v1/projects | jq -r --arg p "$PROD" --arg s "$STG" '[.[].id] | map(if .==$p then "production" elif .==$s then "staging" else "other" end) | join("+")' 2>/dev/null || echo '?')
     kind="$kind sees:[${P:-none}]"
   fi
+  case "$n" in BREVO*|*SMTP*|MAIL*) kind="$kind len=${#v}";; esac
   OUT="$OUT $n=$kind;"
 done
 echo "::notice title=secrets-$SCOPE::${OUT:- (none of the checked names exist)}"
