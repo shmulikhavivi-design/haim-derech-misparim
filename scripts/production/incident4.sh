@@ -9,31 +9,28 @@ SK=$(curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/api-keys?reveal=true" | 
 [ -n "$SK" ] && echo "::add-mask::$SK"
 ann warning "i4-adminkey" "מפתח שרת לבדיקת קישורי אישור: $([ -n "$SK" ] && echo זמין || echo 'לא זמין להרשאה הזו')"
 T="${GITHUB_RUN_ID:-x}"; R=""
+RO="$A/database/query/read-only"
+roq(){ curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
 for site in https://shmulikhavivi-design.github.io/haim-derech-misparim/ https://haim-derech-misparim.pages.dev/; do
   tag=$(echo $site | cut -d/ -f3 | cut -d. -f1 | tr -cd 'a-z'); EM="life.through.numbers333+incc$tag$T@gmail.com"; PW="Hdm-$(openssl rand -hex 8)-Aa1!"; echo "::add-mask::$PW"
-  if [ -n "$SK" ]; then
-    curl -sS -m 40 -o /tmp/gl.json -X POST -H "apikey: $SK" -H "Authorization: Bearer $SK" -H 'Content-Type: application/json' "$AU/admin/generate_link" \
-      -d "$(jq -nc --arg e "$EM" --arg p "$PW" --arg r "$site" '{type:"signup", email:$e, password:$p, redirect_to:$r}')"
-    LINK=$(jq -r '.action_link // .properties.action_link // empty' /tmp/gl.json); echo "::add-mask::$LINK"
-    LOC=$(curl -sS -m 30 -o /dev/null -w '%{http_code} %{redirect_url}' "$LINK" || echo 000)
-    DEST=$(echo "$LOC" | awk '{print $2}' | cut -d'#' -f1 | cut -d'?' -f1); HASTOK=$(echo "$LOC" | grep -c 'access_token=')
-    ERR=$(echo "$LOC" | grep -o 'error_description=[^&]*' | head -1)
-    LI=$(curl -sS -m 40 -o /tmp/li.json -w '%{http_code}' -X POST -H "apikey: $PUB" -H 'Content-Type: application/json' "$AU/token?grant_type=password" -d "$(jq -nc --arg e "$EM" --arg p "$PW" '{email:$e,password:$p}')" || echo 000)
-    R="$R
-[$tag] קישור אישור: $(echo "$LOC" | awk '{print $1}') → מוביל ל־$DEST (טוקן כניסה בקישור: $HASTOK) $ERR | ביקשנו חזרה ל־$site | כניסה אחרי אישור: HTTP $LI $(jq -c '{session:(.access_token!=null), code:(.error_code//null)}' /tmp/li.json)"
-    [ "$tag" = haimderech ] && { B_EM="$EM"; B_PW="$PW"; }
-    [ -z "${B_EM:-}" ] && { B_EM="$EM"; B_PW="$PW"; }
-  fi
+  SC=$(curl -sS -m 40 -o /tmp/su.json -w '%{http_code}' -X POST -H "apikey: $PUB" -H 'Content-Type: application/json' "$AU/signup?redirect_to=$(jq -rn --arg s "$site" '$s|@uri')" -d "$(jq -nc --arg e "$EM" --arg p "$PW" '{email:$e,password:$p}')" || echo 000)
+  sleep 2
+  TH=$(roq "select coalesce((select token_hash from auth.one_time_tokens o join auth.users u on u.id=o.user_id where u.email='$EM' and o.token_type='confirmation_token' order by o.created_at desc limit 1), (select confirmation_token from auth.users where email='$EM')) t" | jq -r '.[0].t // empty')
+  [ -n "$TH" ] && echo "::add-mask::$TH"
+  LINK="$AU/verify?token=$TH&type=signup&redirect_to=$(jq -rn --arg s "$site" '$s|@uri')"
+  LOC=$(curl -sS -m 30 -o /dev/null -w '%{http_code} %{redirect_url}' "$LINK" || echo 000)
+  DEST=$(echo "$LOC" | awk '{print $2}' | cut -d'#' -f1 | cut -d'?' -f1); HASTOK=$(echo "$LOC" | grep -c 'access_token=')
+  ERR=$(echo "$LOC" | grep -oE 'error_(code|description)=[^&]*' | head -2 | tr '\n' ' ')
+  LI=$(curl -sS -m 40 -o /tmp/li.json -w '%{http_code}' -X POST -H "apikey: $PUB" -H 'Content-Type: application/json' "$AU/token?grant_type=password" -d "$(jq -nc --arg e "$EM" --arg p "$PW" '{email:$e,password:$p}')" || echo 000)
+  R="$R
+[$tag] הרשמה HTTP $SC | קוד אישור נמצא: $([ -n "$TH" ] && echo כן || echo לא) | קישור האישור (כמו במייל): $(echo "$LOC" | awk '{print $1}') → $DEST (כניסה אוטומטית: $HASTOK) $ERR | ביקשנו לחזור ל-$site | כניסה עם סיסמה אחרי אישור: HTTP $LI $(jq -c '{session:(.access_token!=null), code:(.error_code//null)}' /tmp/li.json)"
+  if [ "$tag" = haimderech ] || [ -z "${B_EM:-}" ]; then B_EM="$EM"; B_PW="$PW"; fi
 done
 ann notice "i4-confirm-flow" "$(echo "$R" | clean)"
-# שליחת מייל אישור אמיתית (הרשמה רגילה) עם חזרה לכתובת Cloudflare — האם Auth מקבל/שולח
-EMX="life.through.numbers333+inccmail$T@gmail.com"; PWX="Hdm-$(openssl rand -hex 8)-Aa1!"; echo "::add-mask::$PWX"
-C=$(curl -sS -m 40 -o /tmp/su.json -w '%{http_code}' -X POST -H "apikey: $PUB" -H 'Content-Type: application/json' "$AU/signup?redirect_to=$(jq -rn '"https://haim-derech-misparim.pages.dev/"|@uri')" -d "$(jq -nc --arg e "$EMX" --arg p "$PWX" '{email:$e,password:$p}')" || echo 000)
-ann notice "i4-signup-mail" "הרשמה רגילה (מייל אישור אמיתי לתיבת האפליקציה, חזרה ל-Cloudflare): HTTP $C $(jq -c '{user:(.id!=null), code:(.error_code//.code//null), msg:(.msg//null)}' /tmp/su.json | clean)"
 # Cloudflare: כותרות שיכולות לחסום (CSP / מטמון)
 H=$(curl -sS -m 30 -D - -o /dev/null https://haim-derech-misparim.pages.dev/ | tr -d '\r' | grep -iE '^(content-security-policy|cache-control|cf-cache-status|age|x-frame-options|permissions-policy|location|server):' | tr '\n' ' ')
 H2=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' https://haim-derech-misparim.pages.dev/index.html)
-ann notice "i4-cloudflare" "כותרות Cloudflare: $H | index.html: $H2"
+ann notice "i4-cloudflare" "כותרות Cloudflare: $H | index.html: $H2 (308 = הפניה רגילה לכתובת בלי index.html)"
 # דפדפנים
 if [ -n "${B_EM:-}" ]; then
   python3 -m pip install -q playwright >/dev/null && python3 -m playwright install --with-deps chromium webkit firefox >/dev/null 2>&1 || stop "התקנת הדפדפנים נכשלה"
