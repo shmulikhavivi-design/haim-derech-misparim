@@ -9,7 +9,7 @@ roq(){ curl -sS -m 120 -o "$2" -w '%{http_code}' -X POST -H "Authorization: Bear
 get(){ local n="$1" q="$2"; local c; c=$(roq "select coalesce(json_agg(t),'[]'::json) as j from ($q) t" "$OUTD/raw.json"); [ "$c" = 201 ] || stop "גיבוי $n: HTTP $c $(jq -r '.message // empty' "$OUTD/raw.json" | cut -c1-200)"; jq -c '.[0].j' "$OUTD/raw.json" > "$OUTD/data/$n.json"; echo "$n=$(jq length "$OUTD/data/$n.json")"; }
 L=""
 L+="$(get docs "select collection, id, data, updated_at from public.docs order by collection, id") "
-L+="$(get hdm_backup_docs_20261009 "select * from hdm_backup.docs_20261009") "
+# (הגיבוי הפנימי מ-9.10 נמחק באישור הבעלים 22.10 — לא נכלל עוד)
 L+="$(get auth_users "select * from auth.users order by created_at") "
 L+="$(get auth_identities "select * from auth.identities order by created_at") "
 L+="$(get docs_policies "select policyname, cmd, roles::text, qual, with_check from pg_policies where schemaname='public' and tablename='docs'") "
