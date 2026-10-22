@@ -22,12 +22,16 @@ rollback;
 """)
 PY
 ) || stop "בניית החזרה נכשלה"
-pre=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d '{"query":"select (select count(*) from public.docs) d, (select count(*) from auth.users) u, (select count(*) from public.hdm_subscriptions) s, (select count(*) from public.hdm_consents) c, (select string_agg(version, ',' order by version) from public.hdm_release_marker) m, (select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) from public.docs) h"}' | jq -c '.[0]')
+FPQ=$(cat <<'SQL'
+select (select count(*) from public.docs) d, (select count(*) from auth.users) u, (select count(*) from public.hdm_subscriptions) s, (select count(*) from public.hdm_consents) c, (select string_agg(version, ',' order by version) from public.hdm_release_marker) m, (select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) from public.docs) h
+SQL
+)
+pre=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$FPQ" '{query:$q}')" | jq -c '.[0]')
 C=$(curl -sS -m 180 -o /tmp/rb.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
 MSG=$(jq -r '.message // tostring' /tmp/rb.json 2>/dev/null | cut -c1-1500)
 case "$MSG" in *HDM_BILLING_REHEARSAL_OK*) ann notice "prod-billing-rehearse" "✅ 08+09 עברו על Production ובוטלו (rollback): $(printf '%s' "$MSG" | grep -o 'HDM_BILLING_REHEARSAL_OK[^"]*' | head -1)";;
                *) ann error "prod-billing-rehearse" "❌ נעצר (לא נשמר כלום): HTTP $C $MSG";; esac
-post=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d '{"query":"select (select count(*) from public.docs) d, (select count(*) from auth.users) u, (select count(*) from public.hdm_subscriptions) s, (select count(*) from public.hdm_consents) c, (select string_agg(version, ',' order by version) from public.hdm_release_marker) m, (select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) from public.docs) h"}' | jq -c '.[0]')
+post=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$FPQ" '{query:$q}')" | jq -c '.[0]')
 [ "$pre" = "$post" ] && ann notice "prod-billing-unchanged" "✅ אומת: Production זהה לפני ואחרי (מונים + טביעת אצבע)" || ann error "prod-billing-unchanged" "❗ הבדל לפני/אחרי — לבדיקה"
 C=$(curl -sS -m 30 -o /tmp/fn.json -w '%{http_code}' -H "Authorization: Bearer $TOK" "https://api.supabase.com/v1/projects/$PROD_REF/functions" || echo 000)
 ann notice "prod-functions-read" "Edge Functions (קריאה): HTTP $C פונקציות קיימות: $(jq -r '[.[]?.slug] | join(",")' /tmp/fn.json 2>/dev/null)"
