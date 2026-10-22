@@ -74,7 +74,8 @@ jobs:
         if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
         run: |
           python3 -m pip install --quiet playwright==1.55.0 pillow
-          python3 -m playwright install --with-deps chromium webkit
+          python3 -m playwright install --with-deps chromium
+          timeout 420 python3 -m playwright install --with-deps webkit || echo "::warning title=webkit::התקנת ספארי (WebKit) לא הסתיימה בזמן — הבדיקה תרוץ ב-Chrome בלבד"
 
       # ---- e2egrow בלבד: פריסת פונקציות Grow ל-Staging (רק לפרויקט Staging) עם סודות חד-פעמיים לבדיקה ----
       - name: Grow e2e — setup CLI
