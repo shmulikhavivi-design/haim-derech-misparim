@@ -36,8 +36,11 @@ begin
   select current_period_end into e2 from public.hdm_subscriptions where profile_id = pid;
   perform pg_temp.chk('הוארך בחודש, באותו יום בחודש', 'true', (e2 > now() + interval '27 days' and e2 < now() + interval '32 days')::text);
   perform pg_temp.chk('אחרי החידוש — עדיין בסיסי', 'basic', public.hdm_plan_of(pid));
-  -- כישלון כרטיס
+  -- הגנה מחיוב כפול: אותה תקופה שכבר חודשה לא נתפסת שוב
   update public.hdm_subscriptions set current_period_end = now() - interval '1 minute' where profile_id = pid;
+  perform pg_temp.chk('אותה תקופה לא מחויבת פעמיים', '0', (select count(*)::text from jsonb_array_elements(substr(pg_temp.as_service('select public.hdm_billing_claim_due_renewals(500)::text'),4)::jsonb) x where x->>'profileId' = pid));
+  -- כישלון כרטיס (תקופה אחרת: בתוך עסקה אחת השעון לא זז, ותקופה זהה נחסמת בכוונה כחיוב כפול)
+  update public.hdm_subscriptions set current_period_end = now() - interval '3 minutes' where profile_id = pid;
   c := coalesce((select x from jsonb_array_elements(substr(pg_temp.as_service('select public.hdm_billing_claim_due_renewals(500)::text'),4)::jsonb) x where x->>'profileId' = pid limit 1), '{}');
   r := pg_temp.as_service(format('select public.hdm_billing_apply_morning_renewal(%L::jsonb)::text', jsonb_build_object('chargeId', c->>'chargeId', 'transactionId', 'morning-fail:SIM-'||gen_random_uuid(), 'outcome', 'failed', 'amountAgorot', 2990)));
   perform pg_temp.chk('כרטיס נדחה — לא הוארך', '%failed%', r);
