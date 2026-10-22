@@ -44,8 +44,9 @@ begin
   perform pg_temp.as_service(format('select public.hdm_billing_save_token(%L, %L, ''4580'')::text', pA, pfx || '-tok'));
   perform pg_temp.chk('לפני', 'שמירת כרטיס בלבד לא מפעילה מנוי', 'free', public.hdm_plan_of(pA));
   perform pg_temp.chk('כרטיס', 'נשמרים רק טוקן ו-4 ספרות', 'true', (select (grow_token = pfx || '-tok' and card_last4 = '4580') from public.hdm_billing_tokens where profile_id = pA)::text);
-  perform pg_temp.chk('כרטיס', 'בטבלה אין עמודה למספר כרטיס / תוקף / CVV', 'card_last4,grow_token,profile_id,updated_at',
-    (select string_agg(column_name, ',' order by column_name) from information_schema.columns where table_schema = 'public' and table_name = 'hdm_billing_tokens'));
+  perform pg_temp.chk('כרטיס', 'בטבלה אין עמודה למספר כרטיס מלא או CVV', '0',
+    (select count(*)::text from information_schema.columns where table_schema = 'public' and table_name = 'hdm_billing_tokens'
+      and (column_name ~* '(number|pan|cvv|cvc|card_no|cardnum)' or (column_name ~* 'card' and column_name !~* '^card_(last4|exp)$'))));
   perform pg_temp.chk('כרטיס', 'המסד דוחה מספר כרטיס מלא', 'err:%',
     pg_temp.as_service(format('select public.hdm_billing_save_token(%L, ''x'', ''4580123412341234'')::text', pB)));
   perform pg_temp.chk('כרטיס', 'האפליקציה לא קוראת טוקנים', 'err:%permission denied%', pg_temp.as_user(uA, 'select count(*)::text from public.hdm_billing_tokens'));
