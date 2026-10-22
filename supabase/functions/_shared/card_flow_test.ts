@@ -158,7 +158,8 @@ Deno.test('פרטי כרטיס מלאים לא עוברים ולא נשמרים 
   await runCardCheckout('start', CK(), m, envOf(LIVE), D.db);
   M.saveCard('cl-1');
   await runCardCheckout('complete', CK(), m, envOf(LIVE), D.db);
-  const ours = JSON.stringify({ db: [...D.st.tokens.values(), ...D.st.events], sent: M.st.bodies });
+  const ours = JSON.stringify({ db: [...D.st.tokens.values(), ...D.st.events], sent: M.st.bodies })
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>');   // מזהים, לא כרטיסים
   A.ok(!/\b\d{12,19}\b/.test(ours), 'נמצא רצף שנראה כמו מספר כרטיס');
   A.ok(!/cvv|cvc|expir/i.test(JSON.stringify([...D.st.tokens.values(), ...D.st.events])));
 });
