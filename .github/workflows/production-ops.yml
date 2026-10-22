@@ -69,7 +69,11 @@ jobs:
           BREVO_SMTP_PASSWORD: ${{ secrets.BREVO_SMTP_PASSWORD }}
           BREVO_PASSWORD: ${{ secrets.BREVO_PASSWORD }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
-        run: bash scripts/production/secret_names.sh production-env-plus-repo
+          VAR_BREVO: ${{ vars.BREVO_API_KEY }}
+          VAR_BREVO2: ${{ vars.BREVO_KEY }}
+        run: |
+          echo "::notice title=vars-brevo::BREVO_API_KEY כמשתנה (Variable, לא סוד): $([ -n "$VAR_BREVO" ] && echo "קיים, אורך ${#VAR_BREVO}" || echo לא קיים) | BREVO_KEY כמשתנה: $([ -n "$VAR_BREVO2" ] && echo "קיים, אורך ${#VAR_BREVO2}" || echo לא קיים)"
+          bash scripts/production/secret_names.sh production-env-plus-repo
       - name: psql
         if: steps.mode.outputs.mode != 'secrets'
         run: if [ "${{ steps.mode.outputs.mode }}" = simulate ]; then sudo apt-get update -q && sudo apt-get install -y -q postgresql postgresql-client && (sudo systemctl stop postgresql || true); else command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client); fi
