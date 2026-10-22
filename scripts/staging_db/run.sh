@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -501,6 +501,30 @@ if [ "$MODE" = "e2emco" ]; then
   ann notice "staging-result" "✅ e2emco: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
   exit 0
 fi
+if [ "$MODE" = "e2eworker" ]; then
+  # הפונקציה hdm-billing-worker פרוסה ב-Staging עם מפתח Brevo לא תקף בכוונה: בודקים שהיא מגיעה ל-Brevo מתוך Supabase,
+  # שמייל שנדחה נשאר בתור עם הסיבה, ושבלי הסוד אין גישה. שום מייל לא נשלח (המפתח לא תקף). נתוני הבדיקה נמחקים.
+  FN="https://ousepgdvzammgkxkweze.supabase.co/functions/v1/hdm-billing-worker"; R=""
+  C=$(curl -sS -m 60 -o /tmp/w0.json -w '%{http_code}' -X POST "$FN" -H 'content-type: application/json' -d '{}' || echo 000)
+  [ "$C" = 401 ] && R="PASS בלי הסוד — 401" || R="FAIL בלי הסוד — HTTP $C"
+  U=$(cat /proc/sys/kernel/random/uuid); RID=$(cat /proc/sys/kernel/random/uuid)
+  "${PSQL[@]}" -q -c "insert into auth.users (id, email, aud, role) values ('$U', 'worker-test-$U@example.invalid', 'authenticated', 'authenticated');
+     insert into public.hdm_email_outbox (user_id, kind, ref_id, subject, body_text) values ('$U', 'cancel_confirmed', '$RID', 'בדיקה', 'בדיקה');" >/dev/null
+  PEND=$("${PSQL[@]}" -tAc "select count(*) from public.hdm_email_outbox where sent_at is null")
+  C=$(curl -sS -m 90 -o /tmp/w1.json -w '%{http_code}' -X POST "$FN" -H 'content-type: application/json' -H "x-hdm-cron: $HDM_CRON_SECRET" -d '{}' || echo 000)
+  R="$R
+$( [ "$C" = 200 ] && echo "PASS עם הסוד — 200: $(cat /tmp/w1.json)" || echo "FAIL עם הסוד — HTTP $C $(head -c 300 /tmp/w1.json)" )"
+  ST=$("${PSQL[@]}" -tAc "select attempts || '|' || coalesce(last_error,'') || '|' || (sent_at is null) from public.hdm_email_outbox where ref_id = '$RID'")
+  case "$ST" in "1|brevo 401|t"|"1|brevo 403|t") R="$R
+PASS Brevo נגיש מ-Supabase ודחה מפתח לא תקף — המייל נשאר בתור ($ST)";; *) R="$R
+FAIL מצב המייל אחרי ההרצה: $ST (בתור לפני: $PEND)";; esac
+  "${PSQL[@]}" -q -c "delete from public.hdm_email_outbox where ref_id = '$RID'; delete from auth.users where id = '$U';" >/dev/null
+  R="$R
+ניקוי: נשארו $("${PSQL[@]}" -tAc "select count(*) from public.hdm_email_outbox where ref_id = '$RID'") רשומות בדיקה"
+  echo "$R"; ann notice "staging-e2e" "$R"
+  echo "$R" | grep -q '^FAIL' && stop "בדיקת פונקציית המיילים נכשלה."
+  ann notice "staging-result" "✅ e2eworker: $(echo "$R" | grep -c '^PASS')/3 עברו"; exit 0
+fi
 if [ "$MODE" = "e2ealerts" ]; then
   STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
   OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/scripts/staging_e2e/pr38/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_alerts.py" 2>&1) && RC=0 || RC=$?
@@ -698,6 +722,8 @@ case "$MODE" in
   tests33)   FILE="$SQLDIR/33_staging_card_flow_tests.sql" ;;
   install34) FILE="$SQLDIR/34_staging_billing_alerts.sql" ;;
   tests35)   FILE="$SQLDIR/35_staging_plans_alerts_tests.sql" ;;
+  install36) FILE="$SQLDIR/36_staging_billing_alerts_more.sql" ;;
+  tests37)   FILE="$SQLDIR/37_staging_cancel_email_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."
 say ""; say "### הרצת $(basename "$FILE")"
@@ -706,6 +732,11 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests37" ]; then
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+  [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות הכפילויות/הביטול/המיילים עברו ($SUMM)."
+  ann notice "staging-result" "✅ tests37: $SUMM — כפילויות, ביטול, החזר, תור מיילי ביטול (הכול בוטל)"; exit 0
+fi
 if [ "$MODE" = "tests35" ]; then
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
   [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות המסלולים וההתראות עברו ($SUMM)."

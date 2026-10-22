@@ -58,7 +58,7 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in install34|tests35|e2ealerts|install32|tests33|e2ecard|install30|tests31|e2evip|keynames|e2emorning|check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in install36|tests37|e2eworker|install34|tests35|e2ealerts|install32|tests33|e2ecard|install30|tests31|e2evip|keynames|e2emorning|check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
@@ -115,7 +115,7 @@ jobs:
           echo "::notice title=e2egrow-deploy::$(printf '%s' "$OUT" | grep -iE 'deployed|function' | tail -n 6 | tr '\n' ' ' | cut -c1-500)"
       # ---- e2emorning: פריסת פונקציות Morning ל-Staging (הסליקה כבויה) + בדיקות כניסה + Sandbox של Morning אם יש מפתחות ----
       - name: Morning e2e — setup CLI
-        if: contains(fromJSON('["e2emorning","e2eflow"]'), steps.mode.outputs.mode)
+        if: contains(fromJSON('["e2emorning","e2eflow","e2eworker"]'), steps.mode.outputs.mode)
         uses: supabase/setup-cli@v1
         with: { version: latest }
       - name: Morning e2e — deploy to Staging (charging off)
@@ -154,6 +154,23 @@ jobs:
           OUT=$(supabase functions deploy morning-checkout morning-webhook morning-renewals --project-ref "$REF" --use-api --no-verify-jwt 2>&1) || { report deploy "$OUT"; exit 1; }
           echo "::notice title=e2emorning-deploy::$(printf '%s' "$OUT" | grep -iE 'deployed|function' | tail -n 6 | tr '\n' ' ' | cut -c1-500)"
           sleep 5
+      # ---- e2eworker: פונקציית מיילי הביטול ב-Staging עם מפתח Brevo לא תקף בכוונה (שום מייל לא נשלח) ----
+      - name: Worker e2e — deploy to Staging (invalid Brevo key on purpose)
+        if: steps.mode.outputs.mode == 'e2eworker'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
+        run: |
+          set -euo pipefail
+          REF=ousepgdvzammgkxkweze
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error title=e2eworker::חסר STAGING_FUNCTIONS_TOKEN"; exit 1; }
+          CS=$(openssl rand -hex 32); echo "::add-mask::$CS"; echo "HDM_CRON_SECRET=$CS" >> "$GITHUB_ENV"
+          umask 077; F=$(mktemp)
+          { echo "HDM_CRON_SECRET=$CS"; echo "BREVO_API_KEY=xkeysib-invalid-$(openssl rand -hex 16)"; echo "MAIL_FROM=noreply@example.invalid"; echo "DRY_RUN=0"; } > "$F"
+          OUT=$(supabase secrets set --project-ref "$REF" --env-file "$F" 2>&1) || { rm -f "$F"; echo "::error title=e2eworker-secrets::$(echo "$OUT" | grep -vE 'sbp_|eyJ' | tail -3 | tr '\n' ' ')"; exit 1; }
+          rm -f "$F"
+          OUT=$(supabase functions deploy hdm-billing-worker --project-ref "$REF" --use-api --no-verify-jwt 2>&1) || { echo "::error title=e2eworker-deploy::$(echo "$OUT" | grep -vE 'sbp_|eyJ' | tail -6 | tr '\n' ' ')"; exit 1; }
+          echo "::notice title=e2eworker-deploy::$(echo "$OUT" | grep -iE 'deployed' | tail -2 | tr '\n' ' ')"
+          sleep 8
       - uses: denoland/setup-deno@v2
         if: steps.mode.outputs.mode == 'e2emorning'
         with: { deno-version: v2.x }
@@ -265,6 +282,16 @@ jobs:
           OUT=$(supabase secrets set --project-ref "$REF" MORNING_LIVE=0 HDM_ENV=staging MORNING_WEBHOOK_TOKEN=$(openssl rand -hex 32) MORNING_WEBHOOK_SECRET=$(openssl rand -hex 32) HDM_CRON_SECRET=$(openssl rand -hex 32) 2>&1) \
             && echo "::notice title=e2emorning-off::Staging: MORNING_LIVE=0, סודות הבדיקה הוחלפו" \
             || echo "::error title=e2emorning-off::$(printf '%s' "$OUT" | grep -vE 'eyJ|sbp_' | tail -n 4 | tr '\n' ' ' | cut -c1-300)"
+      - name: Worker e2e — remove fake Brevo key, rotate cron secret (always)
+        if: always() && steps.mode.outputs.mode == 'e2eworker'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
+        run: |
+          REF=ousepgdvzammgkxkweze
+          supabase secrets unset --project-ref "$REF" BREVO_API_KEY MAIL_FROM >/dev/null 2>&1 || true
+          OUT=$(supabase secrets set --project-ref "$REF" HDM_CRON_SECRET=$(openssl rand -hex 32) 2>&1) \
+            && echo "::notice title=e2eworker-off::Staging: מפתח הבדיקה של Brevo הוסר, סוד המשימה הוחלף" \
+            || echo "::error title=e2eworker-off::$(printf '%s' "$OUT" | grep -vE 'eyJ|sbp_' | tail -n 4 | tr '\n' ' ' | cut -c1-300)"
       # ---- keynames: מחפש באילו שמות נשמרו מפתחות ה-Sandbox (קיום/אורך בלבד, בלי ערכים) ----
       - name: Grow e2e — switch functions off (always)
         if: always() && steps.mode.outputs.mode == 'e2egrow'
