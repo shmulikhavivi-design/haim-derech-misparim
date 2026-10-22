@@ -103,8 +103,8 @@ def checkout_and_pay(pg, plan):
     return t0, blocked, pg.inner_text('#hdm-co-msg')
 
 
-GROW = 'grow_stub.html'
-open(os.path.join(os.path.dirname(os.path.abspath(PAGE)), GROW), 'w').write('<!doctype html><meta charset="utf-8"><title>Grow stub</title><p id="g">דף שמירת כרטיס מדומה</p>')
+GROW = 'credit-checkout-form'
+GROW_URL = 'https://secure.meshulam.co.il/credit-checkout-form?l=e2e-test'
 calls = []
 def server_charge(pid):
     """מה ש-morning-checkout עושה אחרי חיוב מאושר: תפיסה + אירוע תשלום מאומת (מדומה, בלי Morning)."""
@@ -125,6 +125,9 @@ def route_fn(pg, script):
         route.fulfill(status=200 if resp.get('mode') in ('redirect', 'charged', 'failed', 'card_saved') else 202,
                       content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(resp))
     pg.route('**/functions/v1/morning-checkout', h)
+    # דף Grow מדומה (לא יוצאים לאינטרנט, אין כרטיס)
+    pg.route('https://secure.meshulam.co.il/**', lambda r: r.fulfill(status=200, content_type='text/html; charset=utf-8',
+             body='<!doctype html><meta charset="utf-8"><title>Grow</title><p>דף שמירת כרטיס מדומה</p>'))
 def toast(pg):
     try: return pg.inner_text('#hdm-toast', timeout=500)
     except Exception: return ''
@@ -140,7 +143,7 @@ try:
             c = br.new_context(); c.add_init_script(f"try{{ localStorage.setItem('hdm_staging_publishable_key', {json.dumps(KEY)}); }}catch(e){{}}"); return c
         # 1. הצטרפות: מעבר לדף שמירת הכרטיס של Grow (בלי חיוב)
         c = ctx(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
-        route_fn(pg, lambda step, b: {'mode': 'redirect', 'url': APP.rsplit('/', 1)[0] + '/' + GROW} if step == 'start' else {'mode': 'waiting'})
+        route_fn(pg, lambda step, b: {'mode': 'redirect', 'url': GROW_URL} if step == 'start' else {'mode': 'waiting'})
         pg.goto(APP + '?billing=preview'); pg.wait_for_timeout(2500)
         check('התחברות', login(pg) == IDS['buyer'])
         pg.evaluate("() => { try { if (window.hdmEnt) hdmEnt.billing = null; } catch (e) {} }")
@@ -153,9 +156,9 @@ try:
         check('עמוד התשלום מסביר: כרטיס פעם אחת, נשמר אצל Grow, הפעלה רק אחרי אישור', 'פעם אחת' in co and 'Grow' in co and 'לא אצלנו' in co and 'רק אחרי אישור' in co, co[-400:])
         pg.locator('#hdm-co-accept').check(timeout=8000, force=True); pg.wait_for_timeout(300)
         pg.locator('#hdm-co-pay').click(timeout=8000, force=True)
-        try: pg.wait_for_url('**/' + GROW, timeout=15000)
+        try: pg.wait_for_url('https://secure.meshulam.co.il/**', timeout=15000)
         except Exception: pass
-        check('הועבר לדף שמירת הכרטיס (Grow)', pg.url.endswith(GROW), pg.url)
+        check('הועבר לדף המאובטח של Grow לשמירת הכרטיס', pg.url.startswith('https://secure.meshulam.co.il/'), pg.url)
         ck = sql(f"select id from public.hdm_checkouts where profile_id='{IDS['buyer']}' and status='pending' order by created_at desc limit 1")
         check('נפתח ניסיון תשלום אחד (בסיסי ₪29.90), עדיין בלי חיוב', bool(ck) and sql(f"select amount_agorot||'|'||plan from public.hdm_checkouts where id='{ck}'") == '2990|basic', ck)
         check('לפני שמירת הכרטיס — המנוי לא פעיל', plan_of(IDS['buyer']) == 'free')
@@ -183,12 +186,12 @@ try:
         c.close()
         # 3. כרטיס נדחה: הודעה, והמנוי לא מופעל
         c = ctx(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
-        route_fn(pg, lambda step, b: {'mode': 'redirect', 'url': APP.rsplit('/', 1)[0] + '/' + GROW} if step == 'start' else {'mode': 'failed'})
+        route_fn(pg, lambda step, b: {'mode': 'redirect', 'url': GROW_URL} if step == 'start' else {'mode': 'failed'})
         pg.goto(APP + '?billing=preview'); pg.wait_for_timeout(2500); login(pg, 'declined')
         pg.evaluate("() => hdmOpenPlans()"); pg.wait_for_timeout(2500)
         pg.locator('#hdm-plan-buy-plus').click(timeout=8000, force=True); pg.wait_for_timeout(500)
         pg.locator('#hdm-co-accept').check(timeout=8000, force=True); pg.locator('#hdm-co-pay').click(timeout=8000, force=True)
-        try: pg.wait_for_url('**/' + GROW, timeout=15000)
+        try: pg.wait_for_url('https://secure.meshulam.co.il/**', timeout=15000)
         except Exception: pass
         ck2 = sql(f"select id from public.hdm_checkouts where profile_id='{IDS['declined']}' and status='pending' order by created_at desc limit 1")
         pg.goto(APP + f'?billing=card&ck={ck2}'); pg.wait_for_timeout(2500); login(pg, 'declined')
@@ -201,7 +204,7 @@ try:
         c = ctx(); pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)))
         st4 = {'n': 0}
         def pending_script(step, b):
-            if step == 'start': return {'mode': 'redirect', 'url': APP.rsplit('/', 1)[0] + '/' + GROW}
+            if step == 'start': return {'mode': 'redirect', 'url': GROW_URL}
             st4['n'] += 1; server_charge(IDS['pending']) if st4['n'] == 1 else None
             return {'mode': 'charged', 'result': 'started' if st4['n'] == 1 else 'already_paid'}
         route_fn(pg, pending_script)
@@ -209,7 +212,7 @@ try:
         pg.evaluate("() => hdmOpenPlans()"); pg.wait_for_timeout(2500)
         pg.locator('#hdm-plan-buy-basic').click(timeout=8000, force=True); pg.wait_for_timeout(500)
         pg.locator('#hdm-co-accept').check(timeout=8000, force=True); pg.locator('#hdm-co-pay').click(timeout=8000, force=True)
-        try: pg.wait_for_url('**/' + GROW, timeout=15000)
+        try: pg.wait_for_url('https://secure.meshulam.co.il/**', timeout=15000)
         except Exception: pass
         pg.goto(APP + '?billing=preview'); pg.wait_for_timeout(2500); login(pg, 'pending')
         pg.evaluate("() => { try { if (window.hdmEnt) hdmEnt.billing = null; } catch (e) {} hdmOpenPlans(); }"); pg.wait_for_timeout(3500)
