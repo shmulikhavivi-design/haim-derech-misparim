@@ -515,7 +515,7 @@ if [ "$MODE" = "e2eworker" ]; then
   R="$R
 $( [ "$C" = 200 ] && echo "PASS עם הסוד — 200: $(cat /tmp/w1.json)" || echo "FAIL עם הסוד — HTTP $C $(head -c 300 /tmp/w1.json)" )"
   ST=$("${PSQL[@]}" -tAc "select attempts || '|' || coalesce(last_error,'') || '|' || (sent_at is null) from public.hdm_email_outbox where ref_id = '$RID'")
-  case "$ST" in "1|brevo 401|t"|"1|brevo 403|t") R="$R
+  case "$ST" in "1|brevo 401|true"|"1|brevo 403|true") R="$R
 PASS Brevo נגיש מ-Supabase ודחה מפתח לא תקף — המייל נשאר בתור ($ST)";; *) R="$R
 FAIL מצב המייל אחרי ההרצה: $ST (בתור לפני: $PEND)";; esac
   "${PSQL[@]}" -q -c "delete from public.hdm_email_outbox where ref_id = '$RID'; delete from auth.users where id = '$U';" >/dev/null
