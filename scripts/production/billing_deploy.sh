@@ -26,10 +26,20 @@ umask 077; F=$(mktemp)
   echo "MORNING_PLUGIN_ID=53ed9395-02de-4902-a1dd-28dd3f74a5fa"
   echo "MORNING_CLIENT_ID=$MORNING_CLIENT_ID"; echo "MORNING_CLIENT_SECRET=$MORNING_CLIENT_SECRET"
   echo "MORNING_WEBHOOK_TOKEN=$WT"; echo "MORNING_WEBHOOK_SECRET=$WS"; echo "HDM_CRON_SECRET=$CS"
-  echo "HDM_APP_URL=https://haim-derech-misparim.pages.dev"; echo "HDM_BILLING_ALLOWED_USERS=$OID"; } > "$F"
+  echo "HDM_APP_URL=https://haim-derech-misparim.pages.dev"; echo "HDM_BILLING_ALLOWED_USERS=$OID"; echo "DRY_RUN=1"; } > "$F"
 export SUPABASE_ACCESS_TOKEN="$TOK"
 OUT=$(cd "$ROOT" && supabase secrets set --project-ref "$PROD_REF" --env-file "$F" 2>&1); RC=$?; rm -f "$F"
 [ $RC = 0 ] || stop "קביעת סודות נכשלה: $(printf '%s' "$OUT" | grep -vE 'sbp_|eyJ' | tail -n 5 | tr '\n' ' ' | cut -c1-400)"
 OUT=$(cd "$ROOT" && supabase functions deploy morning-checkout morning-webhook morning-renewals --project-ref "$PROD_REF" --use-api --no-verify-jwt 2>&1) || stop "פריסה נכשלה: $(printf '%s' "$OUT" | tail -n 6 | tr '\n' ' ' | cut -c1-400)"
 ann notice "deploy-functions" "✅ $(printf '%s' "$OUT" | grep -iE 'deployed' | tail -n 4 | tr '\n' ' ' | cut -c1-400)"
+# סוד משימת החידוש נשמר גם ב-Vault (למשימה המתוזמנת שתופעל אחרי הבדיקות). לא מודפס.
+VQ="do \$v\$ begin if exists (select 1 from vault.secrets where name='hdm_cron_secret') then perform vault.update_secret((select id from vault.secrets where name='hdm_cron_secret'), '$CS'); else perform vault.create_secret('$CS', 'hdm_cron_secret', 'x-hdm-cron for morning-renewals'); end if; end \$v\$;"
+C=$(curl -sS -m 60 -o /tmp/vs.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query" -d "$(jq -nc --arg q "$VQ" '{query:$q}')" || echo 000); rm -f /tmp/vs.json
+ann notice "deploy-vault" "סוד החידוש ב-Vault: HTTP $C"
+sleep 8; FN="https://$PROD_REF.supabase.co/functions/v1"
+a=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -X POST "$FN/morning-checkout" -H 'content-type: application/json' -d '{}')
+b=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -X POST "$FN/morning-renewals")
+c=$(curl -sS -m 30 -X POST "$FN/morning-renewals" -H "x-hdm-cron: $CS")
+d=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -X POST "$FN/morning-webhook" -H 'content-type: application/json' -d '{"id":"fake"}')
+ann notice "deploy-verify" "checkout בלי משתמש: $a (צפוי 401/403) · renewals בלי סוד: $b (צפוי 401) · renewals עם סוד: $c (צפוי dryRun) · webhook מזויף: $d (צפוי 401/403)"
 ann notice "prod-result" "✅ billingdeploy: 08 + סודות + פונקציות. התשלום פתוח לבעלים בלבד; האפליקציה הציבורית לא שונתה."
