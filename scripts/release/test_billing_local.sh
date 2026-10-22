@@ -125,5 +125,9 @@ check "17: מסלולים ומשתמשים ללא שינוי" "$SUBS_BEFORE" "$(
 OUT=$("${P[@]}" -d prod -f "$F17" 2>&1) || true
 check "17: הרצה חוזרת נעצרת" "1" "$(echo "$OUT" | grep -c 'כבר מותקן')"
 
+OUT=$("${P[@]}" -d prod -f "$ROOT/supabase/staging_secure/33_staging_card_flow_tests.sql" 2>&1) || true
+SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1 || true); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+if [ -n "$N1" ] && [ "$N1" = "$N2" ]; then ok "33 (כרטיס פעם אחת → חיוב): $SUMM"; else bad "33" "$SUMM $(echo "$OUT" | grep -E '❌|ERROR|עצירה' | head -6 || true)"; fi
+
 echo; echo "סיכום: עברו $PASS מתוך $((PASS+FAIL))"
 [ "$FAIL" = 0 ]
