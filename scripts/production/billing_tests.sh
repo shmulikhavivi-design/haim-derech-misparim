@@ -7,7 +7,7 @@ SQL
 )
 fp(){ curl -sS -m 30 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$FPQ" '{query:$q}')" | jq -c '.[0]'; }
 pre=$(fp); TOTP=0; TOTN=0
-for f in 18_staging_billing_tests 20_staging_billing_upgrade_tests 22_staging_billing_cancel_tests 25_staging_billing_morning_tests 31_staging_vip_soon_tests; do
+for f in 18_staging_billing_tests 20_staging_billing_upgrade_tests 22_staging_billing_cancel_tests 25_staging_billing_morning_tests 31_staging_vip_soon_tests 33_staging_card_flow_tests; do
   Q=$(python3 -I - "$ROOT/supabase/staging_secure/$f.sql" <<'PY'
 import sys
 s=open(sys.argv[1],encoding='utf-8').read().rstrip()

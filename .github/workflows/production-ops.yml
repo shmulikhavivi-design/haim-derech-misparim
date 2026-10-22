@@ -20,7 +20,7 @@ jobs:
         env: { COMMIT_MSG: '${{ github.event.head_commit.message }}' }
         run: |
           mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[prod:\([a-z]*\)\].*/\1/p'); mode="${mode:-check}"
-          case "$mode" in ownercardsync|cardlink|paycheck|payreplay|secretfix|secretcmp|paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
+          case "$mode" in stagearehearse|stageaapply|ownercardsync|cardlink|paycheck|payreplay|secretfix|secretcmp|paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
       - name: Secret names (presence only)
         if: steps.mode.outputs.mode == 'secrets'
@@ -64,7 +64,7 @@ jobs:
         if: steps.mode.outputs.mode != 'secrets'
         run: if [ "${{ steps.mode.outputs.mode }}" = simulate ]; then sudo apt-get update -q && sudo apt-get install -y -q postgresql postgresql-client && (sudo systemctl stop postgresql || true); else command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client); fi
       - name: Supabase CLI (billing deploy only)
-        if: startsWith(steps.mode.outputs.mode, 'billingdeploy')
+        if: startsWith(steps.mode.outputs.mode, 'billingdeploy') || steps.mode.outputs.mode == 'stageaapply'
         uses: supabase/setup-cli@v1
         with: { version: latest }
       - name: Run
