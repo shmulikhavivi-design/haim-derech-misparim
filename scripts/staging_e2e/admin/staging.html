@@ -5671,6 +5671,12 @@
       + hdmAdmCard(hdmAdmIls(rv.todayAgorot), 'היום') + hdmAdmCard(hdmAdmIls(rv.weekAgorot), 'השבוע') + hdmAdmCard(hdmAdmIls(rv.monthAgorot), 'החודש')
       + hdmAdmCard(hdmAdmIls(rv.totalAgorot), 'סה״כ') + hdmAdmCard(rv.count || 0, 'תשלומים שאושרו') + hdmAdmCard(rv.needsReview || 0, 'לבדיקה ידנית')
       + '</div>';
+    var pm = d.payments || {}, rn = pm.renewals || {};
+    h += '<div class="adm-sec">סטטוס תשלומים וחידושים</div><div class="adm-grid">'
+      + hdmAdmCard(pm.approved || 0, 'תשלומים שאושרו') + hdmAdmCard(pm.failed || 0, 'תשלומים שנדחו') + hdmAdmCard(pm.needsReview || 0, 'לבדיקה ידנית')
+      + hdmAdmCard(pm.checkoutsPending || 0, 'ניסיונות תשלום פתוחים') + hdmAdmCard(rn.approved || 0, 'חידושים שאושרו') + hdmAdmCard((rn.failed || 0) + (rn.review || 0), 'חידושים שנכשלו / לבדיקה')
+      + hdmAdmCard(pm.renewalsNext7d || 0, 'חידושים ב-7 ימים') + hdmAdmCard(pm.nextRenewalAt ? hdmAdmDate(pm.nextRenewalAt) : '—', 'החידוש הבא') + hdmAdmCard(pm.lastPaymentAt ? hdmAdmDate(pm.lastPaymentAt) : '—', 'תשלום אחרון')
+      + '</div>';
     h += '<div class="adm-sec">גיל ומין</div><table class="adm-table"><tr><th>גיל</th><th>נשים</th><th>גברים</th><th>אחר</th><th>סה״כ</th></tr>';
     (d.ages || []).forEach(function(a){ h += '<tr><td>' + hdmEsc(a.key) + '</td><td>' + a.female + '</td><td>' + a.male + '</td><td>' + a.other + '</td><td><b>' + a.total + '</b></td></tr>'; });
     h += '</table>' + (d.ageUnknown ? '<div class="adm-meta">בלי תאריך לידה: ' + d.ageUnknown + '</div>' : '');

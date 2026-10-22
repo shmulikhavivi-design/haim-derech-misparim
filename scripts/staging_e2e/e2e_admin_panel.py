@@ -55,7 +55,7 @@ try:
             check(f'{name}: מנהל — כפתור "ניהול" מופיע בהגדרות', pg.locator('#set-admin').is_visible())
             pg.evaluate("() => hdmOpenAdmin()"); pg.wait_for_timeout(4000)
             txt = pg.inner_text('#admin-screen')
-            check(f'{name}: הלוח נפתח עם משתמשים, מסלולים, הכנסות וגיל', all(k in txt for k in ('נשים', 'גברים', 'נרשמו היום', 'משלמים פעילים', 'מנויים שבוטלו', 'רק תשלומים שאושרו בפועל', 'גיל ומין')), txt[:300])
+            check(f'{name}: הלוח נפתח עם משתמשים, מסלולים, הכנסות וגיל', all(k in txt for k in ('נשים', 'גברים', 'נרשמו היום', 'משלמים פעילים', 'מנויים שבוטלו', 'רק תשלומים שאושרו בפועל', 'סטטוס תשלומים', 'החידוש הבא', 'גיל ומין')), txt[:300])
             check(f'{name}: רשימת משתמשים נטענה', 'נמצאו' in pg.inner_text('#adm-users-count'), pg.inner_text('#adm-users-count'))
             pg.check('#adm-tests'); pg.wait_for_timeout(2500); pg.fill('#adm-q', RUN); pg.wait_for_timeout(2500)
             lst = pg.inner_text('#adm-users')
