@@ -57,7 +57,7 @@ try:
             txt = pg.inner_text('#admin-screen')
             check(f'{name}: הלוח נפתח עם משתמשים, מסלולים, הכנסות וגיל', all(k in txt for k in ('נשים', 'גברים', 'נרשמו היום', 'משלמים פעילים', 'מנויים שבוטלו', 'רק תשלומים שאושרו בפועל', 'גיל ומין')), txt[:300])
             check(f'{name}: רשימת משתמשים נטענה', 'נמצאו' in pg.inner_text('#adm-users-count'), pg.inner_text('#adm-users-count'))
-            pg.check('#adm-tests'); pg.wait_for_timeout(2500); pg.fill('#adm-q', PFX.rstrip('_')); pg.wait_for_timeout(2500)
+            pg.check('#adm-tests'); pg.wait_for_timeout(2500); pg.fill('#adm-q', RUN); pg.wait_for_timeout(2500)
             lst = pg.inner_text('#adm-users')
             check(f'{name}: חיפוש + "כולל בדיקה" → משתמשי הבדיקה מסומנים "בדיקה"', 'בדיקת ניהול admin' in lst and 'בדיקה' in lst, lst[:200])
             w = pg.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth + 1")
