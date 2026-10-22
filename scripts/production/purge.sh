@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # purgerehearse — 12 בעסקה שמבוטלת (מדפיס רק ספירות לכל טבלה). purgeapply — 12 באמת (אישור הבעלים 22.10 11:25).
 RW="https://api.supabase.com/v1/projects/$PROD_REF/database/query"; RO="$RW/read-only"
-PF="$ROOT/supabase/production/12_delete_three_profiles.sql"; case "$MODE" in *2) PF="$ROOT/supabase/production/15_delete_dina_and_orphans.sql";; esac
-if [ "$MODE" = purgerehearse ] || [ "$MODE" = purgerehearse2 ]; then
+PF="$ROOT/supabase/production/12_delete_three_profiles.sql"; case "$MODE" in *dina) PF="$ROOT/supabase/production/15_delete_dina_and_orphans.sql";; esac
+if [ "$MODE" = purgerehearse ] || [ "$MODE" = purgerehearsedina ]; then
   SQL=$(python3 -I -c "import sys;print(open(sys.argv[1]).read().replace('__FINAL__', sys.argv[2]))" "$PF" "do \$r\$ begin raise exception 'HDM_PURGE_OK %', (select string_agg(t||'='||n, ' ' order by t) from rep); end \$r\$; rollback;")
   C=$(curl -sS -m 120 -o /tmp/pg.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RW" -d "$(jq -nc --arg q "$SQL" '{query:$q}')" || echo 000)
   MSG=$(jq -r '.message // tostring' /tmp/pg.json | cut -c1-1200)
