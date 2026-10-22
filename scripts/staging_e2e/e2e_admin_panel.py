@@ -51,8 +51,10 @@ try:
             errs = []
             ctx = br.new_context(**dev); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
             check(f'{name}: מנהל מתחבר', bool(login(pg, 'admin')))
-            pg.evaluate("() => openSettings()"); pg.wait_for_timeout(2500)
-            check(f'{name}: מנהל — כפתור "ניהול" מופיע בהגדרות', pg.locator('#set-admin').is_visible())
+            pg.evaluate("() => openSettings()")
+            try: pg.wait_for_selector('#set-admin', state='visible', timeout=10000); vis = True
+            except Exception: vis = False
+            check(f'{name}: מנהל — כפתור "ניהול" מופיע בהגדרות', vis)
             pg.evaluate("() => hdmOpenAdmin()"); pg.wait_for_timeout(4000)
             txt = pg.inner_text('#admin-screen')
             check(f'{name}: הלוח נפתח עם משתמשים, מסלולים, הכנסות וגיל', all(k in txt for k in ('נשים', 'גברים', 'נרשמו היום', 'משלמים פעילים', 'מנויים שבוטלו', 'רק תשלומים שאושרו בפועל', 'סטטוס תשלומים', 'החידוש הבא', 'גיל ומין')), txt[:300])
