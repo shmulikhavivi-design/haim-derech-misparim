@@ -6261,7 +6261,8 @@
   }
   // ---- התראות סליקה לבעלים (22.10): חיוב שנכשל / לבדיקה / בלי אישור. השרת מחזיר רשימה רק למקבלי ההתראות; לאחרים — ריק ----
   var HDM_ALERT_KIND = { first_charge_failed: 'חיוב ראשון נדחה', upgrade_failed: 'שדרוג נדחה', renewal_failed: 'חיוב חידוש נדחה',
-    renewal_final_failure: 'חידוש נכשל 3 פעמים — המנוי יסתיים', needs_review: 'תשלום לבדיקה ידנית', charge_unconfirmed: 'חיוב בלי אישור — לבדוק ב-Morning' };
+    renewal_final_failure: 'חידוש נכשל 3 פעמים — המנוי יסתיים', needs_review: 'תשלום לבדיקה ידנית', charge_unconfirmed: 'חיוב בלי אישור — לבדוק ב-Morning',
+    refund_requested: 'בקשת החזר כספי (14 יום)', email_delayed: 'מייל ביטול לא נשלח' };
   var hdmAlerts = [], hdmAlertsAt = 0;
   async function hdmCheckBillingAlerts(force){
     if(!myId || !window.__sb || (!force && Date.now() - hdmAlertsAt < 60000)) return;

@@ -133,12 +133,18 @@ if [ -n "$N1" ] && [ "$N1" = "$N2" ]; then ok "33 (כרטיס פעם אחת → 
 F18="$ROOT/supabase/production/18_production_billing_alerts.sql"
 OUT=$("${P[@]}" -d stg -f "$F18" 2>&1) || true
 check "18: על מסד Staging — נעצר" "1" "$(echo "$OUT" | grep -c 'לא Production')"
-"${P[@]}" -d prod -c "insert into auth.users (id, email, aud, role) values (gen_random_uuid(), 'shmulikhavivi@gmail.com', 'authenticated', 'authenticated') on conflict do nothing" >/dev/null 2>&1 || true
-if "${P[@]}" -d prod -f "$F18" >"$WORK/18.out" 2>&1; then ok "18: התראות סליקה הותקנו"; else bad "18 עבר" "$(grep -E 'ERROR|עצירה' "$WORK/18.out" | head -2 || true)"; fi
+# מקבל ההתראות המקומי: כתובת בדיקה (הקובץ מחפש טביעת md5 — מחליפים אותה בעותק מקומי, בלי כתובת אמיתית בריפו)
+sed "s/162e004328485070b0af8b256ad2e798/$(printf '%s' 'alerts-owner@example.invalid' | md5sum | cut -d' ' -f1)/" "$F18" > "$WORK/18_local.sql"
+"${P[@]}" -d prod -c "insert into auth.users (id, email, aud, role) values (gen_random_uuid(), 'alerts-owner@example.invalid', 'authenticated', 'authenticated') on conflict do nothing" >"$WORK/own.out" 2>&1 || echo "owner insert: $(cat "$WORK/own.out")"
+if "${P[@]}" -d prod -f "$WORK/18_local.sql" >"$WORK/18.out" 2>&1; then ok "18: התראות סליקה הותקנו"; else bad "18 עבר" "$(grep -E 'ERROR|עצירה' "$WORK/18.out" | head -2 || true)"; fi
 check "18: מקבל התראות אחד (הבעלים)" "1" "$(q prod "select count(*) from public.hdm_billing_alert_recipients")"
 OUT=$("${P[@]}" -d prod -f "$ROOT/supabase/staging_secure/35_staging_plans_alerts_tests.sql" 2>&1) || true
 SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1 || true); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
 if [ -n "$N1" ] && [ "$N1" = "$N2" ]; then ok "35 (כל המסלולים + התראות): $SUMM"; else bad "35" "$SUMM $(echo "$OUT" | grep -E '❌|ERROR|עצירה' | head -8 || true)"; fi
+
+OUT=$("${P[@]}" -d prod -f "$ROOT/supabase/staging_secure/37_staging_cancel_email_tests.sql" 2>&1) || true
+SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1 || true); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+if [ -n "$N1" ] && [ "$N1" = "$N2" ]; then ok "37 (כפילויות, ביטול, החזר, מיילי ביטול): $SUMM"; else bad "37" "$SUMM $(echo "$OUT" | grep -E '❌|ERROR|עצירה' | head -10 || true)"; fi
 
 echo; echo "סיכום: עברו $PASS מתוך $((PASS+FAIL))"
 [ "$FAIL" = 0 ]
