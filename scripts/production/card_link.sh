@@ -2,6 +2,7 @@
 # cardlink — קישור שמירת כרטיס לבעלים (בלי חיוב), מוצפן במפתח הסשן ומועבר בענף זמני.
 OUTD="${RUNNER_TEMP:-/tmp}/hdm-export"; rm -rf "$OUTD"; mkdir -p "$OUTD/out"
 command -v deno >/dev/null || { curl -fsSL https://deno.land/install.sh | sh -s -- -y >/dev/null 2>&1; export PATH="$HOME/.deno/bin:$PATH"; }
+command -v deno >/dev/null || stop "deno לא הותקן"; ann notice "card-link-env" "deno $(deno --version | head -1)"
 echo "::add-mask::$MORNING_CLIENT_SECRET"
 OUTF="$OUTD/r.json" deno run --allow-net=api.morning.co,api.greeninvoice.co.il --allow-env --allow-read --allow-write="$OUTD" "$ROOT/scripts/production/owner_card_link.ts" || stop "יצירת הקישור נכשלה"
 openssl rand -out "$OUTD/k.bin" 32

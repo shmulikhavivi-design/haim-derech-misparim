@@ -3,6 +3,8 @@ import { MorningClient } from '../../supabase/functions/_shared/morning.ts';
 const envMap: Record<string, string> = { MORNING_API_BASE: 'https://api.greeninvoice.co.il/api/v1' };
 const env = (k: string) => envMap[k] ?? Deno.env.get(k) ?? '';
 const m = new MorningClient(env, fetch);
+const fail = (w: string, e: unknown) => { console.log(`::error title=card-link::${w}: ${String((e as Error)?.message ?? e).replace(/https?:\/\/\S+/g, '<קישור>').slice(0, 300)}`); Deno.exit(1); };
+globalThis.addEventListener('unhandledrejection', (ev) => { ev.preventDefault(); fail('שגיאה', ev.reason); });
 const ds = await m.request('POST', '/documents/search', { page: 1, pageSize: 20, fromDate: '2026-10-22', toDate: '2026-10-22' }, false) as Record<string, unknown>;
 const doc = ((ds.items as Record<string, unknown>[]) ?? []).find((d) => Number(d.number) === 358304) ?? {};
 const cid = String(((doc.client ?? {}) as Record<string, unknown>).id ?? '');
