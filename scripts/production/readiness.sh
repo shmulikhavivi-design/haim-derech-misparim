@@ -3,6 +3,8 @@
 # והתאמה מול Morning (GET בלבד). מדפיס ספירות וסכומים בלבד — בלי שמות, אימיילים או מזהים.
 A="https://api.supabase.com/v1/projects/$PROD_REF"; RO="$A/database/query/read-only"
 roq(){ curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
+ONLY_CARD=0; case "${COMMIT_MSG:-}" in *cardonly*) ONLY_CARD=1;; esac
+if [ $ONLY_CARD = 0 ]; then
 NAMES=$(curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/secrets" | jq -r '[.[].name] | map(select(test("^(SUPABASE_|SB_)")|not)) | sort | join(", ")')
 ann notice "r-secret-names" "סודות הפונקציות (שמות בלבד): $NAMES"
 for n in BREVO_API_KEY MAIL_FROM; do echo "$NAMES" | grep -qw "$n" && ann notice "r-$n" "$n: מוגדר" || ann warning "r-$n" "$n: חסר"; done
@@ -38,6 +40,7 @@ Q="select json_build_object(
  'cancel_fn_grow_branch', (select count(*) from public.hdm_subscriptions where grow_direct_debit_id is not null)
 ) r"
 R=$(roq "$Q"); ann notice "r-db" "$(echo "$R" | jq -c '.[0].r // .')"
+fi
 DOCS=$(roq "select coalesce(json_agg(json_build_object('d',raw->>'documentId','a',amount_agorot)),'[]') j from public.hdm_payments where outcome='approved' and raw->>'documentId' is not null" | jq -c '.[0].j')
 if [ -n "${MORNING_CLIENT_ID:-}" ]; then
   echo "::add-mask::$MORNING_CLIENT_SECRET"
@@ -45,6 +48,7 @@ if [ -n "${MORNING_CLIENT_ID:-}" ]; then
   AT=$(curl -sS -m 30 -X POST https://api.morning.co/idp/v1/oauth/token -H 'content-type: application/x-www-form-urlencoded' --data-urlencode grant_type=client_credentials --data-urlencode "client_id=$ID" --data-urlencode "client_secret=$MORNING_CLIENT_SECRET" | jq -r '.accessToken // .access_token // empty')
   [ -n "$AT" ] && echo "::add-mask::$AT"
   [ -n "$AT" ] && ann notice "r-morning-auth" "✅ התחברות ל-Morning (קריאה בלבד)" || ann error "r-morning-auth" "❌ התחברות ל-Morning נכשלה"
+  if [ $ONLY_CARD = 0 ]; then
   ok=0; bad=0
   for row in $(echo "$DOCS" | jq -c '.[]'); do d=$(echo "$row" | jq -r .d); a=$(echo "$row" | jq -r .a)
     amt=$(curl -sS -m 30 -H "Authorization: Bearer $AT" -H 'accept: application/json' "https://api.greeninvoice.co.il/api/v1/documents/$d" | jq -r '.amount // empty')
@@ -53,6 +57,7 @@ if [ -n "${MORNING_CLIENT_ID:-}" ]; then
   S=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $AT" -H 'content-type: application/json' https://api.greeninvoice.co.il/api/v1/documents/search \
        -d "$(jq -nc --arg f "$(date -u -d '-60 days' +%Y-%m-%d)" --arg t "$(date -u +%Y-%m-%d)" '{fromDate:$f,toDate:$t,page:1,pageSize:100}')")
   ann notice "r-morning-docs" "מסמכים ב-Morning ב-60 הימים האחרונים: $(echo "$S" | jq -c '{total: (.total // (.items|length)), by_type: ([.items[]? | .type|tostring] | group_by(.) | map({(.[0]): length}) | add), sum_ils: ([.items[]? | .amount // 0] | add)}' 2>/dev/null || echo "$S" | jq -c '{errorCode, errorMessage}')"
+  fi
   TS=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $AT" -H 'content-type: application/json' https://api.greeninvoice.co.il/api/v1/payments/tokens/search -d '{"page":1,"pageSize":50}')
   ann notice "r-token-shape" "מבנה תשובת הכרטיסים (שמות שדות בלבד): $(echo "$TS" | jq -c '{keys: (keys), item_keys: ((.items // [])[0] // {} | keys)}' 2>/dev/null | cut -c1-600)"
   for cid in $(echo "$TS" | jq -r '[.items[]? | (.client.id // .clientId // .externalKey // empty)] | unique | .[]' 2>/dev/null); do
