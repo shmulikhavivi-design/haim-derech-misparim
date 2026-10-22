@@ -20,7 +20,7 @@ jobs:
         env: { COMMIT_MSG: '${{ github.event.head_commit.message }}' }
         run: |
           mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[prod:\([a-z]*\)\].*/\1/p'); mode="${mode:-check}"
-          case "$mode" in purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
+          case "$mode" in paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
       - name: Secret names (presence only)
         if: steps.mode.outputs.mode == 'secrets'
@@ -83,7 +83,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with: { name: smoke, path: '${{ runner.temp }}/smoke/', retention-days: 3, if-no-files-found: ignore }
       - name: Upload encrypted backup
-        if: steps.mode.outputs.mode == 'export' || steps.mode.outputs.mode == 'secureread'
+        if: steps.mode.outputs.mode == 'export' || steps.mode.outputs.mode == 'secureread' || steps.mode.outputs.mode == 'paydiag'
         uses: actions/upload-artifact@v4
         with:
           name: hdm-backup-encrypted
@@ -93,7 +93,7 @@ jobs:
   transfer:
     # מעביר את הגיבוי המוצפן בלבד לענף זמני (בלי סודות, בלי environment). נמחק מיד אחרי ההורדה.
     needs: prod
-    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && (contains(github.event.head_commit.message, '[prod:export]') || contains(github.event.head_commit.message, '[prod:secureread]'))
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && (contains(github.event.head_commit.message, '[prod:export]') || contains(github.event.head_commit.message, '[prod:secureread]') || contains(github.event.head_commit.message, '[prod:paydiag]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: { contents: write }
