@@ -4594,7 +4594,7 @@
       if(/HDM_TERMS_REQUIRED/.test(String(e && e.message || ''))){ status.textContent = 'כדי להירשם יש לחזור לשלב הראשון ולאשר את תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות.'; return; }
       var ageErr = hdmDbAgeError(e);
       status.textContent = (ageErr === 'UNDERAGE' || ageErr === 'AGE_BLOCKED') ? HDM_AGE_MSG :
-                           ageErr ? 'נא להזין תאריך לידה תקין' : 'השמירה נכשלה. בדקו את החיבור ונסו שוב.';
+                           ageErr ? 'נא להזין תאריך לידה תקין' : hdmSignupErrText(e);
       return;
     }
 
@@ -5100,7 +5100,7 @@
   function hdmBiz(k){ return HDM_BUSINESS[k] || '(יושלם לפני הפרסום)'; }
   var HDM_LEGAL = {
     privacy: { title: 'מדיניות פרטיות', sections: [
-      ['עדכון אחרון', '16 באוקטובר 2026'],
+      ['עדכון אחרון', '22 באוקטובר 2026'],
       ['כללי',
         'מדיניות זו מסבירה איזה מידע נאסף באפליקציית ההיכרויות „חיים דרך מספרים” (להלן: „האפליקציה”), למה הוא משמש, היכן הוא נשמר, עם מי הוא משותף ואילו זכויות יש לך לגביו.',
         'האפליקציה נוצרה ומופעלת על ידי שמוליק חביבי ולימור רון (להלן: „אנחנו” או „מפעילי האפליקציה”).',
@@ -5110,6 +5110,7 @@
         'פרטי הרשמה: שם, תאריך לידה, מין, עיר, כתובת אימייל וסיסמה.',
         'פרטי פרופיל: תמונת פרופיל, את מי את/ה מחפש/ת, „כמה מילים על עצמי”, השם הפרטי ושם המשפחה שנולדת איתם, עיסוק ותחומי עניין.',
         'מידע שנוצר בשימוש באפליקציה: המספרים הנומרולוגיים שמחושבים מתאריך הלידה ומשם הלידה, סימוני 🎯 והתאמות, שיחות והודעות בצ׳אט וסימוני קריאה, חסימות שביצעת ודיווחים ששלחת (סיבת הדיווח, פרטים שהוספת ומועד הדיווח).',
+        'פרטי מנוי ותשלום (רק למי שרוכש מנוי בתשלום): המסלול, מועדי החיוב והסכומים, מזהה אמצעי התשלום השמור אצל ספק הסליקה (טוקן) וארבע הספרות האחרונות של הכרטיס, וקבלות. מספר הכרטיס המלא, התוקף וקוד האבטחה מוזנים ישירות בדף המאובטח של ספק הסליקה ואינם מגיעים אלינו.',
         'מידע שנשמר במכשיר שלך: כדי שתישאר/י מחובר/ת, נתוני ההתחברות נשמרים בדפדפן (באחסון המקומי ובעוגייה של האתר בלבד). אנחנו לא משתמשים בכלי פרסום או במעקב פרסומי.',
         'המידע על מי את/ה מחפש/ת עשוי ללמד על נטייה מינית, ולכן הוא מידע רגיש. מסירתו נעשית מרצונך, והוא משמש אך ורק להצגת התאמות מתאימות.',
         'תיעוד האישור: מתי אישרת את תנאי השימוש, את מדיניות הפרטיות ואת כללי ההתנהגות, ואיזו גרסה שלהם — כדי שנוכל להראות שההסכמה ניתנה.',
@@ -5127,13 +5128,13 @@
         'הודעות בצ׳אט גלויות רק לשני המשתתפים בשיחה. דיווח שנשלח אינו מוצג למשתמש שעליו דווח.'],
       ['אחסון ואבטחת מידע',
         'המידע נשמר בשירות Supabase, ספק חיצוני של מסד נתונים ומערכת התחברות, בשרתי ענן שעשויים להימצא מחוץ לישראל. בשימוש באפליקציה את/ה מסכים/ה להעברת המידע ולשמירתו מחוץ לישראל, בכפוף להגנות המתוארות במדיניות זו.',
-        'האפליקציה מתארחת ב־GitHub Pages, והגופנים נטענים מ־Google Fonts. לכן שירותים אלה עשויים לקבל נתונים טכניים כמו כתובת IP וסוג הדפדפן.',
+        'האפליקציה מתארחת ב־GitHub Pages וב־Cloudflare Pages, והגופנים נטענים מ־Google Fonts. לכן שירותים אלה עשויים לקבל נתונים טכניים כמו כתובת IP וסוג הדפדפן.',
         'התקשורת עם האפליקציה מוצפנת (HTTPS), והסיסמאות מנוהלות על ידי מערכת ההתחברות של Supabase. אין לנו גישה לסיסמה שלך.',
         'אנחנו נוקטים אמצעים סבירים להגנה על המידע, אך אף מערכת אינה חסינה לחלוטין. אם יתרחש אירוע אבטחה מהותי, נפעל ונודיע כנדרש בדין. מומלץ לבחור סיסמה ייחודית ולא לשתף אותה.'],
       ['שיתוף מידע',
         'אנחנו משתפים מידע רק במקרים האלה:',
         '• עם משתמשים אחרים, כמתואר בסעיף „מה רואים משתמשים אחרים”.',
-        '• עם ספקי שירות שמפעילים את האפליקציה עבורנו (Supabase, GitHub Pages ו־Google Fonts), ורק במידה הנדרשת לכך.',
+        '• עם ספקי שירות שמפעילים את האפליקציה עבורנו, ורק במידה הנדרשת לכך: Supabase (מסד נתונים והתחברות); GitHub Pages ו־Cloudflare Pages (אירוח); Google Fonts (גופנים); Brevo (מיילי הרשמה, איפוס סיסמה ואישור ביטול מנוי); Morning — חשבונית ירוקה (הפקת קבלות: שם וכתובת אימייל); ו־Grow (סליקה ושמירת אמצעי התשלום לחיוב החודשי).',
         '• עם רשויות מוסמכות, כשהדין מחייב זאת או כשהדבר נדרש כדי להגן על בטיחות של אדם.',
         '• אם הפעילות של האפליקציה תועבר לגורם אחר, בכפוף לכך שהוא ימשיך לפעול לפי מדיניות זו.'],
       ['תקופת שמירת המידע',
@@ -6852,6 +6853,25 @@
   // =====================================================================
   function hdmStgAuth(){ return window.__sbAuth || null; }
   function hdmStgMsg(e){ return String((e && (e.message || e.error_description)) || e || ''); }
+  // הודעת הרשמה לפי הסיבה האמיתית (22.10): שגיאות של מערכת ההתחברות (שליחת מייל האישור, הגבלת קצב) הוצגו כ"השמירה נכשלה"
+  function hdmSignupErrText(e){
+    var m = hdmStgMsg(e), code = String((e && (e.code || e.error_code)) || ''), st = Number(e && e.status) || 0;
+    if(st === 429 || /rate limit|too many/i.test(m) || /over_.*rate_limit/.test(code)) return 'נשלחו יותר מדי בקשות בזמן קצר. נסו שוב בעוד כמה דקות.';
+    if(/sending.*(confirmation|email)|smtp|email.*send/i.test(m) || code === 'unexpected_failure' || st >= 500)
+      return 'לא הצלחנו לשלוח את מייל האישור כרגע. נסו שוב בעוד כמה דקות, ואם זה חוזר — כתבו לנו: life.through.numbers333@gmail.com';
+    if(/invalid.*email|email.*invalid|validation/i.test(m) || code === 'email_address_invalid') return 'כתובת האימייל לא תקינה. בדקו אותה ונסו שוב.';
+    if(!st && /fetch|network|load failed/i.test(m)) return 'אין חיבור לשרת כרגע. בדקו את החיבור לאינטרנט ונסו שוב.';
+    return 'השמירה נכשלה' + (code || st ? ' (' + (code || st) + ')' : '') + '. נסו שוב, ואם זה חוזר — כתבו לנו: life.through.numbers333@gmail.com';
+  }
+  // הודעת כניסה לפי הסיבה האמיתית (22.10): קודם כל שגיאה שאינה "אימייל לא מאושר" הוצגה כ"האימייל או הסיסמה שגויים"
+  function hdmLoginErrText(e){
+    var m = hdmStgMsg(e), code = String((e && (e.code || e.error_code)) || ''), st = Number(e && e.status) || 0;
+    if(/confirm/i.test(m) || code === 'email_not_confirmed') return 'צריך קודם לאשר את כתובת האימייל (בדקו בתיבת הדואר ובספאם).';
+    if(code === 'invalid_credentials' || /invalid login credentials/i.test(m)) return 'האימייל או הסיסמה שגויים.';
+    if(st === 429 || /rate limit|too many/i.test(m) || /over_.*rate_limit/.test(code)) return 'היו יותר מדי ניסיונות כניסה. נסו שוב בעוד כמה דקות.';
+    if(!st || /fetch|network|failed to fetch|load failed/i.test(m)) return 'אין חיבור לשרת כרגע. בדקו את החיבור לאינטרנט ונסו שוב.';
+    return 'הכניסה לא הצליחה כרגע (' + (code || st) + '). נסו שוב, ואם זה חוזר — כתבו לנו: life.through.numbers333@gmail.com';
+  }
 
   // הפרופיל של המשתמש המחובר — נקבע בשרת לפי משתמש ה-Auth. אפשר להציע מזהה רק בפעם הראשונה.
   window.hdmStagingClaim = async function(proposed){
@@ -6862,6 +6882,17 @@
   };
 
   // פרופיל שממתין לאישור המייל — נשמר רק במכשיר הזה, ונשלח לשרת בהתחברות הראשונה
+  // תיקון 22.10: הפרופיל שמולא בהרשמה נשמר גם על משתמש ה-Auth (בלי התמונה), כדי שאחרי אישור המייל
+  // אפשר יהיה להיכנס גם ממכשיר / דפדפן / כתובת אחרים (למשל קישור שנפתח באפליקציית Gmail) ולא רק מהדפדפן שבו נרשמו.
+  function hdmPendingForServer(id, profile){
+    try{
+      var p = {}; Object.keys(profile || {}).forEach(function(k){ if(k !== 'photoUrl' && k !== 'photoAssetId' && k !== 'likes') p[k] = profile[k]; });
+      return { id: id || null, profile: p };
+    }catch(e){ return null; }
+  }
+  function hdmPendingFromUser(u){
+    try{ var m = u && u.user_metadata && u.user_metadata.hdm_pending; return (m && m.profile && typeof m.profile === 'object') ? m : null; }catch(e){ return null; }
+  }
   function hdmPendingKey(email){ return 'hdm_stg_pending_' + authNormEmail(email); }
   function hdmPendingTake(email){
     try{ var raw = localStorage.getItem(hdmPendingKey(email)); if(!raw) return null; localStorage.removeItem(hdmPendingKey(email)); return JSON.parse(raw); }catch(e){ return null; }
@@ -6874,7 +6905,7 @@
     var cb = document.getElementById('su-consent');
     if(!cb || !cb.checked) throw new Error('HDM_TERMS_REQUIRED');
     var r = await a.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname,
-      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString() } } });
+      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString(), hdm_pending: hdmPendingForServer(proposedId, profile) } } });
     if(r.error){
       var m = hdmStgMsg(r.error);
       if(/already registered|already exists/i.test(m)) throw new Error('HDM_EMAIL_EXISTS');
@@ -6939,10 +6970,10 @@
       if(!a || typeof dbCap === 'undefined' || !dbCap){ status.textContent = 'אין חיבור לשרת כרגע. נסו שוב בעוד רגע.'; return; }
       var r = await a.auth.signInWithPassword({ email: authNormEmail(email), password: pass });
       if(r.error){
-        status.textContent = /confirm/i.test(hdmStgMsg(r.error)) ? 'צריך קודם לאשר את כתובת האימייל (בדקו בתיבת הדואר ובספאם).' : 'האימייל או הסיסמה שגויים.';
+        status.textContent = hdmLoginErrText(r.error);
         return;
       }
-      var pending = hdmPendingTake(email);
+      var pending = hdmPendingTake(email) || hdmPendingFromUser(r.data && r.data.user);
       var pid;
       try{ pid = await window.hdmStagingClaim(pending && pending.id); }
       catch(ce){
@@ -6960,6 +6991,7 @@
         try{ await dbCap.doc('profiles/' + pid).set(pending.profile); }
         catch(e){ try{ localStorage.setItem(hdmPendingKey(email), JSON.stringify(pending)); }catch(x){} throw e; }
       }
+      if(hdmPendingFromUser(r.data && r.data.user)){ try{ a.auth.updateUser({ data: { hdm_pending: null } }); }catch(x){} }
       window.__hdmAgeGateOnPass = function(){};
       var entered = await authEnterProfile(pid);
       window.__hdmAgeGateOnPass = null;
