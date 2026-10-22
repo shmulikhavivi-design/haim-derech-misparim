@@ -6487,6 +6487,17 @@
   };
 
   // פרופיל שממתין לאישור המייל — נשמר רק במכשיר הזה, ונשלח לשרת בהתחברות הראשונה
+  // תיקון 22.10: הפרופיל שמולא בהרשמה נשמר גם על משתמש ה-Auth (בלי התמונה), כדי שאחרי אישור המייל
+  // אפשר יהיה להיכנס גם ממכשיר / דפדפן / כתובת אחרים (למשל קישור שנפתח באפליקציית Gmail) ולא רק מהדפדפן שבו נרשמו.
+  function hdmPendingForServer(id, profile){
+    try{
+      var p = {}; Object.keys(profile || {}).forEach(function(k){ if(k !== 'photoUrl' && k !== 'photoAssetId' && k !== 'likes') p[k] = profile[k]; });
+      return { id: id || null, profile: p };
+    }catch(e){ return null; }
+  }
+  function hdmPendingFromUser(u){
+    try{ var m = u && u.user_metadata && u.user_metadata.hdm_pending; return (m && m.profile && typeof m.profile === 'object') ? m : null; }catch(e){ return null; }
+  }
   function hdmPendingKey(email){ return 'hdm_stg_pending_' + authNormEmail(email); }
   function hdmPendingTake(email){
     try{ var raw = localStorage.getItem(hdmPendingKey(email)); if(!raw) return null; localStorage.removeItem(hdmPendingKey(email)); return JSON.parse(raw); }catch(e){ return null; }
@@ -6499,7 +6510,7 @@
     var cb = document.getElementById('su-consent');
     if(!cb || !cb.checked) throw new Error('HDM_TERMS_REQUIRED');
     var r = await a.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname,
-      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString() } } });
+      data: { hdm_terms: window.HDM_TERMS_VERSION, hdm_terms_at: new Date().toISOString(), hdm_pending: hdmPendingForServer(proposedId, profile) } } });
     if(r.error){
       var m = hdmStgMsg(r.error);
       if(/already registered|already exists/i.test(m)) throw new Error('HDM_EMAIL_EXISTS');
@@ -6567,7 +6578,7 @@
         status.textContent = hdmLoginErrText(r.error);
         return;
       }
-      var pending = hdmPendingTake(email);
+      var pending = hdmPendingTake(email) || hdmPendingFromUser(r.data && r.data.user);
       var pid;
       try{ pid = await window.hdmStagingClaim(pending && pending.id); }
       catch(ce){
@@ -6585,6 +6596,7 @@
         try{ await dbCap.doc('profiles/' + pid).set(pending.profile); }
         catch(e){ try{ localStorage.setItem(hdmPendingKey(email), JSON.stringify(pending)); }catch(x){} throw e; }
       }
+      if(hdmPendingFromUser(r.data && r.data.user)){ try{ a.auth.updateUser({ data: { hdm_pending: null } }); }catch(x){} }
       window.__hdmAgeGateOnPass = function(){};
       var entered = await authEnterProfile(pid);
       window.__hdmAgeGateOnPass = null;
