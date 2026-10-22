@@ -6259,6 +6259,48 @@
     if(!myId){ hdmCo.msg = 'כדי לשלם יש להתחבר לחשבון, כך שהמנוי יופעל בחשבון שלך.'; hdmRenderCheckout(); return; }
     if(typeof window.hdmGrowStartCheckout === 'function') window.hdmGrowStartCheckout(hdmCo.plan);
   }
+  // ---- התראות סליקה לבעלים (22.10): חיוב שנכשל / לבדיקה / בלי אישור. השרת מחזיר רשימה רק למקבלי ההתראות; לאחרים — ריק ----
+  var HDM_ALERT_KIND = { first_charge_failed: 'חיוב ראשון נדחה', upgrade_failed: 'שדרוג נדחה', renewal_failed: 'חיוב חידוש נדחה',
+    renewal_final_failure: 'חידוש נכשל 3 פעמים — המנוי יסתיים', needs_review: 'תשלום לבדיקה ידנית', charge_unconfirmed: 'חיוב בלי אישור — לבדוק ב-Morning' };
+  var hdmAlerts = [], hdmAlertsAt = 0;
+  async function hdmCheckBillingAlerts(force){
+    if(!myId || !window.__sb || (!force && Date.now() - hdmAlertsAt < 60000)) return;
+    hdmAlertsAt = Date.now();
+    try{ var r = await window.__sb.rpc('hdm_billing_alerts_mine'); hdmAlerts = (r && !r.error && Array.isArray(r.data)) ? r.data : []; }catch(x){ hdmAlerts = []; }
+    hdmRenderAlertBanner();
+  }
+  function hdmRenderAlertBanner(){
+    var phone = document.querySelector('.phone'); if(!phone) return;
+    var el = document.getElementById('hdm-alert-banner');
+    if(!hdmAlerts.length){ if(el) el.remove(); return; }
+    if(!el){ el = document.createElement('button'); el.type = 'button'; el.id = 'hdm-alert-banner'; el.onclick = hdmOpenAlerts;
+      el.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:9999;background:#7a1f2b;color:#fff;border:1px solid #F2D59A;border-radius:14px;padding:6px 14px;font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,.4)';
+      phone.appendChild(el); }
+    el.textContent = '⚠️ התראות סליקה: ' + hdmAlerts.length;
+  }
+  window.hdmOpenAlerts = function(){
+    var phone = document.querySelector('.phone'); if(!phone) return;
+    var box = document.getElementById('hdm-alert-list');
+    if(!box){ box = document.createElement('div'); box.id = 'hdm-alert-list';
+      box.style.cssText = 'position:absolute;inset:50px 12px auto 12px;max-height:70%;overflow:auto;z-index:10000;background:#0f1530;color:#f5efe6;border:1px solid #F2D59A;border-radius:16px;padding:14px;font-size:14px;line-height:1.5';
+      phone.appendChild(box); }
+    var html = '<b style="color:#F2D59A">התראות סליקה</b><p style="margin:4px 0 10px;font-size:13px;opacity:.85">לבדוק כל התראה ב-Morning/Grow. לא מתבצע חיוב מהמסך הזה.</p>';
+    hdmAlerts.forEach(function(a){
+      html += '<div style="border-top:1px solid rgba(242,213,154,.3);padding:8px 0"><b>' + hdmEsc(HDM_ALERT_KIND[a.kind] || a.kind) + '</b>'
+        + (a.amount ? ' · ₪' + (a.amount / 100).toFixed(2) : '') + '<br><span style="font-size:12px;opacity:.8">' + hdmEsc(new Date(a.at).toLocaleString('he-IL'))
+        + (a.profile ? ' · פרופיל ' + hdmEsc(a.profile) : '') + '</span><br>' + hdmEsc(a.details || '')
+        + '<br><button type="button" style="margin-top:6px" onclick="hdmResolveAlert(' + Number(a.id) + ')">טופל</button></div>';
+    });
+    html += '<button type="button" style="margin-top:10px" onclick="document.getElementById(\'hdm-alert-list\').remove()">סגירה</button>';
+    box.innerHTML = html;
+  };
+  window.hdmResolveAlert = async function(id){
+    try{ await window.__sb.rpc('hdm_billing_alert_resolve', { p_id: id }); }catch(x){}
+    await hdmCheckBillingAlerts(true);
+    if(hdmAlerts.length) hdmOpenAlerts(); else { var b = document.getElementById('hdm-alert-list'); if(b) b.remove(); }
+  };
+  setInterval(function(){ hdmCheckBillingAlerts(false); }, 15000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) hdmCheckBillingAlerts(true); });
   // ---- מעבר לתשלום דרך Morning (Grow): ניסיון תשלום במסד → פונקציית השרת morning-checkout → עמוד התשלום המאובטח ----
   // המנוי מופעל רק כשהשרת מאמת את התשלום מול Morning (morning-webhook). פרטי הכרטיס לא עוברים דרך האפליקציה.
   // אפשרות 2 (22.10): הלקוח מזין כרטיס פעם אחת בדף מאובטח של Grow (שמירת כרטיס) → השרת מחייב את החודש הראשון בכרטיס השמור.
