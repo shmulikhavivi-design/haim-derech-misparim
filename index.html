@@ -5182,7 +5182,7 @@
         'חינם — ₪0: צפייה בפרופילים ובתמונות בלבד, ללא שליחת 🎯, ללא צ׳אטים וללא הצגת דירוגי התאמה.',
         'בסיסי — ₪29.90 לחודש: הצגת רמת התאמה (ללא הסבר); שליחת 🎯 ופתיחת צ׳אט לאחר סימון הדדי; עד 5 שיחות חדשות בכל חודש חיוב; הודעות ללא הגבלה בשיחות קיימות כל עוד המנוי פעיל.',
         'פלוס — ₪48.90 לחודש: התאמות ושיחות ללא הגבלה; אפשרות לראות מי סימן אותי ב־🎯; רמת התאמה וניתוח נומרולוגי מקוצר.',
-        'VIP — ₪79.90 לחודש: כל הטבות פלוס; ניתוח נומרולוגי מורחב מיד לאחר סימון 🎯; 30% הנחה על שירותי נומרולוגיה אצל נומרולוגית.',
+        'VIP (בקרוב — עדיין לא פתוח להצטרפות) — ₪79.90 לחודש: כל הטבות פלוס; ניתוח נומרולוגי מורחב מיד לאחר סימון 🎯; 30% הנחה על שירותי נומרולוגיה אצל נומרולוגית.',
         'המחירים בשקלים חדשים. ' + (HDM_BUSINESS.vatNote || '(פרטי מע"מ יושלמו לפני הפרסום.)'),
         'כרגע המסלולים בתשלום עדיין לא פתוחים לרכישה, ולא מתבצע שום חיוב.'],
       ['אופן התשלום',
@@ -5282,7 +5282,7 @@
         'אפשר למחוק את החשבון בכל עת מתוך האפליקציה: הגדרות ← מחיקת חשבון. המחיקה סופית. מה נמחק ומה נשמר מפורט במדיניות הפרטיות.',
         'אם אין לך גישה לחשבון, אפשר לבקש את מחיקתו באימייל לכתובת ' + HDM_CONTACT_EMAIL + '.'],
       ['מנויים, חיובים, שדרוגים, חידושים וביטולים',
-        'מסלולים: חינם (₪0), בסיסי (₪29.90 לחודש), פלוס (₪48.90 לחודש) ו-VIP (₪79.90 לחודש). ההטבות של כל מסלול מפורטות במסך המסלולים באפליקציה.',
+        'מסלולים: חינם (₪0), בסיסי (₪29.90 לחודש), פלוס (₪48.90 לחודש) ו-VIP (₪79.90 לחודש — בקרוב, עדיין לא פתוח להצטרפות). ההטבות של כל מסלול מפורטות במסך המסלולים באפליקציה.',
         'הסכמה לפני תשלום: לפני כל תשלום יוצגו לך הסכום, תאריך החיוב הבא ותנאי החידוש, והתשלום יתבצע רק לאחר אישורך.',
         'חיוב וחידוש אוטומטי: החיוב הראשון מתבצע ביום ההצטרפות. המנוי מתחדש אוטומטית מדי חודש באותו תאריך, במחיר המסלול, עד לביטולו. בחודש שאין בו תאריך כזה, החיוב יתבצע ביום האחרון של החודש. החיובים מתבצעים באמצעי התשלום ששמרת אצל ספק הסליקה (Grow), בלי צורך להזין שוב את פרטי האשראי. אנחנו לא שומרים את פרטי כרטיס האשראי שלך.',
         'שדרוג: אפשר לשדרג למסלול גבוה יותר בכל שלב. בעת שדרוג תחויב/י רק בהפרש היחסי בין המסלולים עבור יתרת תקופת החיוב הנוכחית, והסכום יוצג לך לפני האישור. המסלול החדש יופעל מיד לאחר אישור התשלום, ותאריך החיוב החודשי לא ישתנה. מהחידוש הבא תחויב/י במחיר המסלול החדש. אם ההפרש היחסי נמוך מ-₪1, השדרוג יופעל בלי חיוב נוסף.',
@@ -6109,7 +6109,7 @@
   function hdmPlanCardHtml(k, btn){
     var info = HDM_PLAN_INFO[k], cur = hdmPlanId() === k;
     var html = '<div class="hdm-plan' + (cur ? ' is-current' : '') + '" id="hdm-plan-card-' + k + '">';
-    html += '<div class="hdm-plan-head"><h3>' + info.name + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
+    html += '<div class="hdm-plan-head"><h3>' + info.name + (typeof HDM_PLAN_SOON !== 'undefined' && HDM_PLAN_SOON[k] && !cur ? ' <span class="hdm-badge">בקרוב</span>' : '') + '</h3><div class="hdm-plan-price">' + info.price + (info.per ? ' <small>' + info.per + '</small>' : '') + '</div></div>';
     html += '<ul>' + info.items.map(function(t){ return '<li>' + hdmEsc(t) + '</li>'; }).join('') + '</ul>';
     if(k === 'vip' && cur) html += hdmVipBookingHtml();
     return html + btn + '</div>';
@@ -6150,6 +6150,7 @@
                           : hdmBuyBtn(k, 'שדרוג ל־' + info.name + ' — ' + info.price + ' לחודש');
         html += hdmPlanCardHtml(k, r === 0 ? hdmOffBtn('המסלול שלך') : r > 0 ? upBtn : hdmOffBtn('מסלול נמוך מהמסלול שלך'));
       });
+      if(!HDM_PLAN_SOON[plan]) html += hdmSoonCards();
       html += hdmBillingHtml(e, plan) || hdmManageHtml(e, plan);
     }else{
       // בלי מנוי פעיל: קודם שלושת המסלולים בתשלום, עם כפתור הצטרפות לכל אחד. בלי כפתור "ביטול מנוי"
@@ -6162,6 +6163,7 @@
         var info = HDM_PLAN_INFO[k];
         html += hdmPlanCardHtml(k, hdmBuyBtn(k, 'הצטרפות — ' + info.price + ' לחודש'));
       });
+      html += hdmSoonCards();
       html += hdmPlanCardHtml('free', hdmOffBtn(plan === 'free' ? 'המסלול שלך' : 'מסלול חינם'));
       if(myId) html += cur;
     }
@@ -6175,6 +6177,14 @@
   // (ראו docs/grow-checkout.md). המעבר לתשלום עצמו ייעשה דרך פונקציית שרת שיוצרת דף תשלום ב-Grow לכל רכישה.
   var HDM_CHECKOUT = { live: HDM_BILLING_LIVE || (HDM_BILLING_PREVIEW && /staging\.html$/.test(location.pathname)) || /[?&]billing=owner\b/.test(location.search),   // owner = חיוב בדיקה של הבעלים; השרת מתיר רק משתמשים ב-HDM_BILLING_ALLOWED_USERS
   plans: { basic: 2990, plus: 4890, vip: 7990 }, order: ['basic', 'plus', 'vip'] };
+  // VIP "בקרוב" (22.10): מוצג במסך המנויים בלי אפשרות הצטרפות/שדרוג. השרת חוסם גם הוא (hdm_plan_sale).
+  // פתיחה בעתיד: למחוק את vip מכאן + update public.hdm_plan_sale set on_sale = true where plan = 'vip'
+  var HDM_PLAN_SOON = { vip: true };
+  HDM_CHECKOUT.order = HDM_CHECKOUT.order.filter(function(k){ return !HDM_PLAN_SOON[k]; });
+  function hdmSoonCards(){
+    return Object.keys(HDM_PLAN_SOON).filter(function(k){ return HDM_PLAN_SOON[k] && HDM_PLAN_INFO[k]; })
+      .map(function(k){ return hdmPlanCardHtml(k, '<button type="button" class="hdm-plan-btn" id="hdm-plan-soon-' + k + '" disabled>✨ בקרוב</button>'); }).join('');
+  }
   var hdmCo = { plan: 'plus', accepted: false, msg: '', err: false };
   function hdmCoMoney(agorot){ return '₪' + (agorot / 100).toFixed(2); }
   // תאריך החיוב הבא: אותו יום בחודש הבא; בחודש בלי היום הזה — היום האחרון של החודש
@@ -6231,7 +6241,7 @@
     html += '<div class="hdm-co-links" id="hdm-co-links">' + hdmCoLink('terms', 'תקנון ותנאי שימוש') + hdmCoLink('cancel', 'מדיניות ביטול מנוי') + hdmCoLink('privacy', 'מדיניות פרטיות') + hdmCoLink('business', 'מחירים ופרטי העסק') + '</div>';
     body.innerHTML = html;
   }
-  function hdmCoSelect(p){ if(!HDM_CHECKOUT.plans[p]) return; hdmCo.plan = p; hdmCo.msg = ''; hdmCo.err = false; hdmRenderCheckout(); }
+  function hdmCoSelect(p){ if(!HDM_CHECKOUT.plans[p] || HDM_PLAN_SOON[p]) return; hdmCo.plan = p; hdmCo.msg = ''; hdmCo.err = false; hdmRenderCheckout(); }
   function hdmCoAccept(v){ hdmCo.accepted = !!v; hdmCo.err = false; hdmCo.msg = ''; hdmRenderCheckout(); var c = document.getElementById('hdm-co-accept'); if(c) c.focus(); }
   function hdmCoPay(){
     var c = document.getElementById('hdm-co-accept');
@@ -6292,6 +6302,7 @@
   })();
   // עמוד התשלום נפתח במקום מסך המנויים (ולא מתחתיו), ו"חזרה" מחזיר אליו
   function hdmOpenCheckout(plan){
+    if(HDM_PLAN_SOON[plan]) return;   // VIP בקרוב — אין מעבר לתשלום
     hdmCo.fromPlans = hdmLayerOpen('hdm-plans-screen');
     if(hdmCo.fromPlans) hdmCloseLayer('hdm-plans-screen');
     if(HDM_CHECKOUT.plans[plan]) hdmCo.plan = plan;
@@ -6471,8 +6482,9 @@
     else h += 'לבקשה לפי החוק: <a href="mailto:' + HDM_CONTACT_EMAIL + '?subject=' + encodeURIComponent('ביטול עסקה') + '">' + HDM_CONTACT_EMAIL + '</a> או בטלפון <a href="tel:+972546628866" dir="ltr">' + hdmEsc(HDM_BUSINESS.phone) + '</a>.';
     return h + ' <a href="#" onclick="openLegal(\'cancel\');return false;">מדיניות ביטול מנוי</a></div>';
   }
-  function hdmBillOpenBuy(plan){ hdmBillUI = { mode: 'buy', plan: plan }; hdmBillRender(); }
+  function hdmBillOpenBuy(plan){ if(HDM_PLAN_SOON[plan]) return; hdmBillUI = { mode: 'buy', plan: plan }; hdmBillRender(); }
   async function hdmBillOpenUpgrade(plan, msg){
+    if(HDM_PLAN_SOON[plan]) return;   // VIP בקרוב — אין שדרוג
     hdmBillUI = { mode: 'upgrade', plan: plan, quote: null, msg: msg || '' }; hdmBillRender();
     try{
       var r = await window.__sb.rpc('hdm_billing_upgrade_quote', { p_plan: plan });
