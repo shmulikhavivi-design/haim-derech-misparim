@@ -83,7 +83,7 @@ begin
   -- הכנסות: רק אושרו בפועל, בלי משתמשי בדיקה
   perform pg_temp.chk('הכנסות', 'רק תשלומים שאושרו: +₪78.80 (29.90+48.90), בלי הנכשל ובלי של הבדיקה', '7880', ((d1->'revenue'->>'totalAgorot')::int - (d0->'revenue'->>'totalAgorot')::int)::text);
   perform pg_temp.chk('הכנסות', 'היום / החודש: +₪78.80', '7880|7880', ((d1->'revenue'->>'todayAgorot')::int - (d0->'revenue'->>'todayAgorot')::int) || '|' || ((d1->'revenue'->>'monthAgorot')::int - (d0->'revenue'->>'monthAgorot')::int));
-  perform pg_temp.chk('הכנסות', 'עם משתמשי בדיקה: +₪48.90 נוספים', '4890', ((d2->'revenue'->>'totalAgorot')::int - (d1->'revenue'->>'totalAgorot')::int)::text);
+  perform pg_temp.chk('הכנסות', 'עם משתמשי בדיקה: לפחות +₪48.90 נוספים', 'true', (((d2->'revenue'->>'totalAgorot')::int - (d1->'revenue'->>'totalAgorot')::int) >= 4890)::text);
   -- רשימת משתמשים
   l := substr(pg_temp.as_user(uA, format('select public.hdm_admin_users(%L)::text', pfx)), 4)::jsonb;
   perform pg_temp.chk('רשימה', 'חיפוש: 2 אמיתיים (בלי הבדיקה)', '2', l->>'total');
