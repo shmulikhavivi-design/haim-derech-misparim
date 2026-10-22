@@ -37,7 +37,7 @@ rollback;
 SQL
 )
 C=$(curl -sS -m 120 -o /tmp/i3.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RW" -d "$(jq -nc --arg q "$Q" '{query:$q}')" || echo 000)
-M=$(jq -r '.message // tostring' /tmp/i3.json | grep -o 'HDM_OUT .*' | sed 's/^HDM_OUT //' | head -1)
+M=$(jq -r '.message // tostring' /tmp/i3.json | grep -o 'HDM_OUT .*' | sed 's/^HDM_OUT //' | head -1 || true)
 if [ -n "$M" ]; then
   ERRS=$(echo "$M" | jq -c '[.[] | select(.res | startswith("ERR"))]' 2>/dev/null)
   ann notice "i3-errors" "שגיאות: ${ERRS:-?}"
