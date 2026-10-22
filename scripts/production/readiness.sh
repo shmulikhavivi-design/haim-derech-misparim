@@ -11,6 +11,12 @@ if [ -n "${GH_BREVO_API:-}" ]; then   # בדיקת מפתח Brevo בקריאה �
   SND=$(jq -r --arg f life.through.numbers333@gmail.com '[.senders[]? | select((.email|ascii_downcase)==$f) | (if .active then "פעיל" else "לא פעיל" end)] | if length==0 then "לא נמצא" else join(",") end' /tmp/bc.json 2>/dev/null)
   C3=$(bc "smtp/statistics/aggregatedReport?days=1")
   C4=$(bc "smtp/templates?limit=1")
+  V="$GH_BREVO_API"; T=$(printf '%s' "$V" | tr -d '[:space:]"'"'"); T=${T#BREVO_API_KEY=}; T=${T#api-key:}
+  SHAPE="אורך $(printf '%s' "$V" | wc -c), רווחים/שורות: $(printf '%s' "$V" | grep -c '[[:space:]]' || true), גרשיים: $(printf '%s' "$V" | grep -c '["'"'"']' || true), מכיל xkeysib-: $(printf '%s' "$V" | grep -c 'xkeysib-' || true), מכיל xsmtpsib-: $(printf '%s' "$V" | grep -c 'xsmtpsib-' || true), מתחיל באות/ספרה: $(printf '%s' "$V" | head -c1 | grep -c '[A-Za-z0-9]' || true), אחרי ניקוי מתחיל ב-xkeysib-: $(case "$T" in xkeysib-*) echo כן;; *) echo לא;; esac)"
+  MSG1=$(jq -r '.message // .code // empty' /tmp/bc.json 2>/dev/null | sed -E 's/[0-9]{1,3}(\.[0-9]{1,3}){3}/<IP>/g; s/[0-9a-fA-F:]{8,}/<IP6>/g' | cut -c1-200)
+  CT=$(curl -sS -m 30 -o /tmp/bt.json -w '%{http_code}' -H "api-key: $T" -H 'accept: application/json' https://api.brevo.com/v3/account || echo 000)
+  MSGT=$(jq -r '.message // .code // empty' /tmp/bt.json 2>/dev/null | sed -E 's/[0-9]{1,3}(\.[0-9]{1,3}){3}/<IP>/g' | cut -c1-200)
+  ann notice "r-brevo-shape" "מבנה הערך (בלי הערך): $SHAPE | תשובת Brevo: $MSG1 | עם ערך מנוקה: account HTTP $CT ${MSGT}"
   ann notice "r-brevo-key" "GitHub BREVO_API_KEY: מוגדר, $K | account HTTP $C1 | senders HTTP $C2 (שולח האפליקציה: ${SND:-?}) | transactional stats HTTP $C3 | templates HTTP $C4"
 else
   ann warning "r-brevo-key" "BREVO_API_KEY לא זמין לתהליך"
