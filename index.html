@@ -841,7 +841,7 @@
     <div class="lead" style="margin:12px 0 4px;"><h2>הגדרות ופרטיות</h2></div>
     <div class="set-group" id="set-admin-group" hidden>
       <div class="set-title">ניהול</div>
-      <button type="button" class="set-row" id="set-admin" onclick="hdmOpenAdmin()"><span>📊 ניהול — לוח למנהלים</span><b>‹</b></button>
+      <button type="button" class="set-row" id="set-admin" onclick="hdmOpenAdmin()"><span>📊 לוח ניהול למנהלים</span><b>‹</b></button>
     </div>
     <div class="set-group">
       <div class="set-title">מנוי</div>
@@ -1207,9 +1207,9 @@
 
   <!-- חובה להעלות תמונת פרופיל (משתמש בלי תמונה) -->
 
-  <div class="signup admin" id="admin-screen" aria-hidden="true" role="dialog" aria-label="לוח ניהול">
+  <div class="signup admin" id="admin-screen" aria-hidden="true" role="dialog" aria-label="לוח ניהול למנהלים">
     <div class="adm-wrap">
-      <div class="adm-head"><h2>📊 לוח ניהול</h2><button type="button" class="adm-close" onclick="hdmCloseAdmin()">סגירה</button></div>
+      <div class="adm-head"><h2>📊 לוח ניהול למנהלים</h2><button type="button" class="adm-close" onclick="hdmCloseAdmin()">סגירה</button></div>
       <div class="adm-meta"><span id="adm-updated">טוען…</span>
         <label><input type="checkbox" id="adm-tests" onchange="hdmAdminLoad(true)"> כולל משתמשי בדיקה</label>
         <button type="button" class="adm-close" onclick="hdmAdminLoad(true)">רענון</button></div>
@@ -5633,7 +5633,7 @@
     var u = d.users || {}, pl = d.plans || {}, bp = pl.byPlan || {}, rv = d.revenue || {};
     var h = '';
     h += '<div class="adm-sec">משתמשים ' + (tests ? '(כולל בדיקה)' : '(אמיתיים בלבד)') + '</div><div class="adm-grid">'
-      + hdmAdmCard(u.total, 'רשומים עם פרופיל') + hdmAdmCard(u.real, 'אמיתיים') + hdmAdmCard(u.test, 'משתמשי בדיקה')
+      + hdmAdmCard(u.total, 'נרשמים') + hdmAdmCard(u.real, 'אמיתיים') + hdmAdmCard(u.test, 'משתמשי בדיקה')
       + hdmAdmCard(u.female, 'נשים') + hdmAdmCard(u.male, 'גברים') + hdmAdmCard((u.other || 0) + (u.genderUnknown || 0), 'אחר / לא צוין')
       + hdmAdmCard(u.newToday, 'נרשמו היום') + hdmAdmCard(u.newWeek, 'השבוע') + hdmAdmCard(u.newMonth, 'החודש')
       + hdmAdmCard(d.onlineNow, 'מחוברים עכשיו') + hdmAdmCard(u.active24h, 'פעילים 24 שעות') + hdmAdmCard((u.withoutProfile || 0) + (u.unconfirmed || 0), 'נרשמו בלי פרופיל')
