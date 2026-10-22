@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # incident4 — מסלול מלא: הרשמה → קישור אישור אמיתי (generate_link) → מעקב אחרי ההפניה (GitHub/Cloudflare) → כניסה; דפדפנים: Chrome, ספארי (אייפון), Firefox.
 # משתמשי בדיקה בתיבת האפליקציה בלבד (+incc…). לא מוחק, לא מחייב, לא משנה הגדרות או מפתחות.
+set +e +o pipefail
 A="https://api.supabase.com/v1/projects/$PROD_REF"; AU="https://$PROD_REF.supabase.co/auth/v1"
 clean(){ sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g; s/eyJ[A-Za-z0-9._-]+/<jwt>/g; s/(token|code)=[A-Za-z0-9_-]+/\1=<x>/g'; }
 PUB='sb_publishable_wwoXFH3xChSfQxHKZEbTKA_t_u5aGMP'
