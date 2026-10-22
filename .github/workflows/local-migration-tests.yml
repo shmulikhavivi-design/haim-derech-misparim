@@ -55,7 +55,13 @@ jobs:
 
       - name: Billing functions — unit tests with simulated Morning (no network, no charges)
         run: |
-          deno test --no-check supabase/functions/_shared/morning_test.ts supabase/functions/_shared/card_flow_test.ts
+          set +e
+          OUT=$(deno test --no-check supabase/functions/_shared/morning_test.ts supabase/functions/_shared/card_flow_test.ts 2>&1); RC=$?
+          echo "$OUT"
+          CLEAN=$(echo "$OUT" | sed 's/\x1b\[[0-9;]*m//g')
+          echo "::notice title=deno-tests::$(echo "$CLEAN" | grep -E '^(ok|FAILED)|passed|failed' | tail -n 3 | tr '\n' ' ')"
+          [ $RC = 0 ] || echo "::error title=deno-failures::$(echo "$CLEAN" | grep -E 'FAILED|=> |error|Error|AssertionError|expected|actual|\+ |\- ' | head -n 40 | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')"
+          exit $RC
 
       - name: Billing functions — type check
         run: |
