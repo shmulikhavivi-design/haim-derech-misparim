@@ -15,6 +15,9 @@ import sys,re,html
 s=sys.stdin.read(); s=re.sub(r'(?is)<(script|style)[^>]*>.*?</\\1>',' ',s); t=html.unescape(re.sub(r'<[^>]+>',' ',s)); t=re.sub(r'\\s+',' ',t).strip()
 print(len(s), '|', t[:220])"; }
 BAD="https://secure.meshulam.co.il/credit-checkout-form?l=00000000000000000000000000000000%25MDAwMDAwMDA"
+python3 -m pip install -q playwright==1.55.0 >/dev/null 2>&1 && python3 -m playwright install --with-deps chromium >/dev/null 2>&1
+REN=$(python3 "$HERE/link_render.py" "$ENC" "$BAD" 2>&1 | tail -1)
+ann notice "card-link-render" "$REN"
 ann notice "card-link-check" "כפי שהוא: $(t "$RAW")%0Aמקודד (%25): $(t "$ENC")%0Aטקסט הדף (מקודד): $(vis "$ENC")%0Aטקסט הדף (קישור שגוי בכוונה): $(vis "$BAD")"
 jq --arg e "$ENC" '. + {url_encoded: $e}' "$OUTD/r.json" > "$OUTD/r2.json" && mv "$OUTD/r2.json" "$OUTD/r.json"; rm -f /tmp/cl.html
 openssl rand -out "$OUTD/k.bin" 32
