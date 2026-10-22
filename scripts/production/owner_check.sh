@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ownercheck — אחרי חיוב הבדיקה: מצב המנוי (קריאה בלבד), מסמך Morning (GET בלבד), וסימולציית חידוש/כישלון/ביטול בעסקה שמבוטלת.
-OWNER_EMAIL='shmulikhavivi@gmail.com'
+OWNER_MD5='162e004328485070b0af8b256ad2e798'   # md5 של כתובת האימייל של הבעלים (לא הכתובת עצמה)
 RO="https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only"; RW="https://api.supabase.com/v1/projects/$PROD_REF/database/query"
 roq(){ curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
-OID=$(roq "select id from auth.users where lower(email)=lower('$OWNER_EMAIL')" | jq -r '.[0].id // empty'); [ -n "$OID" ] || stop "חשבון הבעלים לא נמצא"
+OID=$(roq "select id from auth.users where md5(lower(email))='$OWNER_MD5'" | jq -r '.[0].id // empty'); [ -n "$OID" ] || stop "חשבון הבעלים לא נמצא"
 LG=$(roq "select row_to_json(s) r from public.hdm_subscriptions s where s.profile_id = (select profile_id from public.hdm_accounts where auth_user_id='$OID')")
 ann notice "owner-sub-row" "שורת המנוי של הבעלים (לפי החשבון): $(echo "$LG" | jq -c '.[0].r // .')"
 ST=$(roq "select coalesce((select json_agg(json_build_object('plan',plan,'amount',amount_agorot,'status',status,'created',created_at,'closed',closed_at) order by created_at desc) from (select * from public.hdm_checkouts where user_id='$OID' order by created_at desc limit 3) k),'[]') checkouts,

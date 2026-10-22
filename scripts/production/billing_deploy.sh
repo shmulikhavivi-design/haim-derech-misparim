@@ -2,11 +2,11 @@
 # billingdeploy  — שלב 1 של ההפעלה (משנה Production! רק באישור מפורש): 08 → סודות לפונקציות → פריסת 3 פונקציות.
 #                   התשלום פתוח רק לבעלים (HDM_BILLING_ALLOWED_USERS = מזהה הבעלים); לכל השאר 403. האפליקציה הציבורית לא משתנה.
 # billingdeploycheck — אותן בדיקות מקדימות בלי שום שינוי.
-OWNER_EMAIL='shmulikhavivi@gmail.com'
+OWNER_MD5='162e004328485070b0af8b256ad2e798'   # md5 של כתובת האימייל של הבעלים (לא הכתובת עצמה)
 RO="https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only"
 roq(){ curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
-OID=$(roq "select id from auth.users where lower(email)=lower('$OWNER_EMAIL') and email_confirmed_at is not null" | jq -r '.[0].id // empty')
-[ -n "$OID" ] && ann notice "deploy-owner" "✅ חשבון הבעלים נמצא ומאומת (מזהה …${OID: -6})" || stop "חשבון הבעלים $OWNER_EMAIL לא נמצא/לא מאומת ב-Production"
+OID=$(roq "select id from auth.users where md5(lower(email))='$OWNER_MD5' and email_confirmed_at is not null" | jq -r '.[0].id // empty')
+[ -n "$OID" ] && ann notice "deploy-owner" "✅ חשבון הבעלים נמצא ומאומת (מזהה …${OID: -6})" || stop "חשבון הבעלים לא נמצא/לא מאומת ב-Production"
 [ -n "${MORNING_CLIENT_ID:-}" ] && [ -n "${MORNING_CLIENT_SECRET:-}" ] || stop "חסרים מפתחות Morning בסביבה production"
 MK=$(roq "select (select count(*) from public.hdm_release_marker where version='production_billing_v1') b" | jq -r '.[0].b')
 ann notice "deploy-08" "08 כבר הותקן: $([ "$MK" = 1 ] && echo כן || echo לא)"
