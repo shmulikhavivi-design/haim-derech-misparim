@@ -4,6 +4,8 @@ OWNER_EMAIL='shmulikhavivi@gmail.com'
 RO="https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only"; RW="https://api.supabase.com/v1/projects/$PROD_REF/database/query"
 roq(){ curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
 OID=$(roq "select id from auth.users where lower(email)=lower('$OWNER_EMAIL')" | jq -r '.[0].id // empty'); [ -n "$OID" ] || stop "חשבון הבעלים לא נמצא"
+LG=$(roq "select row_to_json(s) r from public.hdm_subscriptions s where s.profile_id = (select profile_id from public.hdm_accounts where auth_user_id='$OID')")
+ann notice "owner-sub-row" "שורת המנוי של הבעלים (לפי החשבון): $(echo "$LG" | jq -c '.[0].r // .')"
 ST=$(roq "select coalesce((select json_agg(json_build_object('plan',plan,'amount',amount_agorot,'status',status,'created',created_at,'closed',closed_at) order by created_at desc) from (select * from public.hdm_checkouts where user_id='$OID' order by created_at desc limit 3) k),'[]') checkouts,
   coalesce((select json_agg(json_build_object('kind',kind,'outcome',outcome,'result',result,'plan',plan,'amount',amount_agorot,'review',needs_review,'tx',left(grow_transaction_id,40),'doc',raw->>'documentId','at',received_at) order by received_at desc) from public.hdm_payments p where p.profile_id in (select profile_id from public.hdm_checkouts where user_id='$OID')),'[]') payments,
   (select json_build_object('plan',plan,'status',status,'source',source,'auto_renew',auto_renew,'period_end',current_period_end) from public.hdm_subscriptions s where s.profile_id = (select profile_id from public.hdm_checkouts where user_id='$OID' order by created_at desc limit 1)) sub,
