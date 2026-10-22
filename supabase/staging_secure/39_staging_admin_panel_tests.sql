@@ -94,6 +94,8 @@ begin
   perform pg_temp.chk('רשימה', 'סינון גיל 40–60 → 1', '1', substr(pg_temp.as_user(uA, format('select (public.hdm_admin_users(%L, null, 40, 60)->>''total'')', pfx)), 4));
   perform pg_temp.chk('רשימה', 'סינון מסלול בסיסי → 1', '1', substr(pg_temp.as_user(uA, format('select (public.hdm_admin_users(%L, null, null, null, ''basic'')->>''total'')', pfx)), 4));
   perform pg_temp.chk('רשימה', 'הגבלת עמוד ל-200', 'ok', left(pg_temp.as_user(uA, 'select jsonb_array_length(public.hdm_admin_users(null, null, null, null, null, true, 100000)->''rows'') <= 200'), 2));
+  perform pg_temp.chk('תשלומים', 'סטטוס: אושרו +2, נדחו +1 (אמיתיים)', '2|1', ((d1->'payments'->>'approved')::int - (d0->'payments'->>'approved')::int) || '|' || ((d1->'payments'->>'failed')::int - (d0->'payments'->>'failed')::int));
+  perform pg_temp.chk('תשלומים', 'יש מועד חידוש הבא', 'true', ((d1->'payments'->>'nextRenewalAt') is not null)::text);
   perform pg_temp.chk('לוח', 'המספרים מתעדכנים מיד (בלי מטמון)', 'true', ((d1->>'generatedAt') is not null)::text);
 end $$;
 select area || ' — ' || name || ': ' || case when ok then '✅' else '❌ (צפוי ' || exp || ', התקבל ' || coalesce(got, '∅') || ')' end as "תוצאה" from t_res order by n;

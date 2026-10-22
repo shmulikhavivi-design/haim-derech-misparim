@@ -156,6 +156,16 @@ begin
       'byKind', (select coalesce(jsonb_object_agg(kind, s), '{}') from (select kind, sum(amount_agorot) s from pay group by kind) z),
       'needsReview', (select count(*) from public.hdm_payments where needs_review),
       'lastPaymentAt', (select max(received_at) from pay)),
+    'payments', jsonb_build_object(
+      'approved', (select count(*) from pay),
+      'failed', (select count(*) from public.hdm_payments p where p.outcome = 'failed' and (p_include_tests or not exists (select 1 from allb t where t.profile_id = p.profile_id and t.is_test))),
+      'needsReview', (select count(*) from public.hdm_payments where needs_review),
+      'checkoutsPending', (select count(*) from public.hdm_checkouts where status = 'pending'),
+      'checkoutsFailed30d', (select count(*) from public.hdm_checkouts where status = 'failed' and created_at >= now() - interval '30 days'),
+      'renewals', (select coalesce(jsonb_object_agg(status, n), '{}') from (select status, count(*) n from public.hdm_renewal_charges group by status) z),
+      'nextRenewalAt', (select min(period_end) from b where sub_source = 'payment' and sub_status = 'active' and coalesce(auto_renew, false)),
+      'renewalsNext7d', (select count(*) from b where sub_source = 'payment' and sub_status = 'active' and coalesce(auto_renew, false) and period_end <= now() + interval '7 days'),
+      'lastPaymentAt', (select max(received_at) from pay)),
     'activity', jsonb_build_object(
       'targets30d', (select count(*) from public.docs d where d.collection = 'interests' and d.updated_at >= now() - interval '30 days'),
       'chats30d', (select count(distinct o.pair_id) from public.hdm_chat_openings o where o.opened_at >= now() - interval '30 days'),
