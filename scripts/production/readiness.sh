@@ -9,6 +9,11 @@ NAMES=$(curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/secrets" | jq -r '[.[
 ann notice "r-secret-names" "סודות הפונקציות (שמות בלבד): $NAMES"
 for n in BREVO_API_KEY MAIL_FROM; do echo "$NAMES" | grep -qw "$n" && ann notice "r-$n" "$n: מוגדר" || ann warning "r-$n" "$n: חסר"; done
 ann notice "r-github-brevo" "GitHub: BREVO_API_KEY $([ -n "${GH_BREVO_API:-}" ] && echo מוגדר || echo חסר) | BREVO_SMTP_KEY $([ -n "${GH_BREVO_SMTP:-}" ] && echo מוגדר || echo חסר)"
+if [ -n "${GH_BREVO_API:-}" ]; then   # בדיקת מפתח Brevo בקריאה בלבד — בלי לשלוח מייל
+  BA=$(curl -sS -m 30 -o /tmp/ba.json -w '%{http_code}' -H "api-key: $GH_BREVO_API" -H 'accept: application/json' https://api.brevo.com/v3/account || echo 000)
+  BS=$(curl -sS -m 30 -H "api-key: $GH_BREVO_API" -H 'accept: application/json' https://api.brevo.com/v3/senders | jq -c --arg h 162e004328485070b0af8b256ad2e798 '[.senders[]? | select(.active) | .email | ascii_downcase] | length as $n | {active_senders: $n}' 2>/dev/null)
+  ann notice "r-brevo-key" "מפתח Brevo: HTTP $BA $( [ "$BA" = 200 ] && echo '✅ תקף' || echo '❌ לא תקף') | שולחים פעילים: $BS"
+fi
 ann notice "r-functions" "פונקציות: $(curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/functions" | jq -r '[.[] | "\(.slug) v\(.version) \(.status) jwt=\(.verify_jwt)"] | join(" | ")')"
 ann notice "r-cron" "משימות מתוזמנות: $(roq "select coalesce(json_agg(jobname||' ['||schedule||'] '||case when active then 'פעילה' else 'כבויה' end order by jobname),'[]') j from cron.job" | jq -r '.[0].j | join(" | ")' 2>/dev/null)"
 Q="select json_build_object(
