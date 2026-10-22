@@ -7,10 +7,12 @@ SQL
 )
 fp(){ curl -sS -m 30 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only" -d "$(jq -nc --arg q "$FPQ" '{query:$q}')" | jq -c '.[0]'; }
 pre=$(fp); TOTP=0; TOTN=0
-for f in 18_staging_billing_tests 20_staging_billing_upgrade_tests 22_staging_billing_cancel_tests 25_staging_billing_morning_tests; do
+for f in 18_staging_billing_tests 20_staging_billing_upgrade_tests 22_staging_billing_cancel_tests 25_staging_billing_morning_tests 31_staging_vip_soon_tests; do
   Q=$(python3 -I - "$ROOT/supabase/staging_secure/$f.sql" <<'PY'
 import sys
 s=open(sys.argv[1],encoding='utf-8').read().rstrip()
+if '31_staging_vip' not in sys.argv[1]:   # תשתית ה-VIP נבדקת כשהוא פתוח זמנית — בתוך העסקה שמבוטלת
+    s=s.replace('begin;', "begin;\ndo $o$ begin if to_regclass('public.hdm_plan_sale') is not null then update public.hdm_plan_sale set on_sale = true where plan = 'vip'; end if; end $o$;", 1)
 i=s.rfind("select 'עברו '"); assert i>0
 print(s[:i]+r"""
 do $hdm$ begin
