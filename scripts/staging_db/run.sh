@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -500,6 +500,13 @@ if [ "$MODE" = "e2emco" ]; then
   [ $RC -eq 0 ] || stop "בדיקת הדפדפן של כפתור התשלום נכשלה."
   ann notice "staging-result" "✅ e2emco: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
   exit 0
+fi
+if [ "$MODE" = "e2excdev" ]; then
+  STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
+  OUT=$(STAGING_DB_URL="$URL" PAGE_OLD="$ROOT/scripts/staging_e2e/livemain/staging.html" PAGE_NEW="$ROOT/scripts/staging_e2e/hotfix/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_crossdevice.py" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY|ERROR|Traceback|הודעה)|ניקוי|Error' | tail -n 20)"
+  [ $RC -eq 0 ] || stop "בדיקת ההרשמה בין מכשירים נכשלה."
+  ann notice "staging-result" "✅ e2excdev: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
 fi
 if [ "$MODE" = "e2eworker" ]; then
   # הפונקציה hdm-billing-worker פרוסה ב-Staging עם מפתח Brevo לא תקף בכוונה: בודקים שהיא מגיעה ל-Brevo מתוך Supabase,
