@@ -5,10 +5,19 @@ const env = (k: string) => envMap[k] ?? Deno.env.get(k) ?? '';
 const m = new MorningClient(env, fetch);
 const out: string[] = [];
 const scrub = (s: string) => s.replace(/https?:\/\/\S+/g, '<קישור>').replace(/\b\d{6,}\b/g, '<מספר>').slice(0, 400);
+const today = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+const ds = await m.request('POST', '/documents/search', { page: 1, pageSize: 5, fromDate: today, toDate: today }, false) as Record<string, unknown>;
+const d0 = ((ds.items as Record<string, unknown>[]) ?? [])[0] ?? {};
+const cid = String(((d0.client ?? {}) as Record<string, unknown>).id ?? '');
+out.push(`לקוח מהמסמך של היום: ${cid ? 'נמצא' : 'לא נמצא'}`);
+const P = '53ed9395-02de-4902-a1dd-28dd3f74a5fa';
 const variants: [string, Record<string, unknown>][] = [
-  ['בסיסי', { lang: 'he', pluginId: '53ed9395-02de-4902-a1dd-28dd3f74a5fa', channel: 1, externalKey: 'probe-' + crypto.randomUUID() }],
-  ['עם successUrl/notifyUrl', { lang: 'he', pluginId: '53ed9395-02de-4902-a1dd-28dd3f74a5fa', channel: 1, externalKey: 'probe-' + crypto.randomUUID(),
+  ['client.id', { lang: 'he', pluginId: P, channel: 1, client: { id: cid }, externalKey: cid }],
+  ['id ברמה העליונה', { id: cid, lang: 'he', pluginId: P, channel: 1, externalKey: cid }],
+  ['clientId', { clientId: cid, lang: 'he', pluginId: P, channel: 1, externalKey: cid }],
+  ['client.id + successUrl/notifyUrl', { lang: 'he', pluginId: P, channel: 1, client: { id: cid }, externalKey: cid,
      successUrl: 'https://haim-derech-misparim.pages.dev/?billing=card', notifyUrl: 'https://qtspzigjlbtckqfyaubp.supabase.co/functions/v1/morning-webhook?probe=1' }],
+
 ];
 for (const [label, body] of variants) {
   try {
