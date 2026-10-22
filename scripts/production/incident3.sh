@@ -31,7 +31,7 @@ begin
     insert into t_out values (i, who, 'my_targets', pg_temp.as_user(u.id, 'select left(public.hdm_my_targets()::text, 20)'));
     insert into t_out values (i, who, 'profiles_visible', pg_temp.as_user(u.id, 'select count(*)::text from public.docs where collection = ''profiles'''));
   end loop;
-  raise exception 'HDM_OUT %', (select json_agg(json_build_object('who', who, 'step', step, 'res', regexp_replace(res, '[A-Za-z0-9._%%+-]+@[A-Za-z0-9.-]+', '<email>', 'g')) order by k, step) from t_out);
+  raise exception 'HDM_OUT %', (select json_agg(json_build_object('who', t.who, 'step', t.step, 'res', regexp_replace(t.res, '[A-Za-z0-9._%%+-]+@[A-Za-z0-9.-]+', '<email>', 'g')) order by t.k, t.step) from t_out t);
 end $d$;
 rollback;
 SQL
