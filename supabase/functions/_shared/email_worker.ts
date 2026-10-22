@@ -43,7 +43,7 @@ export async function sendQueuedEmails(env: (k: string) => string, rpc: Rpc, fet
     } catch (e) { err = 'network: ' + String(e).slice(0, 150); }
     const { error: e2 } = await rpc('hdm_email_outbox_done', { p_id: m.id, p_ok: ok, p_error: ok ? null : err });
     if (e2) console.error('email done failed', m.id, e2.message);
-    ok ? sent++ : failed++;
+    if (ok) sent++; else failed++;
   }
   return { sent, failed };
 }

@@ -15,8 +15,12 @@ const out = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s
 Deno.serve(async (req) => {
   const secret = env('HDM_CRON_SECRET');
   if (!secret || secret.length < 32 || !safeEqual(req.headers.get('x-hdm-cron') ?? '', secret)) return out({ error: 'auth' }, 401);
+  const rpc: Rpc = async (fn, args) => {
+    const { data, error } = await sb.rpc(fn, args);
+    return { data, error: error ? { message: error.message } : null };
+  };
   try {
-    return out({ email: await sendQueuedEmails(env, ((fn, a) => sb.rpc(fn, a)) as Rpc, fetch) });
+    return out({ email: await sendQueuedEmails(env, rpc, fetch) });
   } catch (e) {
     return out({ error: String(e).slice(0, 200) }, 500);
   }
