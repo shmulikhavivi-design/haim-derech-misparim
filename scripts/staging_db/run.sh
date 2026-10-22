@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -501,6 +501,12 @@ if [ "$MODE" = "e2emco" ]; then
   ann notice "staging-result" "✅ e2emco: $(echo "$OUT" | grep '^SUMMARY' | tail -1), ונתוני הבדיקה נמחקו"
   exit 0
 fi
+if [ "$MODE" = "e2eadminpanel" ]; then
+  OUT=$(STAGING_DB_URL="$URL" PAGE="$ROOT/scripts/staging_e2e/admin/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_admin_panel.py" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SKIP|SUMMARY|Traceback)|ניקוי|Error' | tail -n 40)"
+  [ $RC -eq 0 ] || stop "בדיקת הדפדפן של לוח הניהול נכשלה."
+  ann notice "staging-result" "✅ e2eadminpanel: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
+fi
 if [ "$MODE" = "e2excdev" ]; then
   STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
   OUT=$(STAGING_DB_URL="$URL" PAGE_OLD="$ROOT/scripts/staging_e2e/livemain/staging.html" PAGE_NEW="$ROOT/scripts/staging_e2e/hotfix/staging.html" python3 "$ROOT/scripts/staging_e2e/e2e_crossdevice.py" 2>&1) && RC=0 || RC=$?
@@ -730,6 +736,8 @@ case "$MODE" in
   install34) FILE="$SQLDIR/34_staging_billing_alerts.sql" ;;
   tests35)   FILE="$SQLDIR/35_staging_plans_alerts_tests.sql" ;;
   install36) FILE="$SQLDIR/36_staging_billing_alerts_more.sql" ;;
+  install38) FILE="$SQLDIR/38_staging_admin_panel.sql" ;;
+  tests39)   FILE="$SQLDIR/39_staging_admin_panel_tests.sql" ;;
   tests37)   FILE="$SQLDIR/37_staging_cancel_email_tests.sql" ;;
 esac
 [ -f "$FILE" ] || stop "הקובץ $(basename "$FILE") לא נמצא בענף."
@@ -739,6 +747,11 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests39" ]; then
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+  [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות לוח הניהול עברו ($SUMM)."
+  ann notice "staging-result" "✅ tests39: $SUMM — לוח ניהול (הכול בוטל)"; exit 0
+fi
 if [ "$MODE" = "tests37" ]; then
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
   [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות הכפילויות/הביטול/המיילים עברו ($SUMM)."
