@@ -46,6 +46,15 @@ jobs:
         run: |
           echo "::add-mask::$MORNING_CLIENT_SECRET"
           deno run --allow-net=api.morning.co,api.greeninvoice.co.il --allow-env scripts/morning/checkout_probe.ts
+      - name: Save-card link probe (link only, not opened, no charge)
+        if: always()
+        continue-on-error: true
+        env:
+          MORNING_CLIENT_ID: ${{ secrets.MORNING_CLIENT_ID }}
+          MORNING_CLIENT_SECRET: ${{ secrets.MORNING_CLIENT_SECRET }}
+        run: |
+          echo "::add-mask::$MORNING_CLIENT_SECRET"
+          deno run --allow-net=api.morning.co,api.greeninvoice.co.il --allow-env scripts/morning/token_link_probe.ts
       - name: Unit tests (no network)
         run: deno test --no-check supabase/functions/_shared/morning_test.ts
       - name: Probe Morning (GET only)
