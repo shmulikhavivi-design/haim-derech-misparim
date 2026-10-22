@@ -7,15 +7,15 @@ T = os.environ.get('T', 'x')
 clean = lambda s: re.sub(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', '<email>', re.sub(r'eyJ[A-Za-z0-9._-]+', '<jwt>', str(s)))[:350]
 PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAVklEQVR4nO3PQQ0AIBDAsIN/z2CCB0nZrSs0M2tm1nIu8MAAAAAAAAAAAAD/AwAAAAAAAPg3AAAAAAAAAH4FAAAAAAAAAB4AAAAAAAAAAAAAAAD8C4w/ASBzA3EPAAAAAElFTkSuQmCC')
 open('/tmp/p.png', 'wb').write(PNG)
-SITES = ['https://shmulikhavivi-design.github.io/haim-derech-misparim/', 'https://haim-derech-misparim.pages.dev/']
+SITES = os.environ.get('SITES', 'https://shmulikhavivi-design.github.io/haim-derech-misparim/ https://haim-derech-misparim.pages.dev/').split()
 out = {}
 def vis_errors(pg):
     return pg.evaluate("""() => [...document.querySelectorAll('.su-err, .su-field.bad, .bad .su-err, [id$=-status]')].filter(e => e.offsetParent && e.innerText.trim()).map(e => (e.id||'') + ':' + e.innerText.trim()).slice(0, 6)""")
 with sync_playwright() as p:
-    for ename, eng, opt in [('chrome', p.chromium, {'viewport': {'width': 390, 'height': 844}}), ('iphone', p.chromium, {k: v for k, v in p.devices['iPhone 13'].items() if k != 'default_browser_type'})]:
+    for ename, eng, opt in [('chrome', p.chromium, {'viewport': {'width': 390, 'height': 844}})] + ([] if os.environ.get('ONE_ENGINE') else [('iphone', p.chromium, {k: v for k, v in p.devices['iPhone 13'].items() if k != 'default_browser_type'})]):
         br = eng.launch()
         for site in SITES:
-            tag = ename + '-' + ('gh' if 'github' in site else 'cf')
+            tag = ename + '-' + ('gh' if 'github' in site else ('pv' if 'hotfix' in site else 'cf'))
             em = f"life.through.numbers333+incui{tag.replace('-', '')}{T}@gmail.com"
             r = {'steps': [], 'errors': [], 'net': []}
             ctx = br.new_context(**opt); pg = ctx.new_page()
