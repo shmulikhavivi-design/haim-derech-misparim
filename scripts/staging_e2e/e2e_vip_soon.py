@@ -158,6 +158,7 @@ try:
         c.close()
         # 3. לחיצה כפולה: אותו ניסיון תשלום
         c = ctx(); pg = c.new_page(); pg.goto(APP + '?billing=preview'); pg.wait_for_timeout(2500); login(pg)
+        checkout_and_pay(pg, 'plus')
         before = sql(f"select count(*) from public.hdm_checkouts where profile_id='{IDS['buyer']}'")
         checkout_and_pay(pg, 'plus')
         after = sql(f"select count(*) from public.hdm_checkouts where profile_id='{IDS['buyer']}'")
