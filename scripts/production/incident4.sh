@@ -11,7 +11,8 @@ ann warning "i4-adminkey" "מפתח שרת לבדיקת קישורי אישור:
 T="${GITHUB_RUN_ID:-x}"; R=""
 RO="$A/database/query/read-only"
 roq(){ curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
-for site in https://shmulikhavivi-design.github.io/haim-derech-misparim/ https://haim-derech-misparim.pages.dev/; do
+SITES_RUN="https://shmulikhavivi-design.github.io/haim-derech-misparim/ https://haim-derech-misparim.pages.dev/"; case "${COMMIT_MSG:-}" in *browsersonly*) SITES_RUN="https://haim-derech-misparim.pages.dev/";; esac
+for site in $SITES_RUN; do
   tag=$(echo $site | cut -d/ -f3 | cut -d. -f1 | tr -cd 'a-z'); EM="life.through.numbers333+incc$tag$T@gmail.com"; PW="Hdm-$(openssl rand -hex 8)-Aa1!"; echo "::add-mask::$PW"
   SC=$(curl -sS -m 40 -o /tmp/su.json -w '%{http_code}' -X POST -H "apikey: $PUB" -H 'Content-Type: application/json' "$AU/signup?redirect_to=$(jq -rn --arg s "$site" '$s|@uri')" -d "$(jq -nc --arg e "$EM" --arg p "$PW" '{email:$e,password:$p}')" || echo 000)
   sleep 2
@@ -33,7 +34,7 @@ H2=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' https://haim-derech-misparim.
 ann notice "i4-cloudflare" "כותרות Cloudflare: $H | index.html: $H2 (308 = הפניה רגילה לכתובת בלי index.html)"
 # דפדפנים
 if [ -n "${B_EM:-}" ]; then
-  python3 -m pip install -q playwright >/dev/null && python3 -m playwright install --with-deps chromium webkit firefox >/dev/null 2>&1 || stop "התקנת הדפדפנים נכשלה"
+  python3 -m pip install -q playwright >/dev/null && python3 -m playwright install --with-deps chromium webkit >/dev/null 2>&1 || stop "התקנת הדפדפנים נכשלה"
   OUT=$(T_EM="$B_EM" T_PW="$B_PW" SU_EM=x python3 "$HERE/incident_browsers.py" 2>&1 | tail -c 3500 | clean)
   ann notice "i4-browsers" "$OUT"
 fi

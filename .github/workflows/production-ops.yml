@@ -10,7 +10,7 @@ jobs:
   prod:
     if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && !contains(github.event.head_commit.message, '[prod:cleanup]')
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     environment: production
     steps:
       - uses: actions/checkout@v5

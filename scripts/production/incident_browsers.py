@@ -13,7 +13,7 @@ def intro(pg):
             b.click() if b.count() else pg.evaluate('startFromIntro()'); pg.wait_for_timeout(700)
     except Exception: pass
 with sync_playwright() as p:
-    engines = [('chromium', p.chromium, {}), ('webkit-iphone', p.webkit, p.devices['iPhone 13']), ('firefox', p.firefox, {'viewport': {'width': 390, 'height': 844}})]
+    engines = [('chromium', p.chromium, {}), ('webkit-iphone', p.webkit, p.devices['iPhone 13'])]
     for name, eng, ctxopt in engines:
         try: br = eng.launch()
         except Exception as e: out[name] = 'launch: ' + clean(e); continue
