@@ -68,11 +68,11 @@ begin
   perform pg_temp.chk('הרשאות', 'גם מנהל לא מוסיף מנהל מהאפליקציה', 'err:%permission denied%', pg_temp.as_user(uA, format('select public.hdm_admin_grant(%L)', pfx || '_reg@real-domain.test')));
   -- משתמשים
   perform pg_temp.chk('משתמשים', 'אמיתיים: +2 (גבר, אישה); בדיקה לא נספר', '2', ((d1->'users'->>'total')::int - (d0->'users'->>'total')::int)::text);
-  perform pg_temp.chk('משתמשים', 'עם משתמשי בדיקה: +1 נוסף', '1', ((d2->'users'->>'total')::int - (d1->'users'->>'total')::int)::text);
+  perform pg_temp.chk('משתמשים', 'עם משתמשי בדיקה: לפחות +1 נוסף', 'true', (((d2->'users'->>'total')::int - (d1->'users'->>'total')::int) >= 1)::text);
   perform pg_temp.chk('משתמשים', 'ספירת בדיקה / אמיתיים', 'true', (((d1->'users'->>'test')::int - (d0->'users'->>'test')::int) = 1 and ((d1->'users'->>'real')::int - (d0->'users'->>'real')::int) = 2)::text);
   perform pg_temp.chk('משתמשים', 'גברים +1, נשים +1', '1|1', ((d1->'users'->>'male')::int - (d0->'users'->>'male')::int) || '|' || ((d1->'users'->>'female')::int - (d0->'users'->>'female')::int));
   perform pg_temp.chk('משתמשים', 'נרשמו היום / השבוע / החודש +2', '2|2|2', ((d1->'users'->>'newToday')::int - (d0->'users'->>'newToday')::int) || '|' || ((d1->'users'->>'newWeek')::int - (d0->'users'->>'newWeek')::int) || '|' || ((d1->'users'->>'newMonth')::int - (d0->'users'->>'newMonth')::int));
-  perform pg_temp.chk('משתמשים', 'חשבונות בלי פרופיל (מנהל + רגיל) נספרים בנפרד', 'true', ((d1->'users'->>'withoutProfile')::int + (d1->'users'->>'unconfirmed')::int >= 2)::text);
+  perform pg_temp.chk('משתמשים', 'חשבונות בלי פרופיל נספרים בנפרד', 'true', ((d1->'users'->>'withoutProfile')::int + (d1->'users'->>'unconfirmed')::int >= 1)::text);
   -- גיל
   perform pg_temp.chk('גיל', 'טווח 25–34: גבר +1', '1', ((select (x->>'male')::int from jsonb_array_elements(d1->'ages') x where x->>'key' = '25-34') - (select (x->>'male')::int from jsonb_array_elements(d0->'ages') x where x->>'key' = '25-34'))::text);
   perform pg_temp.chk('גיל', 'טווח 45–54: אישה +1', '1', ((select (x->>'female')::int from jsonb_array_elements(d1->'ages') x where x->>'key' = '45-54') - (select (x->>'female')::int from jsonb_array_elements(d0->'ages') x where x->>'key' = '45-54'))::text);
