@@ -159,28 +159,3 @@ jobs:
           GROW_PAGE_CODE: ${{ secrets.GROW_PAGE_CODE }}
           STAGING_FUNCTIONS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
         run: bash scripts/production/secret_names.sh repository
-  staging-secrets:
-    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && github.ref == 'refs/heads/production-ops/run' && contains(github.event.head_commit.message, '[prod:secrets]')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 3
-    environment: staging
-    steps:
-      - uses: actions/checkout@v5
-        with: { persist-credentials: false }
-      - name: Secret names (presence only, staging env)
-        env:
-          NAMES: 'SUPABASE_ACCESS_TOKEN STAGING_FUNCTIONS_TOKEN SUPABASE_STAGING_READ_TOKEN STAGING_DB_URL MORNING_CLIENT_ID MORNING_CLIENT_SECRET MORNING_API_KEY MORNING_WEBHOOK_SECRET MORNING_NOTIFY_TOKEN GROW_API_KEY GROW_CLIENT_ID GROW_USER_ID GROW_PAGE_CODE STAGING_FUNCTIONS_TOKEN'
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_STAGING_READ_TOKEN: ${{ secrets.SUPABASE_STAGING_READ_TOKEN }}
-          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
-          MORNING_CLIENT_ID: ${{ secrets.MORNING_CLIENT_ID }}
-          MORNING_CLIENT_SECRET: ${{ secrets.MORNING_CLIENT_SECRET }}
-          MORNING_API_KEY: ${{ secrets.MORNING_API_KEY }}
-          MORNING_WEBHOOK_SECRET: ${{ secrets.MORNING_WEBHOOK_SECRET }}
-          MORNING_NOTIFY_TOKEN: ${{ secrets.MORNING_NOTIFY_TOKEN }}
-          GROW_API_KEY: ${{ secrets.GROW_API_KEY }}
-          GROW_CLIENT_ID: ${{ secrets.GROW_CLIENT_ID }}
-          GROW_USER_ID: ${{ secrets.GROW_USER_ID }}
-          GROW_PAGE_CODE: ${{ secrets.GROW_PAGE_CODE }}
-          STAGING_FUNCTIONS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
-        run: bash scripts/production/secret_names.sh staging-env
