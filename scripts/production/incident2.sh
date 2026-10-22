@@ -17,7 +17,7 @@ Q="select json_build_object(
  'accounts', (select count(*) from public.hdm_accounts), 'users_without_account', (select count(*) from auth.users u where not exists (select 1 from public.hdm_accounts a where a.auth_user_id = u.id)),
  'profiles', (select count(*) from public.docs where collection='profiles'),
  'consents_by_version', (select coalesce(json_object_agg(version, n), '{}') from (select version, count(*) n from public.hdm_consents group by 1) x),
- 'required_terms', (select public.hdm_required_terms_version()),
+ 'terms_versions', (select coalesce(json_agg(version), '[]') from public.hdm_terms_versions),
  'markers_48h', (select coalesce(json_agg(version || ' ' || to_char(installed_at at time zone 'Asia/Jerusalem','DD.MM HH24:MI') order by installed_at), '[]') from public.hdm_release_marker where installed_at > now()-interval '48 hours'),
  'auth_users_triggers', (select coalesce(json_agg(tgname), '[]') from pg_trigger where tgrelid = 'auth.users'::regclass and not tgisinternal),
  'auth_hooks_fns', (select coalesce(json_agg(proname), '[]') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and proname ilike '%hook%')
