@@ -12,7 +12,7 @@ out = {}
 def vis_errors(pg):
     return pg.evaluate("""() => [...document.querySelectorAll('.su-err, .su-field.bad, .bad .su-err, [id$=-status]')].filter(e => e.offsetParent && e.innerText.trim()).map(e => (e.id||'') + ':' + e.innerText.trim()).slice(0, 6)""")
 with sync_playwright() as p:
-    for ename, eng, opt in [('chrome', p.chromium, {'viewport': {'width': 390, 'height': 844}}), ('iphone', p.webkit, p.devices['iPhone 13'])]:
+    for ename, eng, opt in [('chrome', p.chromium, {'viewport': {'width': 390, 'height': 844}}), ('iphone', p.chromium, {k: v for k, v in p.devices['iPhone 13'].items() if k != 'default_browser_type'})]:
         br = eng.launch()
         for site in SITES:
             tag = ename + '-' + ('gh' if 'github' in site else 'cf')
