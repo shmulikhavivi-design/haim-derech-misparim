@@ -65,6 +65,7 @@ if [ -n "${MORNING_CLIENT_ID:-}" ]; then
     ann notice "r-token-client" "לקוח של כרטיס שמור: $(echo "$C" | jq -c '{found: (.id != null), send_documents_by_email: .send, has_email: ((.emails // []) | length > 0), active, errorCode}' 2>/dev/null)"
   done
   TS=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $AT" -H 'content-type: application/json' https://api.greeninvoice.co.il/api/v1/payments/tokens/search -d '{"page":1,"pageSize":50}')
+  ann notice "r-token-status" "סטטוס הכרטיס השמור: $(echo "$TS" | jq -c '[.items[]? | {status, type, pluginType, expires_in_future: ((.expires // "") as $e | if ($e|test("^[0-9]{2}/?[0-9]{2,4}$")) then (($e|gsub("/";"")) as $x | ($x[2:]|tonumber) as $y | ($x[0:2]|tonumber) as $m | (if $y < 100 then 2000+$y else $y end) as $Y | ($Y > (now|strftime("%Y")|tonumber)) or ($Y == (now|strftime("%Y")|tonumber) and $m >= (now|strftime("%m")|tonumber))) else "format?" end), expires_format_len: ((.expires // "")|tostring|length)}]' 2>/dev/null)"
   ann notice "r-morning-tokens" "כרטיסים שמורים ב-Morning/Grow: $(echo "$TS" | jq -c '{total: (.total // (.items|length)), active: ([.items[]? | select((.status // 0) == 0 or .active == true)] | length)}' 2>/dev/null || echo "?")"
 else ann warning "r-morning" "בלי פרטי Morning — לא נבדק"; fi
 ann notice "prod-result" "readiness הסתיים — קריאה בלבד, לא שונה כלום"
