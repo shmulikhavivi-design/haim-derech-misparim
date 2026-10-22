@@ -5682,6 +5682,9 @@
     more.hidden = hdmAdm.rows.length >= (r.total || 0);
   };
   document.addEventListener('visibilitychange', function(){ if(!document.hidden && hdmAdm.timer) hdmAdminLoad(false); });
+  // בדיקת הרשאת המנהל מיד אחרי הכניסה (לא רק בפתיחת ההגדרות), ושוב כשהמשתמש מתחלף
+  var hdmAdmFor = null;
+  setInterval(function(){ if(typeof myId !== 'undefined' && myId && myId !== hdmAdmFor && window.__hdmRpc){ hdmAdmFor = myId; hdmAdminCheck(); } }, 2000);
   function hdmSetStatus(id, text, ok){
     var s = document.getElementById(id); if(!s) return;
     s.className = 'su-status' + (ok ? ' ok' : ''); s.style.color = ok ? '' : '#F0A396'; s.textContent = text || '';
