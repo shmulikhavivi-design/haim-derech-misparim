@@ -3,17 +3,23 @@
 # והתאמה מול Morning (GET בלבד). מדפיס ספירות וסכומים בלבד — בלי שמות, אימיילים או מזהים.
 A="https://api.supabase.com/v1/projects/$PROD_REF"; RO="$A/database/query/read-only"
 roq(){ curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
-ONLY_CARD=0; case "${COMMIT_MSG:-}" in *cardonly*) ONLY_CARD=1;; esac
+ONLY_CARD=0; case "${COMMIT_MSG:-}" in *cardonly*) ONLY_CARD=1;; esac; BREVO_ONLY=0; case "${COMMIT_MSG:-}" in *brevoonly*) BREVO_ONLY=1; ONLY_CARD=1;; esac
+if [ -n "${GH_BREVO_API:-}" ]; then   # בדיקת מפתח Brevo בקריאה בלבד — בלי לשלוח מייל
+  bc(){ curl -sS -m 30 -o /tmp/bc.json -w '%{http_code}' -H "api-key: $GH_BREVO_API" -H 'accept: application/json' "https://api.brevo.com/v3/$1" || echo 000; }
+  K=$(case "$GH_BREVO_API" in xkeysib-*) echo "מפתח API (xkeysib)";; xsmtpsib-*) echo "❌ מפתח SMTP ולא API";; *) echo "מבנה אחר";; esac)
+  C1=$(bc account); C2=$(bc senders)
+  SND=$(jq -r --arg f life.through.numbers333@gmail.com '[.senders[]? | select((.email|ascii_downcase)==$f) | (if .active then "פעיל" else "לא פעיל" end)] | if length==0 then "לא נמצא" else join(",") end' /tmp/bc.json 2>/dev/null)
+  C3=$(bc "smtp/statistics/aggregatedReport?days=1")
+  C4=$(bc "smtp/templates?limit=1")
+  ann notice "r-brevo-key" "GitHub BREVO_API_KEY: מוגדר, $K | account HTTP $C1 | senders HTTP $C2 (שולח האפליקציה: ${SND:-?}) | transactional stats HTTP $C3 | templates HTTP $C4"
+else
+  ann warning "r-brevo-key" "BREVO_API_KEY לא זמין לתהליך"
+fi
 if [ $ONLY_CARD = 0 ]; then
 NAMES=$(curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/secrets" | jq -r '[.[].name] | map(select(test("^(SUPABASE_|SB_)")|not)) | sort | join(", ")')
 ann notice "r-secret-names" "סודות הפונקציות (שמות בלבד): $NAMES"
 for n in BREVO_API_KEY MAIL_FROM; do echo "$NAMES" | grep -qw "$n" && ann notice "r-$n" "$n: מוגדר" || ann warning "r-$n" "$n: חסר"; done
 ann notice "r-github-brevo" "GitHub: BREVO_API_KEY $([ -n "${GH_BREVO_API:-}" ] && echo מוגדר || echo חסר) | BREVO_SMTP_KEY $([ -n "${GH_BREVO_SMTP:-}" ] && echo מוגדר || echo חסר)"
-if [ -n "${GH_BREVO_API:-}" ]; then   # בדיקת מפתח Brevo בקריאה בלבד — בלי לשלוח מייל
-  BA=$(curl -sS -m 30 -o /tmp/ba.json -w '%{http_code}' -H "api-key: $GH_BREVO_API" -H 'accept: application/json' https://api.brevo.com/v3/account || echo 000)
-  BS=$(curl -sS -m 30 -H "api-key: $GH_BREVO_API" -H 'accept: application/json' https://api.brevo.com/v3/senders | jq -c --arg h 162e004328485070b0af8b256ad2e798 '[.senders[]? | select(.active) | .email | ascii_downcase] | length as $n | {active_senders: $n}' 2>/dev/null)
-  ann notice "r-brevo-key" "מפתח Brevo: HTTP $BA $( [ "$BA" = 200 ] && echo '✅ תקף' || echo '❌ לא תקף') | שולחים פעילים: $BS"
-fi
 ann notice "r-functions" "פונקציות: $(curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/functions" | jq -r '[.[] | "\(.slug) v\(.version) \(.status) jwt=\(.verify_jwt)"] | join(" | ")')"
 ann notice "r-cron" "משימות מתוזמנות: $(roq "select coalesce(json_agg(jobname||' ['||schedule||'] '||case when active then 'פעילה' else 'כבויה' end order by jobname),'[]') j from cron.job" | jq -r '.[0].j | join(" | ")' 2>/dev/null)"
 Q="select json_build_object(
@@ -47,7 +53,7 @@ Q="select json_build_object(
 R=$(roq "$Q"); ann notice "r-db" "$(echo "$R" | jq -c '.[0].r // .')"
 fi
 DOCS=$(roq "select coalesce(json_agg(json_build_object('d',raw->>'documentId','a',amount_agorot)),'[]') j from public.hdm_payments where outcome='approved' and raw->>'documentId' is not null" | jq -c '.[0].j')
-if [ -n "${MORNING_CLIENT_ID:-}" ]; then
+if [ $BREVO_ONLY = 0 ] && [ -n "${MORNING_CLIENT_ID:-}" ]; then
   echo "::add-mask::$MORNING_CLIENT_SECRET"
   ID=$(printf '%s' "$MORNING_CLIENT_ID" | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
   AT=$(curl -sS -m 30 -X POST https://api.morning.co/idp/v1/oauth/token -H 'content-type: application/x-www-form-urlencoded' --data-urlencode grant_type=client_credentials --data-urlencode "client_id=$ID" --data-urlencode "client_secret=$MORNING_CLIENT_SECRET" | jq -r '.accessToken // .access_token // empty')
