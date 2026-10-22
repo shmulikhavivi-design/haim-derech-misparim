@@ -10,7 +10,12 @@ RAW=$(jq -r .url "$OUTD/r.json"); ENC=$(printf '%s' "$RAW" | sed -E 's/%([^0-9A-
 t(){ local code size title; code=$(curl -sS -L -m 30 -A 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1' -o /tmp/cl.html -w '%{http_code}' "$1" || echo 000)
   size=$(wc -c < /tmp/cl.html 2>/dev/null || echo 0); title=$(grep -o '<title>[^<]*' /tmp/cl.html | head -1 | sed 's/<title>//' | cut -c1-60)
   local form; form=$(grep -ciE 'card|כרטיס|credit|cc-number|iframe' /tmp/cl.html || true); echo "HTTP $code · $size בתים · כותרת: ${title:-—} · סימני טופס: $form"; }
-ann notice "card-link-check" "כפי שהוא: $(t "$RAW")%0Aמקודד (%25): $(t "$ENC") · שונה מהמקור: $([ "$RAW" = "$ENC" ] && echo לא || echo כן)"
+vis(){ curl -sS -L -m 30 -A 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1' "$1" | python3 -c "
+import sys,re,html
+s=sys.stdin.read(); s=re.sub(r'(?is)<(script|style)[^>]*>.*?</\\1>',' ',s); t=html.unescape(re.sub(r'<[^>]+>',' ',s)); t=re.sub(r'\\s+',' ',t).strip()
+print(len(s), '|', t[:220])"; }
+BAD="https://secure.meshulam.co.il/credit-checkout-form?l=00000000000000000000000000000000%25MDAwMDAwMDA"
+ann notice "card-link-check" "כפי שהוא: $(t "$RAW")%0Aמקודד (%25): $(t "$ENC")%0Aטקסט הדף (מקודד): $(vis "$ENC")%0Aטקסט הדף (קישור שגוי בכוונה): $(vis "$BAD")"
 jq --arg e "$ENC" '. + {url_encoded: $e}' "$OUTD/r.json" > "$OUTD/r2.json" && mv "$OUTD/r2.json" "$OUTD/r.json"; rm -f /tmp/cl.html
 openssl rand -out "$OUTD/k.bin" 32
 openssl enc -aes-256-cbc -pbkdf2 -salt -in "$OUTD/r.json" -out "$OUTD/out/backup.tgz.enc" -pass file:"$OUTD/k.bin"
