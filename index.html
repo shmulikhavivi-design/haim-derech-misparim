@@ -6458,6 +6458,15 @@
   // =====================================================================
   function hdmStgAuth(){ return window.__sbAuth || null; }
   function hdmStgMsg(e){ return String((e && (e.message || e.error_description)) || e || ''); }
+  // הודעת כניסה לפי הסיבה האמיתית (22.10): קודם כל שגיאה שאינה "אימייל לא מאושר" הוצגה כ"האימייל או הסיסמה שגויים"
+  function hdmLoginErrText(e){
+    var m = hdmStgMsg(e), code = String((e && (e.code || e.error_code)) || ''), st = Number(e && e.status) || 0;
+    if(/confirm/i.test(m) || code === 'email_not_confirmed') return 'צריך קודם לאשר את כתובת האימייל (בדקו בתיבת הדואר ובספאם).';
+    if(code === 'invalid_credentials' || /invalid login credentials/i.test(m)) return 'האימייל או הסיסמה שגויים.';
+    if(st === 429 || /rate limit|too many/i.test(m) || /over_.*rate_limit/.test(code)) return 'היו יותר מדי ניסיונות כניסה. נסו שוב בעוד כמה דקות.';
+    if(!st || /fetch|network|failed to fetch|load failed/i.test(m)) return 'אין חיבור לשרת כרגע. בדקו את החיבור לאינטרנט ונסו שוב.';
+    return 'הכניסה לא הצליחה כרגע (' + (code || st) + '). נסו שוב, ואם זה חוזר — כתבו לנו: life.through.numbers333@gmail.com';
+  }
 
   // הפרופיל של המשתמש המחובר — נקבע בשרת לפי משתמש ה-Auth. אפשר להציע מזהה רק בפעם הראשונה.
   window.hdmStagingClaim = async function(proposed){
@@ -6545,7 +6554,7 @@
       if(!a || typeof dbCap === 'undefined' || !dbCap){ status.textContent = 'אין חיבור לשרת כרגע. נסו שוב בעוד רגע.'; return; }
       var r = await a.auth.signInWithPassword({ email: authNormEmail(email), password: pass });
       if(r.error){
-        status.textContent = /confirm/i.test(hdmStgMsg(r.error)) ? 'צריך קודם לאשר את כתובת האימייל (בדקו בתיבת הדואר ובספאם).' : 'האימייל או הסיסמה שגויים.';
+        status.textContent = hdmLoginErrText(r.error);
         return;
       }
       var pending = hdmPendingTake(email);
