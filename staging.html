@@ -4583,7 +4583,7 @@
       if(/HDM_TERMS_REQUIRED/.test(String(e && e.message || ''))){ status.textContent = 'כדי להירשם יש לחזור לשלב הראשון ולאשר את תנאי השימוש, מדיניות הפרטיות וכללי ההתנהגות.'; return; }
       var ageErr = hdmDbAgeError(e);
       status.textContent = (ageErr === 'UNDERAGE' || ageErr === 'AGE_BLOCKED') ? HDM_AGE_MSG :
-                           ageErr ? 'נא להזין תאריך לידה תקין' : 'השמירה נכשלה. בדקו את החיבור ונסו שוב.';
+                           ageErr ? 'נא להזין תאריך לידה תקין' : hdmSignupErrText(e);
       return;
     }
 
@@ -6482,6 +6482,16 @@
   // =====================================================================
   function hdmStgAuth(){ return window.__sbAuth || null; }
   function hdmStgMsg(e){ return String((e && (e.message || e.error_description)) || e || ''); }
+  // הודעת הרשמה לפי הסיבה האמיתית (22.10): שגיאות של מערכת ההתחברות (שליחת מייל האישור, הגבלת קצב) הוצגו כ"השמירה נכשלה"
+  function hdmSignupErrText(e){
+    var m = hdmStgMsg(e), code = String((e && (e.code || e.error_code)) || ''), st = Number(e && e.status) || 0;
+    if(st === 429 || /rate limit|too many/i.test(m) || /over_.*rate_limit/.test(code)) return 'נשלחו יותר מדי בקשות בזמן קצר. נסו שוב בעוד כמה דקות.';
+    if(/sending.*(confirmation|email)|smtp|email.*send/i.test(m) || code === 'unexpected_failure' || st >= 500)
+      return 'לא הצלחנו לשלוח את מייל האישור כרגע. נסו שוב בעוד כמה דקות, ואם זה חוזר — כתבו לנו: life.through.numbers333@gmail.com';
+    if(/invalid.*email|email.*invalid|validation/i.test(m) || code === 'email_address_invalid') return 'כתובת האימייל לא תקינה. בדקו אותה ונסו שוב.';
+    if(!st && /fetch|network|load failed/i.test(m)) return 'אין חיבור לשרת כרגע. בדקו את החיבור לאינטרנט ונסו שוב.';
+    return 'השמירה נכשלה' + (code || st ? ' (' + (code || st) + ')' : '') + '. נסו שוב, ואם זה חוזר — כתבו לנו: life.through.numbers333@gmail.com';
+  }
   // הודעת כניסה לפי הסיבה האמיתית (22.10): קודם כל שגיאה שאינה "אימייל לא מאושר" הוצגה כ"האימייל או הסיסמה שגויים"
   function hdmLoginErrText(e){
     var m = hdmStgMsg(e), code = String((e && (e.code || e.error_code)) || ''), st = Number(e && e.status) || 0;
