@@ -54,6 +54,12 @@ if [ -n "${MORNING_CLIENT_ID:-}" ]; then
        -d "$(jq -nc --arg f "$(date -u -d '-60 days' +%Y-%m-%d)" --arg t "$(date -u +%Y-%m-%d)" '{fromDate:$f,toDate:$t,page:1,pageSize:100}')")
   ann notice "r-morning-docs" "מסמכים ב-Morning ב-60 הימים האחרונים: $(echo "$S" | jq -c '{total: (.total // (.items|length)), by_type: ([.items[]? | .type|tostring] | group_by(.) | map({(.[0]): length}) | add), sum_ils: ([.items[]? | .amount // 0] | add)}' 2>/dev/null || echo "$S" | jq -c '{errorCode, errorMessage}')"
   TS=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $AT" -H 'content-type: application/json' https://api.greeninvoice.co.il/api/v1/payments/tokens/search -d '{"page":1,"pageSize":50}')
+  ann notice "r-token-shape" "מבנה תשובת הכרטיסים (שמות שדות בלבד): $(echo "$TS" | jq -c '{keys: (keys), item_keys: ((.items // [])[0] // {} | keys)}' 2>/dev/null | cut -c1-600)"
+  for cid in $(echo "$TS" | jq -r '[.items[]? | (.client.id // .clientId // .externalKey // empty)] | unique | .[]' 2>/dev/null); do
+    C=$(curl -sS -m 30 -H "Authorization: Bearer $AT" -H 'accept: application/json' "https://api.greeninvoice.co.il/api/v1/clients/$cid")
+    ann notice "r-token-client" "לקוח של כרטיס שמור: $(echo "$C" | jq -c '{found: (.id != null), send_documents_by_email: .send, has_email: ((.emails // []) | length > 0), active, errorCode}' 2>/dev/null)"
+  done
+  TS=$(curl -sS -m 30 -X POST -H "Authorization: Bearer $AT" -H 'content-type: application/json' https://api.greeninvoice.co.il/api/v1/payments/tokens/search -d '{"page":1,"pageSize":50}')
   ann notice "r-morning-tokens" "כרטיסים שמורים ב-Morning/Grow: $(echo "$TS" | jq -c '{total: (.total // (.items|length)), active: ([.items[]? | select((.status // 0) == 0 or .active == true)] | length)}' 2>/dev/null || echo "?")"
 else ann warning "r-morning" "בלי פרטי Morning — לא נבדק"; fi
 ann notice "prod-result" "readiness הסתיים — קריאה בלבד, לא שונה כלום"
