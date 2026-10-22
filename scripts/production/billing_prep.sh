@@ -10,7 +10,7 @@ print(a+"\n"+b+r"""
 do $hdm$ begin
   raise exception 'HDM_BILLING_REHEARSAL_OK markers=% plans=% subs=% consents=% docs=% users=% terms=% payments_tbl=%',
     (select string_agg(version, ',' order by version) from public.hdm_release_marker),
-    (select string_agg(id||':'||coalesce(price_agorot::text, '?'), ',' order by id) from public.hdm_plans),
+    (select string_agg(plan||':'||price_agorot, ',' order by sort_order) from public.hdm_plans),
     (select count(*) from public.hdm_subscriptions),
     (select count(*) from public.hdm_consents),
     (select count(*) from public.docs),
