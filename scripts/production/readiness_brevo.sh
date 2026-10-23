@@ -23,6 +23,9 @@ print(f'אותיות לטיניות {lat} (גדולות {up}), ספרות {dig},
 " 2>/dev/null)
   ann notice "r-brevo-chars" "הרכב הערך (בלי הערך): $CLS"
   ann notice "r-brevo-shape" "מבנה הערך (בלי הערך): $SHAPE | תשובת Brevo: $MSG1 | עם ערך מנוקה: account HTTP $CT ${MSGT}"
+  em(){ jq -r '(.code // "") + " " + (.message // "")' /tmp/bc.json 2>/dev/null | sed -E 's/[0-9]{1,3}(\.[0-9]{1,3}){3}/<IP>/g' | cut -c1-90; }
+  D=""; for ep in account senders "smtp/statistics/aggregatedReport?days=1" "smtp/templates?limit=1" "smtp/statistics/events?limit=1&days=1" "senders/domains"; do c=$(bc "$ep"); D="$D | $ep: $c $( [ "$c" = 200 ] || em)"; done
+  ann notice "r-brevo-endpoints" "תשובות Brevo לכל נקודה (קריאה בלבד):$D"
   ann notice "r-brevo-key" "GitHub BREVO_API_KEY: מוגדר, $K | account HTTP $C1 | senders HTTP $C2 (שולח האפליקציה: ${SND:-?}) | transactional stats HTTP $C3 | templates HTTP $C4"
 else
   ann warning "r-brevo-key" "BREVO_API_KEY לא זמין לתהליך"
