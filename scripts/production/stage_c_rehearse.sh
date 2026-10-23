@@ -10,7 +10,8 @@ import sys,re
 def body(p):
     s=open(p,encoding='utf-8').read()
     s=re.sub(r'(?m)^begin;\s*$','',s,count=1); i=s.rfind('commit;'); return s[:i]
-out="begin;\n"+body(sys.argv[1])+body(sys.argv[2])
+import os
+out="begin;\n"+("" if os.environ.get("HDM_INSTALLED") else body(sys.argv[1])+body(sys.argv[2]))
 out+="""do $c$ begin
   if (select count(*) from public.hdm_billing_alert_recipients) <> 1 then raise exception 'HDM_C_FAIL recipients'; end if;
   if (select count(*) from cron.job where jobname in ('hdm-billing-worker','hdm-billing-alerts-scan','hdm-morning-renewals') and active) <> 3 or to_regprocedure('public.hdm_email_outbox_claim(integer)') is null then raise exception 'HDM_C_FAIL cron jobs=%', (select string_agg(jobname,',') from cron.job); end if;
@@ -34,6 +35,7 @@ PY
       [ "$p" = "$n" ] && ann notice "c-$1" "✅ $1: $p/$n $(echo "$MSG" | grep -o 'jobs=.*')" || ann error "c-$1" "❌ $MSG";;
     *) ann error "c-$1" "❌ HTTP $C $(jq -r '.message // tostring' /tmp/cr.json | cut -c1-700)";; esac
 }
+case "${COMMIT_MSG:-}" in *installed*) export HDM_INSTALLED=1;; esac
 run "התקנת 18+19" ""
 run "35 כל המסלולים + התראות" "$ROOT/supabase/staging_secure/35_staging_plans_alerts_tests.sql"
 run "37 כפילויות, ביטול, החזר, מיילים" "$ROOT/supabase/staging_secure/37_staging_cancel_email_tests.sql"
