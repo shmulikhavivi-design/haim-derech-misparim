@@ -29,6 +29,9 @@ print(f'אותיות לטיניות {lat} (גדולות {up}), ספרות {dig},
   EVC=$(curl -sS -m 30 -o /tmp/bev.json -w '%{http_code}' -H "api-key: $GH_BREVO_API" -H 'accept: application/json' "https://api.brevo.com/v3/smtp/statistics/events?days=7&limit=200&sort=desc" || echo 000)
   SENDER=$(jq -c --arg f life.through.numbers333@gmail.com '[.events[]? | {from: ((.from // "") | ascii_downcase), ev: .event}] as $e | {events_7d: ($e|length), from_app_sender: ([$e[] | select(.from == $f)] | length), other_senders: ([$e[] | select(.from != $f and .from != "") | .from] | unique | length), by_event: ([$e[] | .ev] | group_by(.) | map({(.[0]): length}) | add)}' /tmp/bev.json 2>/dev/null)
   ann notice "r-brevo-sender" "השולח לפי יומן המיילים הטרנזקציוניים (7 ימים, קריאה בלבד): HTTP $EVC $SENDER"
+  FROMS=$(jq -c '[.events[]? | (.from // "") | ascii_downcase] | group_by(.) | map({from: .[0], n: length})' /tmp/bev.json 2>/dev/null)
+  SB=$(jq -c '[.events[]? | select(.event=="softBounces") | {at: (.date|.[5:16]), reason: ((.reason // "") | .[0:70]), subject: ((.subject // "") | .[0:30])}]' /tmp/bev.json 2>/dev/null | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g')
+  ann notice "r-brevo-from" "כתובות השולח בפועל (כתובות האפליקציה): $FROMS | החזרות רכות: $SB"
   ann notice "r-brevo-key" "GitHub BREVO_API_KEY: מוגדר, $K | account HTTP $C1 | senders HTTP $C2 (שולח האפליקציה: ${SND:-?}) | transactional stats HTTP $C3 | templates HTTP $C4"
 else
   ann warning "r-brevo-key" "BREVO_API_KEY לא זמין לתהליך"
