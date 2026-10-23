@@ -123,8 +123,20 @@ try:
             b2 = pg.evaluate("() => document.getElementById('hdm-checkout-body').innerText")
             check('2. מעבר ללשונית בסיסי בעמוד התשלום: ₪29.90', '29.90' in b2, b2[:120], stop=False)
             check('2. אין לשונית VIP בעמוד התשלום', pg.locator('#hdm-co-tab-vip').count() == 0, '', stop=False)
-            pg.locator('#hdm-co-pay').click(); pg.wait_for_timeout(800)
+            pay.scroll_into_view_if_needed(); pg.wait_for_timeout(600)
+            hit = pg.evaluate("""() => { const b = document.getElementById('hdm-co-pay'); const r = b.getBoundingClientRect();
+                const x = r.left + r.width / 2, y = r.top + r.height / 2; const e = document.elementFromPoint(x, y);
+                return { box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], vh: innerHeight,
+                         top: e ? (e.id || e.className || e.tagName) : null, isPay: !!(e && (e === b || b.contains(e))),
+                         disabled: b.disabled, ariaDisabled: b.getAttribute('aria-disabled'), pe: getComputedStyle(b).pointerEvents }; }""")
+            print('PAYBTN ' + json.dumps(hit, ensure_ascii=False), flush=True)
+            try: pay.click(timeout=8000); clicked = 'ok'
+            except Exception as e: clicked = str(e).replace('\n', ' ')[:500]
+            print('PAYCLICK ' + mask(clicked), flush=True)
+            pg.wait_for_timeout(800)
             m = pg.inner_text('#hdm-co-msg')
+            print('PAYMSG ' + mask(m)[:200], flush=True)
+            check('2. כפתור "לתשלום" נגיש ללחיצה (שום שכבה לא מכסה אותו)', hit['isPay'] and clicked == 'ok', [hit, clicked], stop=False)
             check('2. לחיצה על "לתשלום" בלי סימון התקנון — נחסמת, בלי פנייה לתשלום', 'לסמן' in m or 'לא ניתן' in m or 'יש ל' in m, m, stop=False)
         check('2. לא נוצר ניסיון תשלום', counts()['c'] == before['c'], '', stop=False)
         # 3. מחיקה דרך כפתור המחיקה באפליקציה
