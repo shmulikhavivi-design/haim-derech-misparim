@@ -33,6 +33,8 @@ print(f'אותיות לטיניות {lat} (גדולות {up}), ספרות {dig},
   SB=$(jq -c '[.events[]? | select(.event=="softBounces") | {at: (.date|.[5:16]), reason: ((.reason // "") | .[0:70]), subject: ((.subject // "") | .[0:30])}]' /tmp/bev.json 2>/dev/null | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g')
   ann notice "r-brevo-from" "כתובות השולח בפועל (כתובות האפליקציה): $FROMS | החזרות רכות: $SB"
   TE=$(curl -sS -m 30 -G -H "api-key: $GH_BREVO_API" "https://api.brevo.com/v3/smtp/statistics/events" --data-urlencode "days=1" --data-urlencode "limit=300" --data-urlencode "sort=desc" | jq -c '[.events[]? | select((.subject // "") | test("ביטול מנוי")) | {event, at: (.date|.[11:19]), from: ((.from // "") | sub("^[^@]*"; "…")), reason: ((.reason // "")|.[0:80])}]')
+  LAST=$(curl -sS -m 30 -G -H "api-key: $GH_BREVO_API" "https://api.brevo.com/v3/smtp/statistics/events" --data-urlencode "days=1" --data-urlencode "limit=8" --data-urlencode "sort=desc" | jq -c '[.events[]? | {event, at: (.date|.[0:19]), subj: ((.subject // "")|.[0:28]), tag: (.tag // .tags // null)}]')
+  ann notice "r-brevo-last" "האירועים האחרונים ב-Brevo: $LAST"
   ann notice "r-brevo-testmail" "מייל הבדיקה לבעלים (תג hdm-cancel-test-owner): $TE"
   ann notice "r-brevo-key" "GitHub BREVO_API_KEY: מוגדר, $K | account HTTP $C1 | senders HTTP $C2 (שולח האפליקציה: ${SND:-?}) | transactional stats HTTP $C3 | templates HTTP $C4"
 else
