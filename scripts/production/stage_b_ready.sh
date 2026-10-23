@@ -5,16 +5,16 @@ A="https://api.supabase.com/v1/projects/$PROD_REF"; RO="$A/database/query/read-o
 roq(){ curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
 Q=$(cat <<'SQL'
 select json_build_object(
- 'plans', (select string_agg(plan||'='||price_agorot, ' ' order by sort_order) from public.hdm_plans),
+ 'plans', (select string_agg(plan||'='||price_agorot, ' ' order by price_agorot) from public.hdm_plans),
  'on_sale', (select string_agg(plan||'='||on_sale, ' ' order by plan) from public.hdm_plan_sale),
  'vip_trigger', exists(select 1 from pg_trigger where tgname='hdm_checkouts_require_on_sale' and not tgisinternal),
  'billing_marker', exists(select 1 from public.hdm_release_marker where version='production_billing_v1'),
- 'terms_required_now', public.hdm_required_terms_version(),
+ 'terms_latest_reconsent', (select max(version) from public.hdm_terms_versions where requires_reconsent),
  'terms_versions', (select string_agg(version||(case when requires_reconsent then '*' else '' end), ' ' order by version) from public.hdm_terms_versions),
  'consents', (select count(*) from public.hdm_consents)) r
 SQL
 )
-ann notice "b1-plans-terms" "$(roq "$Q" | jq -c '.[0].r // .' | cut -c1-900)"
+ann notice "b1-plans-terms" "$(roq "$Q" | jq -c 'if type=="array" then .[0].r else . end' | cut -c1-900)"
 case "${COMMIT_MSG:-}" in *onlyb1*) exit 0;; esac
 Q2="select json_build_object('public_tables',(select count(*) from pg_tables where schemaname='public'),'users',(select count(*) from auth.users),'profiles',(select count(*) from public.docs where collection='profiles'),'subs',(select count(*) from public.hdm_subscriptions),'payments',(select count(*) from public.hdm_payments),'tokens',(select count(*) from public.hdm_billing_tokens),'checkouts_open',(select count(*) from public.hdm_checkouts where to_jsonb(hdm_checkouts)->>'status' in ('pending','created')),'renewal_charges',(select count(*) from public.hdm_renewal_charges),'outbox_pending',(select count(*) from public.hdm_email_outbox where sent_at is null),'alerts_open',(select count(*) from public.hdm_billing_alerts where resolved_at is null),'worker_runs_ok',(select count(*) from cron.job_run_details r join cron.job j using(jobid) where j.jobname='hdm-billing-worker' and r.status='succeeded'),'worker_runs_fail',(select count(*) from cron.job_run_details r join cron.job j using(jobid) where j.jobname='hdm-billing-worker' and r.status<>'succeeded'),'worker_http_last',(select string_agg(status_code::text,',') from (select status_code from net._http_response order by id desc limit 5) x)) r"
 ann notice "b2-data" "$(roq "$Q2" | jq -c '.[0].r // .' | cut -c1-900)"
