@@ -26,6 +26,9 @@ print(f'אותיות לטיניות {lat} (גדולות {up}), ספרות {dig},
   em(){ jq -r '(.code // "") + " " + (.message // "")' /tmp/bc.json 2>/dev/null | sed -E 's/[0-9]{1,3}(\.[0-9]{1,3}){3}/<IP>/g' | cut -c1-90; }
   D=""; for ep in account senders "smtp/statistics/aggregatedReport?days=1" "smtp/templates?limit=1" "smtp/statistics/events?limit=1&days=1" "senders/domains"; do c=$(bc "$ep"); D="$D | $ep: $c $( [ "$c" = 200 ] || em)"; done
   ann notice "r-brevo-endpoints" "תשובות Brevo לכל נקודה (קריאה בלבד):$D"
+  EVC=$(curl -sS -m 30 -o /tmp/bev.json -w '%{http_code}' -H "api-key: $GH_BREVO_API" -H 'accept: application/json' "https://api.brevo.com/v3/smtp/statistics/events?days=7&limit=200&sort=desc" || echo 000)
+  SENDER=$(jq -c --arg f life.through.numbers333@gmail.com '[.events[]? | {from: ((.from // "") | ascii_downcase), ev: .event}] as $e | {events_7d: ($e|length), from_app_sender: ([$e[] | select(.from == $f)] | length), other_senders: ([$e[] | select(.from != $f and .from != "") | .from] | unique | length), by_event: ([$e[] | .ev] | group_by(.) | map({(.[0]): length}) | add)}' /tmp/bev.json 2>/dev/null)
+  ann notice "r-brevo-sender" "השולח לפי יומן המיילים הטרנזקציוניים (7 ימים, קריאה בלבד): HTTP $EVC $SENDER"
   ann notice "r-brevo-key" "GitHub BREVO_API_KEY: מוגדר, $K | account HTTP $C1 | senders HTTP $C2 (שולח האפליקציה: ${SND:-?}) | transactional stats HTTP $C3 | templates HTTP $C4"
 else
   ann warning "r-brevo-key" "BREVO_API_KEY לא זמין לתהליך"
