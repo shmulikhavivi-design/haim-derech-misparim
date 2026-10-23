@@ -14,10 +14,13 @@ L+="$(get auth_users "select * from auth.users order by created_at") "
 L+="$(get auth_identities "select * from auth.identities order by created_at") "
 L+="$(get docs_policies "select policyname, cmd, roles::text, qual, with_check from pg_policies where schemaname='public' and tablename='docs'") "
 L+="$(get storage_objects "select bucket_id, name, metadata->>'size' as size, created_at from storage.objects order by bucket_id, name") "
-# טבלאות השרת המאובטח (אחרי המעבר)
-for t in hdm_plans hdm_subscriptions hdm_subscription_events hdm_profile_private hdm_legacy_accounts hdm_legacy_review hdm_chat_openings hdm_consents hdm_terms_versions hdm_accounts hdm_release_marker; do
-  L+="$(get $t "select * from public.$t") "
+# כל טבלאות public (כולל מנויים, תשלומים, טוקנים, התראות ותור מיילים) — רשימה דינמית, כדי שטבלה חדשה לא תיפול מהגיבוי
+TABS=$(curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d '{"query":"select string_agg(tablename, chr(32) order by tablename) t from pg_tables where schemaname=chr(112)||chr(117)||chr(98)||chr(108)||chr(105)||chr(99) and tablename<>chr(100)||chr(111)||chr(99)||chr(115)"}' | jq -r '.[0].t // empty')
+[ -n "$TABS" ] || stop "גיבוי: לא התקבלה רשימת הטבלאות"
+for t in $TABS; do
+  L+="$(get $t "select * from public.\"$t\"") "
 done
+L+="$(get cron_jobs "select jobid, jobname, schedule, active from cron.job order by jobid") "
 C=$(roq "select md5(string_agg(collection||'|'||id||'|'||data::text, ',' order by collection, id)) as docs_md5, count(*) as n, (select count(*) from public.docs where collection='profiles') as profiles, (select count(*) from public.docs where collection='chats') as chats, (select count(*) from public.docs where collection='matches') as matches, (select count(*) from public.docs where collection='interests') as interests, (select count(*) from public.docs where collection like 'data/users/%') as accounts, (select count(*) from auth.users) as auth_users, now() as taken_at from public.docs" "$OUTD/data/fingerprint_raw.json")
 [ "$C" = 201 ] || stop "טביעת אצבע: HTTP $C"; jq -c '.[0]' "$OUTD/data/fingerprint_raw.json" > "$OUTD/data/fingerprint.json"; rm -f "$OUTD/data/fingerprint_raw.json" "$OUTD/raw.json"
 ann notice "prod-export-counts" "$L | $(cat "$OUTD/data/fingerprint.json" | jq -c 'del(.docs_md5)')"
