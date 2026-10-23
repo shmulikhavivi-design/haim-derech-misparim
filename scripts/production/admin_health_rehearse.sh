@@ -19,8 +19,8 @@ do $t$ declare me uuid; other uuid; h jsonb; denied text := 'no'; res boolean; b
   select u.id into other from auth.users u where not exists (select 1 from public.hdm_admins a where a.auth_user_id = u.id) limit 1;
   perform set_config('request.jwt.claims', json_build_object('sub', other::text, 'role', 'authenticated')::text, true);
   begin perform public.hdm_admin_health(); exception when others then denied := sqlerrm; end;
-  raise exception 'HDM_TESTS emails=% jobs=% billing=% terms=% alertsOpen=% payments=% resolve_missing=% non_admin=%',
-    h->'emails', (select string_agg((j->>'name')||':'||(j->>'ok'), ',') from jsonb_array_elements(h->'jobs') j), h->'billing', h->'terms', h->'alertsOpen',
+  raise exception 'HDM_TESTS terms=% alertsOpen=% payments=% resolve_missing=% non_admin=%',
+    h->'terms', h->'alertsOpen',
     jsonb_array_length(h->'recentPayments'), res, denied;
 end $t$;
 rollback;""")
