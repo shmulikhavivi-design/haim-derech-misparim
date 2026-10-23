@@ -28,10 +28,13 @@ for f in 18_production_billing_alerts 19_production_email_worker_cron; do
   C=$(q "$RW" "$(cat "$ROOT/supabase/production/$f.sql")"); [ "$C" = 201 ] || [ "$C" = 200 ] || stop "$f נכשל (HTTP $C): $(jq -r '.message // tostring' /tmp/ca.json | cut -c1-400)"
   ann notice "c-$f" "✅ $f הותקן"
 done
+q "$RO" "select (select count(*) from public.hdm_email_outbox where sent_at is null) pending" >/dev/null
+ann notice "c-queue" "מיילים שממתינים בתור לפני ההפעלה הראשונה: $(jq -r '.[0].pending' /tmp/ca.json) (מייל הבדיקה של הבעלים כבר סומן כנשלח — לא יישלח שוב)"
 q "$RW" "select net.http_post(url := 'https://$PROD_REF.supabase.co/functions/v1/hdm-billing-worker', headers := jsonb_build_object('content-type','application/json','x-hdm-cron',(select decrypted_secret from vault.decrypted_secrets where name='hdm_cron_secret')), body := '{}'::jsonb, timeout_milliseconds := 60000) id" >/dev/null
 RID=$(jq -r '.[0].id' /tmp/ca.json); sleep 20
-q "$RO" "select status_code, left(content, 200) c from net._http_response where id = $RID" >/dev/null
+q "$RW" "select status_code, left(content, 200) c from net._http_response where id = $RID" >/dev/null
 ann notice "c-worker-call" "הפעלה ראשונה של פונקציית המיילים (התור ריק): $(jq -c '.[0]' /tmp/ca.json)"
 q "$RO" "select (select string_agg(jobname||' ['||schedule||'] '||active, ', ' order by jobname) from cron.job) jobs, (select count(*) from public.hdm_billing_alert_recipients) recipients, (select count(*) from public.hdm_payments) payments, (select count(*) from public.hdm_renewal_charges) charges" >/dev/null
 ann notice "c-after" "אחרי: $(jq -c '.[0]' /tmp/ca.json)"
+q "$RO" "select (select count(*) from auth.users) u, (select count(*) from public.docs) d, (select count(*) from public.hdm_subscriptions) s, (select count(*) from public.hdm_payments) p" >/dev/null; ann notice "c-data" "נתוני משתמשים: $(jq -c '.[0]' /tmp/ca.json)"
 ann notice "prod-result" "stagecapply הסתיים"

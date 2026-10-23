@@ -13,7 +13,7 @@ def body(p):
 out="begin;\n"+body(sys.argv[1])+body(sys.argv[2])
 out+="""do $c$ begin
   if (select count(*) from public.hdm_billing_alert_recipients) <> 1 then raise exception 'HDM_C_FAIL recipients'; end if;
-  if (select count(*) from cron.job where jobname in ('hdm-billing-worker','hdm-billing-alerts-scan','hdm-morning-renewals') and active) <> 3 then raise exception 'HDM_C_FAIL cron jobs=%', (select string_agg(jobname,',') from cron.job); end if;
+  if (select count(*) from cron.job where jobname in ('hdm-billing-worker','hdm-billing-alerts-scan','hdm-morning-renewals') and active) <> 3 or to_regprocedure('public.hdm_email_outbox_claim(integer)') is null then raise exception 'HDM_C_FAIL cron jobs=%', (select string_agg(jobname,',') from cron.job); end if;
 end $c$;
 """
 if len(sys.argv)>3 and sys.argv[3]:
@@ -37,6 +37,7 @@ PY
 run "התקנת 18+19" ""
 run "35 כל המסלולים + התראות" "$ROOT/supabase/staging_secure/35_staging_plans_alerts_tests.sql"
 run "37 כפילויות, ביטול, החזר, מיילים" "$ROOT/supabase/staging_secure/37_staging_cancel_email_tests.sql"
+run "44 מניעת שליחה כפולה" "$ROOT/supabase/staging_secure/44_staging_email_claim_tests.sql"
 post=$(fp)
 [ "$pre" = "$post" ] && ann notice "c-unchanged" "✅ Production זהה לפני ואחרי (משתמשים, מנויים, תשלומים, חיובים, מיילים, משימות, טביעת אצבע) — שום דבר לא נשמר" || ann error "c-unchanged" "❗ הבדל: $post"
 ann notice "prod-result" "stagecrehearse הסתיים — הכול בוטל"
