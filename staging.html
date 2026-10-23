@@ -740,6 +740,10 @@
   .adm-close{ background:none; border:1px solid rgba(242,213,154,.4); color:#F2EADF; border-radius:12px; padding:6px 12px; font-size:14px; }
   .adm-meta{ font-size:12.5px; color:#BFB4A6; margin:6px 0 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .adm-meta label{ display:flex; gap:6px; align-items:center; }
+  .adm-ok{ color:#9BD3A6; } .adm-warn{ color:#F2B07A; } .adm-bad{ color:#F28C8C; }
+  .adm-alert{ border:1px solid rgba(242,140,140,.35); border-radius:12px; padding:10px 12px; margin:8px 0; font-size:14px; line-height:1.5; }
+  .adm-alert button{ margin-top:6px; min-height:36px; padding:4px 14px; border-radius:10px; border:1px solid rgba(255,255,255,.25); background:transparent; color:inherit; font:inherit; cursor:pointer; }
+  .adm-jobs div{ font-size:14px; margin:3px 0; }
   .adm-sec{ margin:16px 0 6px; font-size:15px; color:#F2D59A; font-weight:700; }
   .adm-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
   .adm-card{ background:rgba(255,255,255,.05); border:1px solid rgba(242,213,154,.18); border-radius:14px; padding:10px 8px; text-align:center; }
@@ -1224,6 +1228,7 @@
       <div class="adm-meta"><span id="adm-updated">טוען…</span>
         <label><input type="checkbox" id="adm-tests" onchange="hdmAdminLoad(true)"> כולל משתמשי בדיקה</label>
         <button type="button" class="adm-close" onclick="hdmAdminLoad(true)">רענון</button></div>
+      <div id="adm-health"></div>
       <div id="adm-body"></div>
       <div class="adm-sec">משתמשים</div>
       <div class="adm-filters">
@@ -5700,7 +5705,68 @@
     (d.ages || []).forEach(function(a){ h += '<tr><td>' + hdmEsc(a.key) + '</td><td>' + a.female + '</td><td>' + a.male + '</td><td>' + a.other + '</td><td><b>' + a.total + '</b></td></tr>'; });
     h += '</table>' + (d.ageUnknown ? '<div class="adm-meta">בלי תאריך לידה: ' + d.ageUnknown + '</div>' : '');
     body.innerHTML = h;
+    try{ hdmAdminHealth(); }catch(e){}
     up.textContent = 'עודכן ' + new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) + ' · מתעדכן כל דקה';
+  };
+  // ---------- מצב החיבורים, התראות, אישור התקנון ותשלומים אחרונים (23.10) ----------
+  var HDM_ADM_ALERT = { first_charge_failed: 'חיוב ראשון נכשל', renewal_failed: 'חידוש נכשל (ינוסה שוב)', renewal_final_failure: 'חידוש נכשל סופית',
+    needs_review: 'תשלום לבדיקה ידנית', charge_unconfirmed: 'חיוב לא אושר', upgrade_failed: 'שדרוג נכשל', refund_requested: 'בקשת החזר', email_delayed: 'מייל ללקוח מתעכב' };
+  var HDM_ADM_JOB = { 'hdm-billing-worker': 'שליחת מיילים (כל 5 דק׳)', 'hdm-billing-alerts-scan': 'סריקת התראות (כל 15 דק׳)', 'hdm-morning-renewals': 'חידושי מנויים (כל שעה)' };
+  function hdmAdmTime(t){ if(!t) return '—'; try{ return new Date(t).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }); }catch(e){ return '—'; } }
+  function hdmAdmMark(ok, warn){ return ok ? '<span class="adm-ok">✅</span> ' : (warn ? '<span class="adm-warn">⚠️</span> ' : '<span class="adm-bad">❌</span> '); }
+  window.hdmAdminHealth = async function(){
+    var box = document.getElementById('adm-health');
+    if(!box) return;
+    var d;
+    try{ d = await window.__hdmRpc('hdm_admin_health'); }
+    catch(e){ box.innerHTML = /HDM_NOT_ADMIN/.test(String(e && e.message || e)) ? '' : '<div class="adm-meta">מצב החיבורים לא זמין כרגע.</div>'; return; }
+    var em = d.emails || {}, se = d.signupEmails || {}, bl = d.billing || {}, tm = d.terms || {}, h = '';
+    var emailsOk = !em.failed && !(em.oldestPendingMin > 30);
+    var jobsOk = (d.jobs || []).length === 3 && (d.jobs || []).every(function(j){ return j.ok; });
+    h += '<div class="adm-sec">🔌 מצב החיבורים</div><div class="adm-jobs">';
+    h += '<div>' + hdmAdmMark(emailsOk, em.pending && !em.failed) + '<b>מיילים ללקוחות (Brevo):</b> נשלחו היום ' + (em.sentToday || 0) + ' · 7 ימים ' + (em.sent7d || 0)
+       + ' · ממתינים ' + (em.pending || 0) + ' · נכשלו ' + (em.failed || 0) + (em.lastSentAt ? ' · אחרון ' + hdmAdmTime(em.lastSentAt) : '') + '</div>';
+    if(em.lastError) h += '<div class="adm-meta">שגיאה אחרונה: ' + hdmEsc(em.lastError) + '</div>';
+    h += '<div>' + hdmAdmMark(!se.unconfirmed24h, true) + '<b>מיילי אישור הרשמה:</b> ממתינים לאישור ' + (se.unconfirmedRecent || 0) + ' (24 שעות אחרונות)'
+       + (se.unconfirmed24h ? ' · לא אישרו מעל יממה: ' + se.unconfirmed24h : '') + '</div>';
+    (d.jobs || []).forEach(function(j){
+      h += '<div>' + hdmAdmMark(j.ok, false) + '<b>' + hdmEsc(HDM_ADM_JOB[j.name] || j.name) + ':</b> ' + (j.active ? 'פעיל' : 'כבוי')
+         + ' · ריצה אחרונה ' + hdmAdmTime(j.lastRun) + (j.fails24h ? ' · ' + j.fails24h + ' כשלים ב-24 שעות' : '') + '</div>';
+    });
+    if(!(d.jobs || []).length) h += '<div>' + hdmAdmMark(false) + 'לא נמצאו המשימות האוטומטיות</div>';
+    var ck = bl.checkouts24h || {};
+    h += '<div>' + hdmAdmMark(!bl.cancelNeedsReview, true) + '<b>סליקה (Morning / Grow):</b> תשלום אחרון ' + hdmAdmTime(bl.lastPaymentAt)
+       + ' · ניסיונות תשלום ב-24 שעות: ' + ((ck.pending || 0) + (ck.paid || 0) + (ck.failed || 0) + (ck.expired || 0)) + ' (שולמו ' + (ck.paid || 0) + ')'
+       + ' · כרטיסים שמורים ' + (bl.cardsSaved || 0) + ' · VIP ' + (bl.vipOnSale ? 'פתוח' : '"בקרוב"')
+       + (bl.cancelPending ? ' · ביטולים בטיפול ' + bl.cancelPending : '') + (bl.cancelNeedsReview ? ' · ביטולים לבדיקה ידנית ' + bl.cancelNeedsReview : '') + '</div>';
+    h += '</div>';
+    h += '<div class="adm-sec">📄 אישור התקנון ' + hdmEsc(tm.required || '') + '</div><div class="adm-grid">'
+       + hdmAdmCard((tm.accepted || 0) + ' / ' + (tm.total || 0), 'משתמשים שאישרו') + '</div>';
+    h += '<div class="adm-sec">🚨 התראות פתוחות (' + (d.alertsOpen || 0) + ')</div>';
+    if(!(d.alerts || []).length) h += '<div class="adm-meta">אין התראות פתוחות.</div>';
+    (d.alerts || []).forEach(function(a){
+      h += '<div class="adm-alert" id="adm-alert-' + Number(a.id) + '"><b>' + hdmEsc(HDM_ADM_ALERT[a.kind] || a.kind) + '</b> · ' + hdmAdmTime(a.at)
+         + (a.name ? ' · ' + hdmEsc(a.name) : '') + (a.amountAgorot ? ' · ' + hdmAdmIls(a.amountAgorot) : '')
+         + (a.details ? '<div class="adm-meta">' + hdmEsc(a.details) + '</div>' : '')
+         + '<button type="button" onclick="hdmAdminResolve(' + Number(a.id) + ')">סימון כטופל</button></div>';
+    });
+    h += '<div class="adm-sec">💳 תשלומים אחרונים</div>';
+    if(!(d.recentPayments || []).length) h += '<div class="adm-meta">אין תשלומים עדיין.</div>';
+    else{
+      h += '<table class="adm-table"><tr><th>מתי</th><th>מי</th><th>מסלול</th><th>סכום</th><th>סטטוס</th></tr>';
+      d.recentPayments.forEach(function(p){
+        h += '<tr><td>' + hdmAdmTime(p.at) + '</td><td>' + hdmEsc(p.name || '—') + '</td><td>' + hdmEsc(HDM_ADM_PLAN[p.plan] || p.plan || '—')
+           + (p.kind === 'renewal' ? ' (חידוש)' : '') + '</td><td>' + (p.amountAgorot ? hdmAdmIls(p.amountAgorot) : '—') + '</td><td>'
+           + (p.outcome === 'approved' ? '<span class="adm-ok">אושר</span>' : '<span class="adm-bad">נדחה</span>') + (p.review ? ' · לבדיקה' : '') + '</td></tr>';
+      });
+      h += '</table>';
+    }
+    box.innerHTML = h;
+  };
+  window.hdmAdminResolve = async function(id){
+    var el = document.getElementById('adm-alert-' + id);
+    try{ await window.__hdmRpc('hdm_admin_resolve_alert', { p_id: id }); if(el) el.remove(); hdmAdminHealth(); }
+    catch(e){ if(el) el.insertAdjacentHTML('beforeend', '<div class="adm-err">הסימון נכשל. נסו שוב.</div>'); }
   };
   window.hdmAdminUsersSoon = function(){ clearTimeout(hdmAdm.qTimer); hdmAdm.qTimer = setTimeout(function(){ hdmAdminUsers(true); }, 400); };
   window.hdmAdminUsers = async function(reset){
