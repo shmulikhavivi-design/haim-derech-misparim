@@ -40,3 +40,29 @@ jobs:
 
       - name: Preflight, migration, legacy accounts, rollback, Staging SQL tests
         run: sudo bash scripts/release/test_migration_local.sh
+
+      - name: Billing migration (08) is up to date with its generator
+        run: |
+          python3 scripts/release/build_production_billing_sql.py
+          git diff --exit-code -- supabase/production/08_production_billing.sql \
+            || { echo "::error::08_production_billing.sql לא תואם ל-build_production_billing_sql.py"; exit 1; }
+
+      - name: Paid subscriptions for Production (08) — local DB only, no secrets
+        run: sudo bash scripts/release/test_billing_local.sh
+
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.x }
+
+      - name: Billing functions — unit tests with simulated Morning (no network, no charges)
+        run: |
+          set +e
+          OUT=$(deno test --no-check supabase/functions/_shared/morning_test.ts supabase/functions/_shared/card_flow_test.ts supabase/functions/_shared/email_worker_test.ts 2>&1); RC=$?
+          echo "$OUT"
+          CLEAN=$(echo "$OUT" | sed 's/\x1b\[[0-9;]*m//g')
+          echo "::notice title=deno-tests::$(echo "$CLEAN" | grep -E '^(ok|FAILED)|passed|failed' | tail -n 3 | tr '\n' ' ')"
+          [ $RC = 0 ] || echo "::error title=deno-failures::$(echo "$CLEAN" | grep -E 'FAILED|=> |error|Error|AssertionError|expected|actual|\+ |\- ' | head -n 40 | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"} {print}')"
+          exit $RC
+
+      - name: Billing functions — type check
+        run: |
+          deno check supabase/functions/_shared/card_flow.ts supabase/functions/morning-checkout/index.ts supabase/functions/morning-webhook/index.ts supabase/functions/morning-renewals/index.ts supabase/functions/hdm-billing-worker/index.ts
