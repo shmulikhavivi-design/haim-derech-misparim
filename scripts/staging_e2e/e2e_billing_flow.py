@@ -3,7 +3,7 @@
 #   1. מנוי מופעל רק אחרי אישור תשלום מהשרת: משתמש לא יכול להפעיל בעצמו, webhook מזויף / בלי טוקן / חזרה מהדף — לא מפעילים
 #   2. פרטי כרטיס לא נשמרים: אין עמודות כרטיס במסד, נשמרים רק מזהה טוקן של Morning ו-4 ספרות
 #   3. ביטול מפסיק את החידוש: מנוי שבוטל לא נתפס לחיוב גם כשהגיע מועדו (ומנוי שלא בוטל — כן)
-# משתמשי בדיקה זמניים (example.invalid) — נמחקים בסוף, גם בכישלון.
+# משתמשי בדיקה זמניים (כתובת האפליקציה + כינוי) — נמחקים בסוף, גם בכישלון.
 # =====================================================================
 import json, os, random, string, subprocess, sys, uuid, urllib.request, urllib.error
 
@@ -11,7 +11,7 @@ DB = os.environ['STAGING_DB_URL']; KEY = os.environ['STAGING_PUBLISHABLE_KEY']
 WT = os.environ['MORNING_WEBHOOK_TOKEN']; CS = os.environ['HDM_CRON_SECRET']
 BASE = 'https://ousepgdvzammgkxkweze.supabase.co'
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
-PFX = f'flw{RUN}_'; MAIL = f'hdm-flw-{RUN}-'
+PFX = f'flw{RUN}_'; MAIL = f'life.through.numbers333+hdm-flw-{RUN}-'
 PW = 'Flw-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 IDS = {k: PFX + k for k in ('a', 'b')}
 IDS_SQL = "array[" + ",".join(f"'{v}'" for v in IDS.values()) + "]"
@@ -47,12 +47,12 @@ def cleanup():
       delete from public.hdm_subscriptions where profile_id = any({IDS_SQL});
       delete from public.docs where collection = 'profiles' and id = any({IDS_SQL});
       delete from public.hdm_accounts where profile_id = any({IDS_SQL});
-      delete from auth.users where email like '{MAIL}%@example.invalid';
+      delete from auth.users where email like '{MAIL}%@gmail.com';
       commit;""")
     return sql(f"select (select count(*) from auth.users where email like '{MAIL}%') + (select count(*) from public.hdm_checkouts where profile_id like '{PFX}%') + (select count(*) from public.hdm_payments where profile_id like '{PFX}%') + (select count(*) from public.hdm_subscriptions where profile_id like '{PFX}%')")
 def create(k):
     consent = sql("select public.hdm_required_terms_version()")
-    pid, email = IDS[k], f'{MAIL}{k}@example.invalid'
+    pid, email = IDS[k], f'{MAIL}{k}@gmail.com'
     profile = json.dumps({'currentName': 'בדיקה', 'birthdate': '1990-01-01', 'birthFirstName': 'א', 'birthLastName': 'ב', 'gender': 'אישה',
                           'lookingFor': 'גברים', 'location': 'חיפה', 'photoUrl': 'data:image/png;base64,iVBORw0KGgo=', 'createdAt': 0}, ensure_ascii=False)
     sql(f"""begin;

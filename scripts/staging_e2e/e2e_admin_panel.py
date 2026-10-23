@@ -5,7 +5,7 @@
 import json, os, random, string, subprocess, sys, http.server, threading, functools
 from playwright.sync_api import sync_playwright
 DB = os.environ['STAGING_DB_URL']; PAGE = os.environ['PAGE']
-RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6)); PFX = f'adm{RUN}_'; MAIL = f'hdm-adm-{RUN}-'
+RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6)); PFX = f'adm{RUN}_'; MAIL = f'life.through.numbers333+hdm-adm-{RUN}-'
 PW = 'Adm-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(18)) + '1!'
 def sql(q):
     r = subprocess.run(['psql', DB, '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', q], capture_output=True, text=True)
@@ -17,7 +17,7 @@ def check(name, ok, got=''):
 CRYPT = 'extensions.crypt' if sql("select count(*) from pg_proc where proname='crypt' and pronamespace='extensions'::regnamespace") != '0' else 'crypt'
 SALT = CRYPT.replace('crypt', 'gen_salt')
 def create(k, admin):
-    consent = sql("select public.hdm_required_terms_version()"); pid, email = PFX + k, f'{MAIL}{k}@example.invalid'
+    consent = sql("select public.hdm_required_terms_version()"); pid, email = PFX + k, f'{MAIL}{k}@gmail.com'
     prof = json.dumps({'currentName': 'בדיקת ניהול ' + k, 'birthdate': '1988-03-03', 'gender': 'אישה', 'lookingFor': 'גברים', 'location': 'חיפה', 'photoUrl': 'data:image/png;base64,iVBORw0KGgo=', 'createdAt': 0}, ensure_ascii=False)
     sql(f"""begin;
       with u as (insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change)
@@ -37,7 +37,7 @@ threading.Thread(target=srv.serve_forever, daemon=True).start(); APP = f'http://
 def login(pg, who):
     pg.goto(APP, wait_until='networkidle'); pg.wait_for_timeout(1200)
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
-    pg.fill('#li-email', f'{MAIL}{who}@example.invalid'); pg.fill('#li-pass', PW); pg.click('#li-submit')
+    pg.fill('#li-email', f'{MAIL}{who}@gmail.com'); pg.fill('#li-pass', PW); pg.click('#li-submit')
     try: pg.wait_for_function("() => myId", timeout=20000)
     except Exception: pass
     pg.wait_for_timeout(1200); return pg.evaluate("() => myId")

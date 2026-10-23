@@ -3,7 +3,7 @@
 #
 # מה נבדק: הפונקציות האמיתיות שנפרסו ל-Staging (grow-checkout, grow-webhook, grow-renewals) + מסד Staging אמיתי.
 # Grow עצמה מוחלפת ב-grow-mock (באותו פרויקט Staging): אין פנייה ל-Grow, אין כרטיס אמיתי, אין חיוב.
-# משתמשי בדיקה בלבד: hdm-grow-<ריצה>-*@example.invalid, פרופילים grow<ריצה>_*. בסוף — ובכל כישלון — הכול נמחק.
+# משתמשי בדיקה בלבד: hdm-grow-<ריצה>-*@gmail.com, פרופילים grow<ריצה>_*. בסוף — ובכל כישלון — הכול נמחק.
 # משתנים: STAGING_DB_URL, STAGING_PUBLISHABLE_KEY, GROW_WEBHOOK_TOKEN, HDM_CRON_SECRET (נוצרו בהרצה, לא נשמרים)
 # =====================================================================
 import json, os, random, string, subprocess, sys, urllib.request, urllib.error, urllib.parse
@@ -19,7 +19,7 @@ if not KEY.startswith('sb_publishable_'):
     print('⛔ STAGING_PUBLISHABLE_KEY חסר'); sys.exit(2)
 
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
-PFX, MAIL = f'grow{RUN}_', f'hdm-grow-{RUN}-'
+PFX, MAIL = f'grow{RUN}_', f'life.through.numbers333+hdm-grow-{RUN}-'
 PW = 'Grow-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 PEOPLE = {'basic': 'בתיה בסיסית', 'plus': 'פנינה פלוס', 'vip': 'ורד VIP', 'bad': 'בדיקת זיוף', 'stat': 'שרית מבטלת'}
 IDS = {k: PFX + k for k in PEOPLE}
@@ -50,7 +50,7 @@ def http(method, url, body=None, headers=None, form=False):
 
 TOK = {}
 def login(k):
-    c, j = http('POST', f'{SB}/auth/v1/token?grant_type=password', {'email': f'{MAIL}{k}@example.invalid', 'password': PW}, {'apikey': KEY})
+    c, j = http('POST', f'{SB}/auth/v1/token?grant_type=password', {'email': f'{MAIL}{k}@gmail.com', 'password': PW}, {'apikey': KEY})
     if c != 200: raise RuntimeError(f'login {k}: {c} {j}')
     TOK[k] = j['access_token']
 def auth(k): return {'apikey': KEY, 'authorization': f'Bearer {TOK[k]}'}
@@ -79,7 +79,7 @@ def cleanup():
       delete from public.hdm_billing_tokens where profile_id = any({IDS_SQL});
       delete from public.docs where collection = 'profiles' and id = any({IDS_SQL});
       delete from public.hdm_accounts where profile_id = any({IDS_SQL});
-      delete from auth.users where email like '{MAIL}%@example.invalid';
+      delete from auth.users where email like '{MAIL}%@gmail.com';
       commit;""")
     return sql(f"""select (select count(*) from auth.users where email like '{MAIL}%') + (select count(*) from public.hdm_accounts where profile_id like '{PFX}%')
       + (select count(*) from public.hdm_checkouts where profile_id like '{PFX}%') + (select count(*) from public.hdm_payments where profile_id like '{PFX}%')
@@ -91,7 +91,7 @@ def create_people():
     salt = crypt.replace('crypt', 'gen_salt')
     consent = sql('select public.hdm_required_terms_version()')
     for k, name in PEOPLE.items():
-        pid, email = IDS[k], f'{MAIL}{k}@example.invalid'
+        pid, email = IDS[k], f'{MAIL}{k}@gmail.com'
         prof = json.dumps({'currentName': name, 'birthdate': '1990-01-01', 'gender': 'אישה', 'createdAt': 0}, ensure_ascii=False)
         sql(f"""begin;
           with u as (insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data,

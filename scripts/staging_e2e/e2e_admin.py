@@ -1,7 +1,7 @@
 # =====================================================================
 # חיים דרך מספרים — בדיקת דפדפן ללוח הניהול (admin-staging.html) מול פרויקט Staging
 #
-# * שני משתמשי בדיקה זמניים נוצרים במסד: מנהלת ומשתמש רגיל (‎hdm-adm-<ריצה>-*@example.invalid).
+# * שני משתמשי בדיקה זמניים נוצרים במסד: מנהלת ומשתמש רגיל (‎hdm-adm-<ריצה>-*@gmail.com).
 #   בסוף — ובכל מקרה של כישלון — הם נמחקים, ובודקים שלא נשאר כלום.
 # * מסך אייפון (390×844), supabase-js האמיתית ושרת ה-Auth האמיתי של Staging.
 # * פילוח גיל ומין נבדק גם במנוע של ספארי (WebKit, פרופיל iPhone 13).
@@ -15,7 +15,7 @@ DB = os.environ['STAGING_DB_URL']
 PAGE = os.environ.get('PAGE', 'admin-staging.html')
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
 PFX = f'adm{RUN}_'
-MAIL = f'hdm-adm-{RUN}-'
+MAIL = f'life.through.numbers333+hdm-adm-{RUN}-'
 PW = 'Adm-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 SHOTS = '/tmp/hdm-shots'; os.makedirs(SHOTS, exist_ok=True)
 
@@ -95,7 +95,7 @@ def check(name, ok, got=''):
 
 def create_people():
     for k, (name, gender, plan) in PEOPLE.items():
-        pid, email = IDS[k], f'{MAIL}{k}@example.invalid'
+        pid, email = IDS[k], f'{MAIL}{k}@gmail.com'
         prof = json.dumps({'currentName': name, 'gender': gender, 'lookingFor': 'נשים' if gender == 'גבר' else 'גברים',
                            'birthdate': '1988-05-05', 'birthFirstName': 'בדיקה', 'birthLastName': 'בדיקה',
                            'location': 'תל אביב', 'photoUrl': 'data:image/png;base64,iVBORw0KGgo='}, ensure_ascii=False)
@@ -113,7 +113,7 @@ def create_people():
           insert into public.docs (collection, id, data) values ('profiles', '{pid}', $j${prof}$j$::jsonb);
           commit;""")
         if plan: sql(f"select public.hdm_admin_set_plan('{pid}', '{plan}', 30, 'e2e-admin')")
-    sql(f"select public.hdm_admin_grant('{MAIL}admin@example.invalid')")
+    sql(f"select public.hdm_admin_grant('{MAIL}admin@gmail.com')")
 
 def cleanup():
     ids = "array[" + ",".join(f"'{v}'" for v in IDS.values()) + "]"
@@ -123,7 +123,7 @@ def cleanup():
       delete from public.hdm_subscription_events where profile_id = any({ids});
       delete from public.hdm_subscriptions where profile_id = any({ids});
       delete from public.hdm_accounts where profile_id = any({ids});
-      delete from auth.users where email like '{MAIL}%@example.invalid';
+      delete from auth.users where email like '{MAIL}%@gmail.com';
       commit;""")
     return sql(f"""select (select count(*) from auth.users where email like '{MAIL}%')
                     + (select count(*) from public.hdm_admins a where not exists (select 1 from auth.users u where u.id = a.auth_user_id))
@@ -138,7 +138,7 @@ URL = f'http://127.0.0.1:{srv.server_address[1]}/{os.path.basename(PAGE)}'
 seen_hosts, errors = set(), []
 
 def login(pg, k):
-    pg.fill('#em', f'{MAIL}{k}@example.invalid'); pg.fill('#pw', PW); pg.click('#login-btn')
+    pg.fill('#em', f'{MAIL}{k}@gmail.com'); pg.fill('#pw', PW); pg.click('#login-btn')
     pg.wait_for_function("() => ['dash','denied'].some(id => !document.getElementById(id).classList.contains('hidden')) || document.getElementById('login-err').textContent", timeout=20000)
     pg.wait_for_timeout(300)
 
@@ -173,7 +173,7 @@ try:
         check('משתמש רגיל: "מחוברים כרגע" נחסם בשרת (HDM_NOT_ADMIN)', 'HDM_NOT_ADMIN' in direct3, direct3)
         tbl = pg.evaluate("async () => { const r = await sb.from('hdm_admins').select('*'); return r.error ? 'blocked' : (r.data || []).length; }")
         check('משתמש רגיל: אין גישה לרשימת המנהלים', tbl in ('blocked', 0), tbl)
-        grant = pg.evaluate(f"async () => {{ const r = await sb.rpc('hdm_admin_grant', {{ p_email: '{MAIL}user@example.invalid' }}); return r.error ? 'blocked' : 'GRANTED'; }}")
+        grant = pg.evaluate(f"async () => {{ const r = await sb.rpc('hdm_admin_grant', {{ p_email: '{MAIL}user@gmail.com' }}); return r.error ? 'blocked' : 'GRANTED'; }}")
         check('משתמש רגיל: לא יכול להפוך את עצמו למנהל', grant == 'blocked', grant)
         pg.evaluate("async () => { await sb.auth.signOut(); }"); pg.goto(URL); pg.wait_for_timeout(1500)
 
@@ -216,7 +216,7 @@ try:
         pg.screenshot(path=f'{SHOTS}/admin-iphone-top.png')
         pg.screenshot(path=f'{SHOTS}/admin-iphone-full.png', full_page=True)
 
-        sql(f"select public.hdm_admin_revoke('{MAIL}admin@example.invalid')")
+        sql(f"select public.hdm_admin_revoke('{MAIL}admin@gmail.com')")
         pg.click('text=↻ רענון'); pg.wait_for_timeout(2500)
         check('אחרי הסרת ההרשאה: רענון מציג "אינו מורשה"', visible(pg, 'denied') and not visible(pg, 'dash'))
 

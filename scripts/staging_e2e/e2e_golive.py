@@ -16,7 +16,7 @@ from playwright.sync_api import sync_playwright
 DB = os.environ['STAGING_DB_URL']; KEY = os.environ.get('STAGING_PUBLISHABLE_KEY', '')
 PAGE_NEW, PAGE_OLD = os.environ['PAGE_NEW'], os.environ['PAGE_OLD']
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
-PFX = f'gl{RUN}_'; MAIL = f'hdm-golive-{RUN}-'
+PFX = f'gl{RUN}_'; MAIL = f'life.through.numbers333+hdm-golive-{RUN}-'
 PW = 'Glv-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(18)) + '1!'
 NEWV = '2026-10-21'
 if not KEY.startswith('sb_publishable_'): print('⛔ no publishable key'); sys.exit(2)
@@ -35,7 +35,7 @@ SALT = CRYPT.replace('crypt', 'gen_salt')
 inserted_version = [False]
 
 def make_user(tag, version):
-    pid, email = PFX + tag, f'{MAIL}{tag}@example.invalid'
+    pid, email = PFX + tag, f'{MAIL}{tag}@gmail.com'
     profile = json.dumps({'currentName': 'קיים ' + tag, 'birthdate': '1988-03-12', 'birthFirstName': 'א', 'birthLastName': 'ב', 'gender': 'גבר',
                           'lookingFor': 'נשים', 'location': 'חיפה', 'photoUrl': 'data:image/png;base64,iVBORw0KGgo=', 'createdAt': 0}, ensure_ascii=False)
     sql(f"""begin;
@@ -186,7 +186,7 @@ try:
         c.close()
 
         # 2ג. משתמש חדש עם גרסת ההשקה: הרשמה בדפדפן א׳, אישור מייל, כניסה בדפדפן ב׳
-        ne = f'{MAIL}new@example.invalid'
+        ne = f'{MAIL}new@gmail.com'
         c, pg = newpage(br); st = signup(pg, NEW, ne); c.close()
         check('2ג. הרשמה חדשה → "שלחנו מייל לאישור"', 'מייל' in st, st)
         sql(f"update auth.users set email_confirmed_at = now() where email = '{ne}' and email_confirmed_at is null")

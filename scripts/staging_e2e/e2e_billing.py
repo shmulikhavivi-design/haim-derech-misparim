@@ -3,7 +3,7 @@
 #
 # * בלי Grow ובלי חיובים: תשלום מאושר מדומה נקלט דרך hdm_billing_apply_grow_event (כמו שפונקציית השרת תעשה).
 # * תשובות Grow לביטול (כשל / אישור) מדומות דרך hdm_billing_outbox_done. שום מייל לא נשלח (רק נכנס לתור ונמחק בסוף).
-# * משתמשי בדיקה: hdm-bill-<ריצה>-*@example.invalid, מזהי פרופיל bill<ריצה>_*. בסוף — ובכל כישלון — הכול נמחק.
+# * משתמשי בדיקה: hdm-bill-<ריצה>-*@gmail.com, מזהי פרופיל bill<ריצה>_*. בסוף — ובכל כישלון — הכול נמחק.
 # משתני סביבה: STAGING_DB_URL (סוד), STAGING_PUBLISHABLE_KEY (מפתח ציבורי), PAGE (נתיב ל-staging.html)
 # =====================================================================
 import json, os, random, string, subprocess, sys, http.server, threading, functools, uuid
@@ -14,7 +14,7 @@ KEY = os.environ.get('STAGING_PUBLISHABLE_KEY', '')
 PAGE = os.environ.get('PAGE', 'staging.html')
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
 PFX = f'bill{RUN}_'
-MAIL = f'hdm-bill-{RUN}-'
+MAIL = f'life.through.numbers333+hdm-bill-{RUN}-'
 PW = 'Bill-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 if not KEY.startswith('sb_publishable_'):
     print('⛔ STAGING_PUBLISHABLE_KEY חסר או לא ציבורי'); sys.exit(2)
@@ -48,7 +48,7 @@ def cleanup():
       delete from public.hdm_grow_outbox where profile_id = any({IDS_SQL}) or grow_direct_debit_id like '{PFX}%';
       delete from public.docs where collection = 'profiles' and id = any({IDS_SQL});
       delete from public.hdm_accounts where profile_id = any({IDS_SQL});
-      delete from auth.users where email like '{MAIL}%@example.invalid';
+      delete from auth.users where email like '{MAIL}%@gmail.com';
       commit;""")
     return sql(f"""select (select count(*) from auth.users where email like '{MAIL}%') + (select count(*) from public.hdm_accounts where profile_id like '{PFX}%')
                  + (select count(*) from public.hdm_checkouts where profile_id like '{PFX}%') + (select count(*) from public.hdm_payments where profile_id like '{PFX}%')
@@ -58,7 +58,7 @@ def cleanup():
 def create_people():
     consent = sql("select public.hdm_required_terms_version()")
     for k, name in PEOPLE.items():
-        pid, email = IDS[k], f'{MAIL}{k}@example.invalid'
+        pid, email = IDS[k], f'{MAIL}{k}@gmail.com'
         profile = json.dumps({'currentName': name, 'birthdate': '1990-01-01', 'birthFirstName': 'א', 'birthLastName': 'ב', 'gender': 'אישה',
                               'lookingFor': 'גברים', 'location': 'חיפה', 'photoUrl': 'data:image/png;base64,iVBORw0KGgo=', 'createdAt': 0}, ensure_ascii=False)
         sql(f"""begin;
@@ -107,7 +107,7 @@ seen_hosts, errors = set(), []
 
 def login(pg, k):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
-    pg.fill('#li-email', f'{MAIL}{k}@example.invalid'); pg.fill('#li-pass', PW); pg.click('#li-submit')
+    pg.fill('#li-email', f'{MAIL}{k}@gmail.com'); pg.fill('#li-pass', PW); pg.click('#li-submit')
     try: pg.wait_for_function("() => myId || document.getElementById('li-status').textContent.trim()", timeout=15000)
     except Exception: pass
     pg.wait_for_timeout(500)

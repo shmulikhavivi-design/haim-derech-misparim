@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 
 DB = os.environ['STAGING_DB_URL']; KEY = os.environ.get('STAGING_PUBLISHABLE_KEY', ''); PAGE = os.environ['PAGE']
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
-PFX = f'cfl{RUN}_'; MAIL = f'hdm-cfl-{RUN}-'
+PFX = f'cfl{RUN}_'; MAIL = f'life.through.numbers333+hdm-cfl-{RUN}-'
 PW = 'Mco-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 if not KEY.startswith('sb_publishable_'): print('⛔ no publishable key'); sys.exit(2)
 
@@ -37,7 +37,7 @@ def cleanup():
       delete from public.hdm_subscriptions where profile_id = any({IDS_SQL});
       delete from public.docs where collection = 'profiles' and id = any({IDS_SQL});
       delete from public.hdm_accounts where profile_id = any({IDS_SQL});
-      delete from auth.users where email like '{MAIL}%@example.invalid';
+      delete from auth.users where email like '{MAIL}%@gmail.com';
       commit;""")
     return sql(f"select (select count(*) from auth.users where email like '{MAIL}%') + (select count(*) from public.hdm_checkouts where profile_id like '{PFX}%') + (select count(*) from public.hdm_accounts where profile_id like '{PFX}%')")
 
@@ -45,7 +45,7 @@ def create():
     for k in IDS: create_one(k)
 def create_one(k):
     consent = sql("select public.hdm_required_terms_version()")
-    pid, email = IDS[k], f'{MAIL}{k}@example.invalid'
+    pid, email = IDS[k], f'{MAIL}{k}@gmail.com'
     profile = json.dumps({'currentName': 'קונה בדיקה', 'birthdate': '1990-01-01', 'birthFirstName': 'א', 'birthLastName': 'ב', 'gender': 'אישה',
                           'lookingFor': 'גברים', 'location': 'חיפה', 'photoUrl': 'data:image/png;base64,iVBORw0KGgo=', 'createdAt': 0}, ensure_ascii=False)
     sql(f"""begin;
@@ -70,7 +70,7 @@ errors, fn_calls, fn_status = [], [], []
 
 def login(pg, who='buyer'):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
-    pg.fill('#li-email', f'{MAIL}{who}@example.invalid'); pg.fill('#li-pass', PW); pg.click('#li-submit')
+    pg.fill('#li-email', f'{MAIL}{who}@gmail.com'); pg.fill('#li-pass', PW); pg.click('#li-submit')
     try: pg.wait_for_function("() => myId || document.getElementById('li-status').textContent.trim()", timeout=15000)
     except Exception: pass
     pg.wait_for_timeout(800); return pg.evaluate("() => myId")

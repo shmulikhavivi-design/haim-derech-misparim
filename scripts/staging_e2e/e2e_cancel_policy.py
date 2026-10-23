@@ -1,7 +1,7 @@
 # =====================================================================
 # חיים דרך מספרים — בדיקת דפדפן: כפתור "ביטול מנוי" ומדיניות ביטול מנוי בגרסה שעולה לאוויר
 # (staging.html שממנו נבנה index.html) מול Staging בלבד. בלי סליקה, בלי חיובים, בלי שינוי במסד מצד הדף.
-# משתמשי בדיקה: hdm-cxl-<ריצה>-*@example.invalid, מזהי פרופיל cxl<ריצה>_*. בסוף — ובכל כישלון — הכול נמחק.
+# משתמשי בדיקה: hdm-cxl-<ריצה>-*@gmail.com, מזהי פרופיל cxl<ריצה>_*. בסוף — ובכל כישלון — הכול נמחק.
 # משתני סביבה: STAGING_DB_URL (סוד), STAGING_PUBLISHABLE_KEY (מפתח ציבורי), PAGE (נתיב ל-staging.html)
 # =====================================================================
 import json, os, random, string, subprocess, sys, http.server, threading, functools
@@ -12,7 +12,7 @@ KEY = os.environ.get('STAGING_PUBLISHABLE_KEY', '')
 PAGE = os.environ.get('PAGE', 'staging.html')
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
 PFX = f'cxl{RUN}_'
-MAIL = f'hdm-cxl-{RUN}-'
+MAIL = f'life.through.numbers333+hdm-cxl-{RUN}-'
 PW = 'Cxl-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 if not KEY.startswith('sb_publishable_'):
     print('⛔ STAGING_PUBLISHABLE_KEY חסר או לא ציבורי'); sys.exit(2)
@@ -38,7 +38,7 @@ def cleanup():
       delete from public.hdm_subscriptions where profile_id = any({IDS_SQL});
       delete from public.docs where collection = 'profiles' and id = any({IDS_SQL});
       delete from public.hdm_accounts where profile_id = any({IDS_SQL});
-      delete from auth.users where email like '{MAIL}%@example.invalid';
+      delete from auth.users where email like '{MAIL}%@gmail.com';
       commit;""")
     return sql(f"""select (select count(*) from auth.users where email like '{MAIL}%') + (select count(*) from public.hdm_accounts where profile_id like '{PFX}%')
                  + (select count(*) from public.hdm_subscriptions where profile_id like '{PFX}%')""")
@@ -46,7 +46,7 @@ def cleanup():
 def create_people():
     consent = sql("select public.hdm_required_terms_version()")
     for k, name in PEOPLE.items():
-        pid, email = IDS[k], f'{MAIL}{k}@example.invalid'
+        pid, email = IDS[k], f'{MAIL}{k}@gmail.com'
         profile = json.dumps({'currentName': name, 'birthdate': '1990-01-01', 'birthFirstName': 'א', 'birthLastName': 'ב', 'gender': 'אישה',
                               'lookingFor': 'גברים', 'location': 'חיפה', 'photoUrl': 'data:image/png;base64,iVBORw0KGgo=', 'createdAt': 0}, ensure_ascii=False)
         sql(f"""begin;
@@ -85,7 +85,7 @@ def new_page(ctx, url):
 
 def login(pg, k):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
-    pg.fill('#li-email', f'{MAIL}{k}@example.invalid'); pg.fill('#li-pass', PW); pg.click('#li-submit')
+    pg.fill('#li-email', f'{MAIL}{k}@gmail.com'); pg.fill('#li-pass', PW); pg.click('#li-submit')
     # מחכים להתחברות עצמה (שורת הסטטוס מציגה גם "מתחברים…", ולכן היא לא סימן לסיום)
     try: pg.wait_for_function("() => myId || /אין חיבור|שגוי|לא נמצא/.test(document.getElementById('li-status').textContent)", timeout=30000)
     except Exception: pass

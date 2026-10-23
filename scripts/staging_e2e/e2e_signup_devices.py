@@ -7,7 +7,7 @@
 # תרחיש 2 — חשבון קיים שאין לו פרופיל (כמו המשתמשים שנתקעו): התחברות → מסך "השלמת הפרופיל" → כניסה לאפליקציה,
 #   בלי חשבון חדש ובלי למחוק כלום.
 # תרחיש 3 — אותו מכשיר (רגרסיה): הרשמה והתחברות באותו דפדפן.
-# משתמשי בדיקה: hdm-sud-<ריצה>-*@example.invalid — נמחקים בסוף ובכל כישלון.
+# משתמשי בדיקה: hdm-sud-<ריצה>-*@gmail.com — נמחקים בסוף ובכל כישלון.
 # משתני סביבה: STAGING_DB_URL (סוד), STAGING_PUBLISHABLE_KEY, PAGE
 # =====================================================================
 import base64, json, os, random, string, subprocess, sys, http.server, threading, functools, uuid
@@ -17,7 +17,7 @@ DB = os.environ['STAGING_DB_URL']
 KEY = os.environ.get('STAGING_PUBLISHABLE_KEY', '')
 PAGE = os.environ.get('PAGE', 'staging.html')
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
-MAIL = f'hdm-sud-{RUN}-'
+MAIL = f'life.through.numbers333+hdm-sud-{RUN}-'
 PW = 'Sud-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==')
 if not KEY.startswith('sb_publishable_'):
@@ -60,12 +60,12 @@ def acct(email):   # מזהה הפרופיל המקושר + האם יש פרופ
 def cleanup():
     sql(f"""begin;
       delete from public.docs d using public.hdm_accounts a, auth.users u
-       where u.email like '{MAIL}%@example.invalid' and a.auth_user_id = u.id and d.collection = 'profiles' and d.id = a.profile_id;
+       where u.email like '{MAIL}%@gmail.com' and a.auth_user_id = u.id and d.collection = 'profiles' and d.id = a.profile_id;
       delete from public.hdm_profile_private p using public.hdm_accounts a, auth.users u
-       where u.email like '{MAIL}%@example.invalid' and a.auth_user_id = u.id and p.profile_id = a.profile_id;
-      delete from public.hdm_consents where user_id in (select id from auth.users where email like '{MAIL}%@example.invalid');
-      delete from public.hdm_accounts where auth_user_id in (select id from auth.users where email like '{MAIL}%@example.invalid');
-      delete from auth.users where email like '{MAIL}%@example.invalid';
+       where u.email like '{MAIL}%@gmail.com' and a.auth_user_id = u.id and p.profile_id = a.profile_id;
+      delete from public.hdm_consents where user_id in (select id from auth.users where email like '{MAIL}%@gmail.com');
+      delete from public.hdm_accounts where auth_user_id in (select id from auth.users where email like '{MAIL}%@gmail.com');
+      delete from auth.users where email like '{MAIL}%@gmail.com';
       commit;""")
     return sql(f"select count(*) from auth.users where email like '{MAIL}%'")
 
@@ -120,7 +120,7 @@ try:
         br = p.chromium.launch()
 
         # ---------- תרחיש 1: הרשמה במכשיר A, התחברות במכשיר B ----------
-        emA = f'{MAIL}cross@example.invalid'
+        emA = f'{MAIL}cross@gmail.com'
         cA, pgA = new_page(br)
         captured = []
         def on_signup(route):
@@ -158,7 +158,7 @@ try:
         cB.close()
 
         # ---------- תרחיש 2: חשבון קיים בלי פרופיל (כמו המשתמשים שנתקעו) ----------
-        emS = f'{MAIL}stuck@example.invalid'
+        emS = f'{MAIL}stuck@gmail.com'
         create_auth_user(emS, PW, {'hdm_terms': CONSENT})
         cS, pgS = new_page(br)
         r = login(pgS, emS, PW)   # התחברות ראשונה: החשבון מקושר, אין פרופיל
@@ -179,7 +179,7 @@ try:
         cS2.close()
 
         # יציאה מההשלמה לא מוחקת כלום
-        emX = f'{MAIL}leave@example.invalid'
+        emX = f'{MAIL}leave@gmail.com'
         create_auth_user(emX, PW, {'hdm_terms': CONSENT})
         cX, pgX = new_page(br)
         r = login(pgX, emX, PW)
@@ -188,7 +188,7 @@ try:
         cX.close()
 
         # ---------- תרחיש 3: אותו מכשיר (רגרסיה) ----------
-        emD = f'{MAIL}same@example.invalid'
+        emD = f'{MAIL}same@gmail.com'
         cD, pgD = new_page(br)
         capD = []
         def on_signup_d(route):

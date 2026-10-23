@@ -1,7 +1,7 @@
 # =====================================================================
 # חיים דרך מספרים — בדיקת דפדפן מלאה של staging.html מול פרויקט Staging
 #
-# * משתמשי בדיקה נוצרים ישירות במסד (בלי הרשמה ובלי מיילים), עם אימייל ‎hdm-e2e-<ריצה>-*@example.invalid
+# * משתמשי בדיקה נוצרים ישירות במסד (בלי הרשמה ובלי מיילים), עם אימייל ‎hdm-e2e-<ריצה>-*@gmail.com
 #   ומזהי פרופיל e2e<ריצה>_*. בסוף — ובכל מקרה של כישלון — כולם נמחקים, ובודקים שלא נשאר כלום.
 # * הדפדפן משתמש בספריית supabase-js האמיתית ובשרת ה-Auth האמיתי של Staging.
 # * לא נוגע בשום משתמש אחר: כל פעולה במסד מוגבלת למזהים של הריצה הזו.
@@ -20,7 +20,7 @@ PAGE = os.environ.get('PAGE', 'staging.html')
 LOCAL = os.environ.get('E2E_LOCAL') == '1'
 RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
 PFX = f'e2e{RUN}_'
-MAIL = f'hdm-e2e-{RUN}-'
+MAIL = f'life.through.numbers333+hdm-e2e-{RUN}-'
 PW = 'E2e-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 
 if not KEY.startswith('sb_publishable_'):
@@ -57,7 +57,7 @@ RECONSENT_V = '2099-12-31'
 def cleanup():
     ids = "array[" + ",".join(f"'{v}'" for v in IDS.values()) + "]"
     if sql("select to_regclass('public.hdm_consents') is not null") == 't':   # גרסת הבדיקה של "אישור מחדש" — לעולם לא נשארת
-        sql(f"""begin; delete from public.hdm_consents where version = '{RECONSENT_V}' or user_id in (select id from auth.users where email like '{MAIL}%@example.invalid');
+        sql(f"""begin; delete from public.hdm_consents where version = '{RECONSENT_V}' or user_id in (select id from auth.users where email like '{MAIL}%@gmail.com');
                  delete from public.hdm_terms_versions where version = '{RECONSENT_V}'; commit;""")
     sql(f"""begin;
       delete from public.docs where (collection='profiles' and id = any({ids}))
@@ -67,7 +67,7 @@ def cleanup():
       delete from public.hdm_subscription_events where profile_id = any({ids});
       delete from public.hdm_subscriptions where profile_id = any({ids});
       delete from public.hdm_accounts where profile_id = any({ids});
-      delete from auth.users where email like '{MAIL}%@example.invalid';
+      delete from auth.users where email like '{MAIL}%@gmail.com';
       commit;""")
     left = sql(f"""select (select count(*) from auth.users where email like '{MAIL}%')
                     + (select count(*) from public.hdm_accounts where profile_id like '{PFX}%')
@@ -81,7 +81,7 @@ def create_people():
         CONSENT = sql("select public.hdm_required_terms_version()")
     for k, (name, birth, first, last, gender, looking, plan) in PEOPLE.items():
         if k in ('gate', 'meta', 'reset') and not CONSENT: continue
-        pid, email = IDS[k], f'{MAIL}{k}@example.invalid'
+        pid, email = IDS[k], f'{MAIL}{k}@gmail.com'
         meta = json.dumps({'hdm_terms': CONSENT}) if (k == 'meta' and CONSENT) else '{}'
         profile = json.dumps({'currentName': name, 'birthdate': birth, 'birthFirstName': first, 'birthLastName': last,
                               'gender': gender, 'lookingFor': looking, 'location': 'תל אביב', 'occupation': 'בדיקה',
@@ -128,7 +128,7 @@ def track(req):
 
 def recovery_tokens(k):
     import urllib.request
-    th = ''.join(random.choice('0123456789abcdef') for _ in range(56)); email = f'{MAIL}{k}@example.invalid'
+    th = ''.join(random.choice('0123456789abcdef') for _ in range(56)); email = f'{MAIL}{k}@gmail.com'
     sql(f"""begin; update auth.users set recovery_token = '{th}', recovery_sent_at = now() where email = '{email}';
              insert into auth.one_time_tokens (id, user_id, token_type, token_hash, relates_to)
              select gen_random_uuid(), id, 'recovery_token', '{th}', '{email}' from auth.users where email = '{email}'; commit;""")
@@ -138,14 +138,14 @@ def recovery_tokens(k):
 
 def token_login(k, pw):
     import urllib.request, urllib.error
-    rq = urllib.request.Request(STG + '/auth/v1/token?grant_type=password', data=json.dumps({'email': f'{MAIL}{k}@example.invalid', 'password': pw}).encode(),
+    rq = urllib.request.Request(STG + '/auth/v1/token?grant_type=password', data=json.dumps({'email': f'{MAIL}{k}@gmail.com', 'password': pw}).encode(),
                                 headers={'apikey': KEY, 'Content-Type': 'application/json'}, method='POST')
     try: return urllib.request.urlopen(rq, timeout=30).status
     except urllib.error.HTTPError as e: return e.code
 
 def login(pg, k, pw=None):
     pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
-    pg.fill('#li-email', f'{MAIL}{k}@example.invalid'); pg.fill('#li-pass', pw or PW)
+    pg.fill('#li-email', f'{MAIL}{k}@gmail.com'); pg.fill('#li-pass', pw or PW)
     pg.click('#li-submit')
     # מחכים לסוף ההתחברות (מעבר מסך או הודעת שגיאה) ולא לזמן קבוע — מול השרת האמיתי טעינת ההתאמה הראשונה לוקחת יותר
     try:
@@ -194,7 +194,7 @@ try:
             pg.route('**/auth/v1/signup**', lambda r: (signups.append(r.request.post_data or ''), r.abort()))
             pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; }catch(e){} chooseAuth('signup'); }")
             pg.fill('#su-name', 'בדיקת הרשמה'); pg.fill('#su-birth', '1990-01-01'); pg.select_option('#su-gender', 'אישה')
-            pg.fill('#su-city', 'חיפה'); pg.fill('#su-email', f'{MAIL}signup@example.invalid'); pg.fill('#su-pass', 'Abcdef123!')
+            pg.fill('#su-city', 'חיפה'); pg.fill('#su-email', f'{MAIL}signup@gmail.com'); pg.fill('#su-pass', 'Abcdef123!')
             cb0 = pg.evaluate("() => document.getElementById('su-consent').checked")
             check('הרשמה: תיבת האישור לא מסומנת מראש', cb0 is False, cb0)
             txt = pg.inner_text('#su-f-consent label')
@@ -207,11 +207,11 @@ try:
             lg = pg.evaluate("() => ({ open: document.getElementById('legal-screen').classList.contains('open'), title: document.getElementById('legal-title').textContent, cb: document.getElementById('su-consent').checked })")
             check('הרשמה: "כללי ההתנהגות" נפתח לקריאה, בלי לסמן את התיבה', lg['open'] and lg['title'] == 'כללי התנהגות' and lg['cb'] is False, lg)
             pg.evaluate("() => closeLegal()")
-            nreq = pg.evaluate("async () => { try{ await window.hdmStagingSignUp('x@example.invalid','Abcdef123!', null, {}); return 'sent'; }catch(e){ return String(e.message||e); } }")
+            nreq = pg.evaluate("async () => { try{ await window.hdmStagingSignUp('life.through.numbers333+hdm-x@gmail.com','Abcdef123!', null, {}); return 'sent'; }catch(e){ return String(e.message||e); } }")
             check('עקיפה: בלי סימון לא נשלחת בקשת הרשמה לשרת', 'HDM_TERMS_REQUIRED' in nreq and not signups, [nreq, len(signups)])
             pg.check('#su-consent'); pg.click('#signup-screen .su-submit'); pg.wait_for_timeout(400)
             check('הרשמה עם סימון: ממשיכים לשלב הבא', pg.evaluate("() => document.getElementById('signup-step2').classList.contains('open')"))
-            pg.evaluate("async () => { try{ await window.hdmStagingSignUp('" + MAIL + "signup@example.invalid','Abcdef123!', null, {}); }catch(e){} }")
+            pg.evaluate("async () => { try{ await window.hdmStagingSignUp('" + MAIL + "signup@gmail.com','Abcdef123!', null, {}); }catch(e){} }")
             body = json.loads(signups[-1]) if signups else {}
             check('הרשמה עם סימון: האישור והגרסה נשלחים עם ההרשמה', (body.get('data') or {}).get('hdm_terms') == CONSENT and (body.get('data') or {}).get('hdm_terms_at'), body.get('data'))
             pg.unroute('**/auth/v1/signup**')
@@ -220,13 +220,13 @@ try:
             # --- נרשם עם סימון ונכנס בפעם הראשונה: האישור נרשם אוטומטית, בלי מסך נוסף ---
             mt = login(pg, 'meta')
             check('אחרי הרשמה עם סימון: נכנסים בלי מסך אישור', mt['myId'] == IDS['meta'] and not pg.evaluate("() => document.getElementById('terms-gate').classList.contains('open')"), mt)
-            row = sql(f"select source || '|' || version || '|' || coalesce(profile_id,'') from public.hdm_consents c join auth.users u on u.id = c.user_id where u.email = '{MAIL}meta@example.invalid'")
+            row = sql(f"select source || '|' || version || '|' || coalesce(profile_id,'') from public.hdm_consents c join auth.users u on u.id = c.user_id where u.email = '{MAIL}meta@gmail.com'")
             check('תיעוד: מקור "הרשמה", גרסה ומזהה פרופיל', row == f"signup|{CONSENT}|{IDS['meta']}", row)
             logout(pg)
 
             # --- משתמש קיים שלא אישר: מסך אישור, ושום נתון עד האישור ---
             pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
-            pg.fill('#li-email', f'{MAIL}gate@example.invalid'); pg.fill('#li-pass', PW); pg.click('#li-submit')
+            pg.fill('#li-email', f'{MAIL}gate@gmail.com'); pg.fill('#li-pass', PW); pg.click('#li-submit')
             try: pg.wait_for_function("() => document.getElementById('terms-gate').classList.contains('open')", timeout=15000)
             except Exception: pass
             gs = pg.evaluate("() => ({ gate: document.getElementById('terms-gate').classList.contains('open'), myId: myId, title: document.getElementById('tg-title').textContent, cb: document.getElementById('tg-consent').checked })")
@@ -241,14 +241,14 @@ try:
             check('מסך האישור: אפשר לפתוח ולקרוא את המסמכים', pg.evaluate("() => document.getElementById('legal-screen').classList.contains('open') && document.getElementById('legal-title').textContent === 'כללי התנהגות'"))
             pg.evaluate("() => closeLegal()")
             pg.click('#tg-accept'); pg.wait_for_timeout(400)
-            check('מסך האישור: בלי סימון אי אפשר להמשיך', pg.evaluate("() => document.getElementById('terms-gate').classList.contains('open') && !myId") and sql(f"select count(*) from public.hdm_consents c join auth.users u on u.id=c.user_id where u.email='{MAIL}gate@example.invalid'") == '0')
+            check('מסך האישור: בלי סימון אי אפשר להמשיך', pg.evaluate("() => document.getElementById('terms-gate').classList.contains('open') && !myId") and sql(f"select count(*) from public.hdm_consents c join auth.users u on u.id=c.user_id where u.email='{MAIL}gate@gmail.com'") == '0')
             pg.check('#tg-consent'); pg.click('#tg-accept')
             try: pg.wait_for_function(f"() => myId === '{IDS['gate']}'", timeout=15000)
             except Exception: pass
             pg.wait_for_timeout(500)
             ga = pg.evaluate("() => ({ gate: document.getElementById('terms-gate').classList.contains('open'), myId: myId })")
             check('אחרי אישור: המסך נסגר ונכנסים לפרופיל הקיים', not ga['gate'] and ga['myId'] == IDS['gate'], ga)
-            row = sql(f"select source || '|' || version || '|' || coalesce(profile_id,'') || '|' || (accepted_at > now() - interval '5 minutes')::text from public.hdm_consents c join auth.users u on u.id = c.user_id where u.email = '{MAIL}gate@example.invalid'")
+            row = sql(f"select source || '|' || version || '|' || coalesce(profile_id,'') || '|' || (accepted_at > now() - interval '5 minutes')::text from public.hdm_consents c join auth.users u on u.id = c.user_id where u.email = '{MAIL}gate@gmail.com'")
             check('תיעוד: מזהה משתמש, פרופיל, גרסה, מקור ושעה', row == f"gate|{CONSENT}|{IDS['gate']}|true", row)
             check('הפרופיל הקיים לא השתנה', sql(f"select data->>'currentName' from docs where collection='profiles' and id='{IDS['gate']}'") == PEOPLE['gate'][0])
             pg.reload(); pg.wait_for_timeout(5000)
@@ -279,7 +279,7 @@ try:
             pg.wait_for_timeout(800)
             check('איפוס: אחרי האישור נכנסים לפרופיל הקיים', pg.evaluate("() => myId") == IDS['reset'] and not pg.evaluate("() => document.getElementById('reset-screen').classList.contains('open')"), pg.evaluate("() => myId"))
             check('איפוס: הסיסמה החדשה עובדת והישנה לא', token_login('reset', NEWPW) == 200 and token_login('reset', PW) == 400, [token_login('reset', NEWPW), token_login('reset', PW)])
-            check('איפוס: האישור נשמר (מסך אישור)', sql(f"select source from public.hdm_consents c join auth.users u on u.id=c.user_id where u.email='{MAIL}reset@example.invalid'") == 'gate')
+            check('איפוס: האישור נשמר (מסך אישור)', sql(f"select source from public.hdm_consents c join auth.users u on u.id=c.user_id where u.email='{MAIL}reset@gmail.com'") == 'gate')
             logout(pg)
 
         # התחברות
@@ -402,7 +402,7 @@ try:
         check('מחיקת חשבון: הפרופיל והנתונים נמחקו והמשתמש נותק', gone and sql(f"select count(*) from docs where collection='profiles' and id='{F}'") == '0'
               and sql(f"select count(*) from hdm_accounts where profile_id='{F}'") == '0')
         if hardened:
-            check('מחיקת חשבון: גם משתמש ההתחברות נמחק (05)', sql(f"select count(*) from auth.users where email='{MAIL}free@example.invalid'") == '0')
+            check('מחיקת חשבון: גם משתמש ההתחברות נמחק (05)', sql(f"select count(*) from auth.users where email='{MAIL}free@gmail.com'") == '0')
 
         if CONSENT:
             # --- שינוי מהותי במסמכים: כל משתמש מאשר מחדש (גרסת בדיקה שנמחקת בסוף בכל מקרה) ---
@@ -417,7 +417,7 @@ try:
                 pg.check('#tg-consent'); pg.click('#tg-accept')
                 try: pg.wait_for_function(f"() => myId === '{IDS['gate']}'", timeout=15000)
                 except Exception: pass
-                hist = sql(f"select string_agg(version, ',' order by accepted_at) from public.hdm_consents c join auth.users u on u.id = c.user_id where u.email = '{MAIL}gate@example.invalid'")
+                hist = sql(f"select string_agg(version, ',' order by accepted_at) from public.hdm_consents c join auth.users u on u.id = c.user_id where u.email = '{MAIL}gate@gmail.com'")
                 check('אישור מחדש: נכנסים, וההיסטוריה שומרת את שתי הגרסאות', pg.evaluate("() => myId") == IDS['gate'] and hist == f"{CONSENT},{RECONSENT_V}", hist)
                 logout(pg)
             finally:

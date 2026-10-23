@@ -5,7 +5,7 @@
 import json, os, random, string, subprocess, sys, http.server, threading, functools, base64
 from playwright.sync_api import sync_playwright
 DB = os.environ['STAGING_DB_URL']; KEY = os.environ.get('STAGING_PUBLISHABLE_KEY', '')
-RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6)); MAIL = f'hdm-xdev-{RUN}-'
+RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6)); MAIL = f'life.through.numbers333+hdm-xdev-{RUN}-'
 PW = 'Xdv-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(16)) + '1!'
 def sql(q):
     r = subprocess.run(['psql', DB, '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', q], capture_output=True, text=True)
@@ -59,7 +59,7 @@ try:
     with sync_playwright() as p:
         br = p.chromium.launch()
         for label, page, expect in [('הגרסה החיה (main)', os.environ['PAGE_OLD'], False), ('התיקון (PR #40)', os.environ['PAGE_NEW'], True)]:
-            app = serve(page); email = f"{MAIL}{'old' if not expect else 'new'}@example.invalid"
+            app = serve(page); email = f"{MAIL}{'old' if not expect else 'new'}@gmail.com"
             a = br.new_context(viewport={'width': 390, 'height': 844}); pa = a.new_page()
             st = signup(pa, app, email); a.close()
             needs = 'מייל' in st
