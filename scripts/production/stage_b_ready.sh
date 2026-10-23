@@ -15,6 +15,7 @@ select json_build_object(
 SQL
 )
 ann notice "b1-plans-terms" "$(roq "$Q" | jq -c '.[0].r // .' | cut -c1-900)"
+case "${COMMIT_MSG:-}" in *onlyb1*) exit 0;; esac
 Q2="select json_build_object('public_tables',(select count(*) from pg_tables where schemaname='public'),'users',(select count(*) from auth.users),'profiles',(select count(*) from public.docs where collection='profiles'),'subs',(select count(*) from public.hdm_subscriptions),'payments',(select count(*) from public.hdm_payments),'tokens',(select count(*) from public.hdm_billing_tokens),'checkouts_open',(select count(*) from public.hdm_checkouts where to_jsonb(hdm_checkouts)->>'status' in ('pending','created')),'renewal_charges',(select count(*) from public.hdm_renewal_charges),'outbox_pending',(select count(*) from public.hdm_email_outbox where sent_at is null),'alerts_open',(select count(*) from public.hdm_billing_alerts where resolved_at is null),'worker_runs_ok',(select count(*) from cron.job_run_details r join cron.job j using(jobid) where j.jobname='hdm-billing-worker' and r.status='succeeded'),'worker_runs_fail',(select count(*) from cron.job_run_details r join cron.job j using(jobid) where j.jobname='hdm-billing-worker' and r.status<>'succeeded'),'worker_http_last',(select string_agg(status_code::text,',') from (select status_code from net._http_response order by id desc limit 5) x)) r"
 ann notice "b2-data" "$(roq "$Q2" | jq -c '.[0].r // .' | cut -c1-900)"
 curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/secrets" > /tmp/sc.json
