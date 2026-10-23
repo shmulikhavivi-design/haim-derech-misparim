@@ -14,7 +14,7 @@ BA=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -H "api-key: $GH_BREVO_API" "
 [ "$BA" = 200 ] || stop "מפתח Brevo לא תקף לשליחה טרנזקציונית (HTTP $BA). לא שונה כלום."
 SC=$(curl -sS -m 30 -o /tmp/snd.json -w '%{http_code}' -H "api-key: $GH_BREVO_API" https://api.brevo.com/v3/senders || echo 000)
 if [ "$SC" = 200 ]; then SV=$(jq -r --arg f "$FROM" '[.senders[]? | select(.active and ((.email|ascii_downcase)==$f))] | length' /tmp/snd.json)
-else SV=$(curl -sS -m 30 -H "api-key: $GH_BREVO_API" "https://api.brevo.com/v3/smtp/statistics/events?days=7&limit=200&event=delivered" | jq -r --arg f "$FROM" '[.events[]? | select((.from // "" | ascii_downcase) == $f)] | length'); fi
+else SV=$(curl -sS -m 30 -H "api-key: $GH_BREVO_API" "https://api.brevo.com/v3/smtp/statistics/events?days=7&limit=200&event=delivered" | jq -r --arg f "${FROM%@*}@" '[.events[]? | select((.from // "" | ascii_downcase) | startswith($f))] | length'); fi   # Brevo משכתב שולח gmail לדומיין brevosend שלו
 [ "${SV:-0}" -ge 1 ] || stop "לא נמצאה הוכחה שהשולח של האפליקציה פעיל ב-Brevo. לא שונה כלום."
 ann notice "c-brevo" "✅ מפתח Brevo תקף לשליחה טרנזקציונית, השולח פעיל ($([ "$SC" = 200 ] && echo 'לפי רשימת השולחים' || echo "לפי $SV מיילים שנמסרו ב-7 ימים"))"
 q "$RO" "select (select count(*) from public.hdm_release_marker where version in ('production_billing_alerts','production_email_worker_cron')) n" >/dev/null
