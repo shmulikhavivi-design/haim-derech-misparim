@@ -52,7 +52,7 @@ def wait_brevo(subject_part, want=('delivered',), secs=150):
 def counts():
     return sql("select (select count(*) from public.hdm_payments) p, (select count(*) from public.hdm_checkouts) c, (select count(*) from public.hdm_renewal_charges) r, (select count(*) from public.hdm_subscriptions) s")
 
-ANON = re.search(r"eyJ[A-Za-z0-9._-]{100,}", urllib.request.urlopen(SITE, timeout=30).read().decode()).group(0)
+ANON = re.search(r"sb_publishable_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9._-]{100,}", urllib.request.urlopen(SITE, timeout=30).read().decode()).group(0)
 errors = []
 def newpage(br):
     c = br.new_context(viewport={'width': 390, 'height': 844}, user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1')
