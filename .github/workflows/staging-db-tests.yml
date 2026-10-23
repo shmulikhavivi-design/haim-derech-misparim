@@ -75,7 +75,7 @@ jobs:
         run: |
           python3 -m pip install --quiet playwright==1.55.0 pillow
           python3 -m playwright install --with-deps chromium
-          timeout 420 python3 -m playwright install --with-deps webkit || echo "::warning title=webkit::התקנת ספארי (WebKit) לא הסתיימה בזמן — הבדיקה תרוץ ב-Chrome בלבד"
+          timeout 150 python3 -m playwright install --with-deps webkit || echo "::warning title=webkit::התקנת ספארי (WebKit) לא הסתיימה בזמן — הבדיקה תרוץ ב-Chrome בלבד"
 
       # ---- e2egrow בלבד: פריסת פונקציות Grow ל-Staging (רק לפרויקט Staging) עם סודות חד-פעמיים לבדיקה ----
       - name: Grow e2e — setup CLI
