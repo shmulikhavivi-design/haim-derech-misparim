@@ -1,7 +1,7 @@
 // =====================================================================
 // חיים דרך מספרים — hdm-billing-worker: שולח את מיילי ביטול המנוי מהתור דרך Brevo (משימה מתוזמנת כל 5 דקות).
 // מופעל רק עם הכותרת x-hdm-cron = HDM_CRON_SECRET (כמו משימת החידוש). לא מחייב ולא נוגע בתשלומים.
-// סודות: BREVO_API_KEY, MAIL_FROM (שולח מאומת ב-Brevo), MAIL_REPLY_TO (לא חובה). DRY_RUN=1 — לא שולח.
+// סודות: BREVO_API_KEY, MAIL_FROM (noreply@ על דומיין מאומת ב-Brevo — לא כתובת Gmail, ראו docs/email-sender-domain.md), MAIL_REPLY_TO (לא חובה). DRY_RUN=1 — לא שולח.
 // ביטול מנוי לא דורש פעולה מול Grow: החיובים נעשים מהשרת בכרטיס השמור, וביטול = החידוש כבוי (auto_renew).
 // =====================================================================
 import { createClient } from 'npm:@supabase/supabase-js@2';

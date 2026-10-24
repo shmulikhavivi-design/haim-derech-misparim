@@ -2,7 +2,7 @@
 
 מקום: Supabase ← Haim Derech Misparim ← Authentication ← Emails ← Templates.
 בכל תבנית מחליפים את **Subject** ואת **Message body**, ולוחצים Save. הקישור `{{ .ConfirmationURL }}` חייב להישאר בדיוק כך.
-השולח (Sender) נקבע ב-SMTP Settings: `life.through.numbers333@gmail.com` דרך Brevo (`smtp-relay.brevo.com`), בשם `חיים דרך מספרים`.
+השולח (Sender) נקבע ב-SMTP Settings דרך Brevo (`smtp-relay.brevo.com`), בשם `חיים דרך מספרים`. כרגע: `life.through.numbers333@gmail.com` (Brevo מחליף אותו בדומיין משותף, וחלק מהשרתים דוחים אותו). היעד: `noreply@<הדומיין>` מאומת. ראו [email-sender-domain.md](email-sender-domain.md).
 
 ## Reset Password (שכחתי סיסמה — גם הכניסה הראשונה של חשבונות קיימים אחרי המעבר)
 **Subject:** `איפוס סיסמה — חיים דרך מספרים`
