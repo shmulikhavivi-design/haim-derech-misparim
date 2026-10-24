@@ -1135,6 +1135,7 @@
 
       <button type="button" class="su-submit" id="li-submit" onclick="submitLogin()">התחבר</button>
       <div class="su-status" id="li-status" role="status"></div>
+      <button type="button" class="rp-link" id="li-resend" style="display:none" onclick="hdmResendConfirm()">לא קיבלתם מייל אימות? שלחו לי מייל חדש</button>
     </div>
   </div>
 
@@ -7064,6 +7065,41 @@
     }catch(e){ return null; }
   };
 
+  // ---- שליחה חוזרת של מייל אימות ההרשמה (24.10) ----
+  // דרך המנגנון הרגיל של Supabase (auth.resend): נוצר קישור אימות חדש במקום הקודם. לא מוחקים חשבון ולא עוקפים את האימות.
+  function hdmIsUnconfirmed(e){
+    var m = hdmStgMsg(e), code = String((e && (e.code || e.error_code)) || '');
+    return code === 'email_not_confirmed' || /not confirmed/i.test(m);
+  }
+  function hdmShowResend(on){ var b = document.getElementById('li-resend'); if(b) b.style.display = on ? '' : 'none'; }
+  var hdmResendCooldownUntil = 0, hdmResendBusy = false;
+  window.hdmResendConfirm = async function(){
+    if(hdmResendBusy) return;
+    var email = authNormEmail(document.getElementById('li-email').value.trim());
+    var status = document.getElementById('li-status');
+    status.className = 'su-status'; status.style.color = '#F0A396';
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ status.textContent = 'נא להזין אימייל תקין'; return; }
+    if(Date.now() < hdmResendCooldownUntil){
+      status.textContent = 'כבר שלחנו מייל חדש. אפשר לבקש שוב בעוד ' + Math.ceil((hdmResendCooldownUntil - Date.now()) / 1000) + ' שניות.';
+      return;
+    }
+    var a = hdmStgAuth();
+    if(!a){ status.textContent = 'אין חיבור לשרת כרגע. נסו שוב בעוד רגע.'; return; }
+    var btn = document.getElementById('li-resend');
+    hdmResendBusy = true; if(btn) btn.disabled = true;
+    try{
+      var r = await a.auth.resend({ type: 'signup', email: email, options: { emailRedirectTo: location.origin + location.pathname } });
+      if(r && r.error){ status.textContent = hdmSignupErrText(r.error); return; }
+      hdmResendCooldownUntil = Date.now() + 60000;
+      status.style.color = '#9FE3B0';
+      status.textContent = 'שלחנו מייל אימות חדש (בדקו גם בתיקיית הספאם). הקישור החדש מחליף את הקודם. אחרי האישור חזרו לכאן והתחברו.';
+    }catch(e){
+      status.textContent = hdmSignupErrText(e);
+    }finally{
+      hdmResendBusy = false; if(btn) btn.disabled = false;
+    }
+  };
+
   // ---- התחברות ----
   submitLogin = async function(){
     if(loginBusy) return;
@@ -7071,6 +7107,7 @@
     var pass = document.getElementById('li-pass').value;
     var status = document.getElementById('li-status');
     status.className = 'su-status'; status.style.color = '#F0A396'; status.textContent = '';
+    hdmShowResend(false);
     var eMsg = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? '' : 'נא להזין אימייל תקין';
     var pMsg = pass ? '' : 'נא להזין סיסמה';
     suSetErr('li-f-email', eMsg); suSetErr('li-f-pass', pMsg);
@@ -7084,6 +7121,10 @@
       var r = await a.auth.signInWithPassword({ email: authNormEmail(email), password: pass });
       if(r.error){
         status.textContent = hdmLoginErrText(r.error);
+        if(hdmIsUnconfirmed(r.error)){
+          status.textContent += ' המייל לא הגיע או שהקישור פג? אפשר לבקש מייל חדש כאן למטה.';
+          hdmShowResend(true);
+        }
         return;
       }
       var pending = hdmPendingTake(email) || hdmPendingFromUser(r.data && r.data.user);
