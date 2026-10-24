@@ -1,0 +1,19 @@
+# קריאה בלבד, בלי סודות: רשומות המייל של haimderechmisparim.com (Brevo code, SPF, DKIM, DMARC) + שרתי Walla.
+name: Domain DNS check
+on: { push: { branches: [ 'probe/domain-dns' ] } }
+permissions: { contents: read }
+jobs:
+  dns:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - run: sudo apt-get install -y -q dnsutils >/dev/null 2>&1
+      - name: Sender DNS
+        run: bash scripts/email/check_sender_dns.sh haimderechmisparim.com || true
+      - name: Summary
+        run: |
+          D=haimderechmisparim.com
+          echo "::notice title=all::TXT@=[$(dig +short TXT $D @1.1.1.1|tr '\n' ' ')] _dmarc=[$(dig +short TXT _dmarc.$D @1.1.1.1|tr '\n' ' ')] brevo1=[$(dig +short CNAME brevo1._domainkey.$D @1.1.1.1)] brevo2=[$(dig +short CNAME brevo2._domainkey.$D @1.1.1.1)] MX=[$(dig +short MX $D @1.1.1.1|tr '\n' ' ')] www=[$(dig +short A www.$D @1.1.1.1|tr '\n' ' ')]"
+          echo "::notice title=walla::walla.co.il MX=[$(dig +short MX walla.co.il|tr '\n' ' ')] walla.com MX=[$(dig +short MX walla.com|tr '\n' ' ')]"
