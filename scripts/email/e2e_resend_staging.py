@@ -15,7 +15,7 @@ page_src = (ROOT / 'staging.html').read_text(encoding='utf-8')
 assert REF in page_src and PROD not in page_src, 'staging.html must point to Staging only'
 AUTH = f'https://{REF}.supabase.co/auth/v1'
 RUN = os.environ.get('GITHUB_RUN_ID') or str(int(time.time()))
-EMAIL = f'life.through.numbers333+resend-stg-{RUN}@gmail.com'
+EMAIL = f"life.through.numbers333+resend-stg-{RUN}{os.environ.get('EMAIL_TAG','')}@gmail.com"
 PW = 'T' + secrets.token_hex(10) + '!a'
 results = []
 def note(k, v): results.append((k, v)); print(f'{k}: {v}', flush=True)
@@ -34,7 +34,8 @@ signup_ok = st == 200 and bool(sent)
 
 h = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(ROOT)); h.log_message = lambda *a: None
 srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), h); threading.Thread(target=srv.serve_forever, daemon=True).start()
-URL = f'http://127.0.0.1:{srv.server_address[1]}/staging.html'
+URL = os.environ.get('STAGING_PAGE_URL') or f'http://127.0.0.1:{srv.server_address[1]}/staging.html'  # אפשר לבדוק גם את העמוד החי בדומיין
+note('page', URL)
 resend_calls = []
 ok = False
 with sync_playwright() as p:

@@ -20,8 +20,8 @@
    - ⚠️ בשורה 7 לא חוסם את המעבר, אבל מחייב החלטה ידנית אחריו (סעיף 6א).
 2. **Supabase ← Production ← Authentication:**
    - **URL Configuration:**
-     - Site URL: `https://shmulikhavivi-design.github.io/haim-derech-misparim/`
-     - Redirect URLs: `https://shmulikhavivi-design.github.io/haim-derech-misparim/**`
+     - Site URL: `https://haimderechmisparim.com` (הכתובת הרשמית מ-24.10; ראו [domain-migration.md](domain-migration.md))
+     - Redirect URLs: `https://haimderechmisparim.com/**`, `https://haim-derech-misparim.pages.dev/**`, `https://shmulikhavivi-design.github.io/haim-derech-misparim/**`
        (שורה אחת שמכסה גם את הכתובת עם `index.html` וגם בלעדיה, כולל `?hdm_reset=1`).
    - **שליחת מיילים (SMTP) — קודם:** אותן הגדרות שעברו את הבדיקה ב-Staging (Brevo, חינמי, בלי דומיין):
      Host `smtp-relay.brevo.com`, Port `587`, Username = ה-SMTP login מ-Brevo, Password = מפתח ה-SMTP, Sender `life.through.numbers333@gmail.com`, Sender name `חיים דרך מספרים`.
