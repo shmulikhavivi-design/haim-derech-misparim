@@ -86,20 +86,14 @@ ann notice "md-5-blocked" "Brevo חסומים (לפי דומיין וסיבה): 
 
 # מיילים אחרונים (שעתיים): מאיזו כתובת יצאו, ולאן הקישור חוזר. הטוקן בקישור לא מודפס — רק הדומיין ו-redirect_to.
 bv smtp/statistics/events --data-urlencode "days=1" --data-urlencode "limit=200" --data-urlencode "sort=desc" > /tmp/ev1.json
-SINCE=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M)
-ann notice "md-6-recent" "מיילים מ-$SINCE UTC: $(jq -c --arg s "$SINCE" '[.events[]? | select((.date|.[0:16]) >= $s) | {at:(.date|.[0:16]), ev:.event, from:(.from//"?"), to:((.email//"")|split("@")[1]), subj:((.subject//"")|.[0:30]), reason:((.reason//"")|.[0:120])}]' /tmp/ev1.json | cut -c1-2500)"
-for mid in $(jq -r --arg s "$SINCE" '[.events[]? | select(.event=="requests" and (.date|.[0:16]) >= $s) | .messageId] | unique | .[0:4][]' /tmp/ev1.json); do
+SINCE=$(TZ=Asia/Jerusalem date -d '-3 hours' +%Y-%m-%dT%H:%M)
+ann notice "md-6-recent" "מיילים מ-$SINCE (שעון ישראל): $(jq -c --arg s "$SINCE" '[.events[]? | select((.date|.[0:16]) >= $s) | {at:(.date|.[0:16]), ev:.event, from:(.from//"?"), to:((.email//"")|split("@")[1]), subj:((.subject//"")|.[0:30]), reason:((.reason//"")|.[0:120])}]' /tmp/ev1.json | cut -c1-2500)"
+for mid in $(jq -r --arg s "$SINCE" '[.events[]? | select(.event=="requests" and (.date|.[0:16]) >= $s) | .messageId] | .[0:4][]' /tmp/ev1.json); do
   U=$(bv smtp/emails --data-urlencode "messageId=$mid" | jq -r '.transactionalEmails[0].uuid // empty')
   [ -n "$U" ] || { ann notice "md-6-link" "$mid: לא נמצא תוכן"; continue; }
   BODY=$(bv "smtp/emails/$U" | jq -r '.body // .message // empty')
-  L=$(printf '%s' "$BODY" | python3 -I -c '
-import sys,re,html,urllib.parse as u
-t=html.unescape(sys.stdin.read()); out=[]
-for m in sorted(set(re.findall(r"https?://[^\s\"<>]+", t))):
-    p=u.urlparse(m); q=u.parse_qs(p.query)
-    if "verify" in p.path or "redirect_to" in q:
-        out.append(f"{p.netloc}{p.path} type={q.get(\"type\",[\"?\"])[0]} redirect_to={q.get(\"redirect_to\",[\"(אין)\"])[0]}")
-print(" | ".join(out) or "אין קישור אימות/איפוס בגוף (או אין הרשאה לתוכן)")')
+  L=$(printf '%s' "$BODY" | python3 -I "$HERE/mail_link_parse.py")
+  [ -n "$BODY" ] || L="אין גישה לתוכן המייל ב-Brevo"
   ann notice "md-6-link" "קישור במייל ${mid:0:12}…: $L"
 done
 rm -f /tmp/ev1.json
