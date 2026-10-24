@@ -119,3 +119,14 @@ PY
   ann notice "sd-5-brevo-domains" "$(echo "$OUT" | scrub | cut -c1-3800)"
   rm -f /tmp/ev30.json
 fi
+
+# 6. השולח: מי מופיע כשולח במיילי האישור, סטטוס השולח ב-Brevo, ו-DNS של דומיין השולח (קריאה בלבד)
+if [ -n "$K" ]; then
+  bv(){ curl -sS -m 40 -G -H "api-key: $K" -H 'accept: application/json' "https://api.brevo.com/v3/$1" "${@:2}"; }
+  FR=$(bv smtp/statistics/events --data-urlencode "days=30" --data-urlencode "limit=2500" | jq -c '[.events[]? | select(.event=="requests") | {f:((.from//"")|ascii_downcase), d:(.email|split("@")[1]|ascii_downcase), s:((.subject//"")|.[0:26])}] | group_by(.f+"|"+.s) | map({from_domain:(.[0].f|split("@")[1]), from_is_app_gmail:(.[0].f=="life.through.numbers333@gmail.com"), subject:.[0].s, n:length, to_domains:([.[].d]|unique)})')
+  SN=$(bv senders | jq -c '[.senders[]? | {domain:(.email|split("@")[1]), app_sender:((.email|ascii_downcase)=="life.through.numbers333@gmail.com"), active, name}]')
+  DM=$(bv senders/domains | jq -c '[.domains[]? | {domain_name, authenticated, verified}]')
+  ann notice "sd-6-sender" "שולח במיילים: $(echo "$FR" | cut -c1-900) | שולחים ב-Brevo: $SN | דומיינים מאומתים ב-Brevo: $DM"
+fi
+sudo apt-get install -y -q dnsutils >/dev/null 2>&1
+ann notice "sd-6-dns" "DMARC gmail.com: $(dig +short TXT _dmarc.gmail.com | tr -d '\n' | cut -c1-200) | MX walla.com: $(dig +short MX walla.com | tr '\n' ' ' | cut -c1-120)"
