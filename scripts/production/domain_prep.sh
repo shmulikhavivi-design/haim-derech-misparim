@@ -3,10 +3,12 @@
 # קריאה בלבד: הגדרות Auth (Site URL / Redirect URLs), זמינות הכתובות (חדשה + ישנות), רשומות DNS.
 # הפעולה היחידה שמוסיפה משהו: הוספת הדומיין ב-Brevo (Senders & Domains) כדי לקבל את רשומות האימות. זה לא משנה את השולח הנוכחי ולא שולח מייל.
 set +e +o pipefail
+case "$COMMIT_MSG" in *'{brevo-only}'*) DP_BREVO_ONLY=1;; esac
 NEW='haimderechmisparim.com'
 A="https://api.supabase.com/v1/projects/$PROD_REF"
 sudo apt-get install -y -q dnsutils >/dev/null 2>&1
 
+if [ -z "${DP_BREVO_ONLY:-}" ]; then
 # 1. הגדרות Auth ב-Production (קריאה בלבד)
 AC=$(curl -sS -m 30 -o /tmp/ac.json -w '%{http_code}' -H "Authorization: Bearer $TOK" "$A/config/auth" || echo 000)
 ann notice "dp-1-auth" "Production Auth (קריאה): HTTP $AC $( [ "$AC" = 200 ] && jq -c '{site_url, uri_allow_list, confirm_email_on:(.mailer_autoconfirm==false), sender_domain:((.smtp_admin_email//"")|split("@")[1]), smtp_sender_name}' /tmp/ac.json )"
@@ -27,6 +29,7 @@ rm -f /tmp/p.html
 q(){ dig +short "$2" "$1" @1.1.1.1 | tr '\n' ' '; }
 ann notice "dp-3-dns" "NS: $(q $NEW NS) | A: $(q $NEW A) | TXT: $(q $NEW TXT) | MX: $(q $NEW MX) | _dmarc: $(q _dmarc.$NEW TXT) | brevo1: $(q brevo1._domainkey.$NEW CNAME) | brevo2: $(q brevo2._domainkey.$NEW CNAME)"
 
+fi
 # 4. Brevo — הוספת הדומיין (אם עוד לא קיים) וקבלת הרשומות הנדרשות
 K=$(printf '%s' "${GH_BREVO_API:-}" | tr -d '[:space:]"'"'")
 [ -n "$K" ] || { ann warning "dp-4-brevo" "BREVO_API_KEY לא זמין"; exit 0; }
