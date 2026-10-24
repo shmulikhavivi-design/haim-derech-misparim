@@ -88,3 +88,34 @@ else
 fi
 rm -f /tmp/lg.json /tmp/lg_all.json /tmp/ac.json
 ann notice "prod-result" "signupdiag — קריאה בלבד. לא שונה כלום, לא נשלח מייל, לא אושר משתמש."
+
+# 5. Brevo לפי דומיין נמען (30 יום) + האם ההחזרות שייכות לשם הלקוחה (התאמת md5 בלבד, בלי להדפיס כתובות)
+if [ -n "$K" ]; then
+  curl -sS -m 60 -G -H "api-key: $K" -H 'accept: application/json' "https://api.brevo.com/v3/smtp/statistics/events" --data-urlencode "days=30" --data-urlencode "limit=2500" --data-urlencode "sort=desc" > /tmp/ev30.json
+  OUT=$(python3 -I - /tmp/ev30.json <<'PY'
+import json,sys,hashlib,re,collections
+d=json.load(open(sys.argv[1])); ev=d.get("events") or []
+FN={'0d7760623b21f1ef2983c13bd1e32d44','c2299ce780cedb670a127bc1fe68ff3f','dd0780f10d9b30ab04f9cb9dc89ae1f1'}
+LN={'4132d456adc95b0b9a79f28aef874d6b','ade8702ec193b1df50b931cb44d1d129','e365d9bac36802a27a6131ee502f42bf','98f6a2c4222e6292a3c8c2750f0a3d6a'}
+def toks(e):
+    lp=e.split('@')[0].lower(); ws=set(re.split(r'[^a-z]+',lp)); ws|={lp[i:j] for i in range(len(lp)) for j in range(i+4,min(len(lp),i+9)+1)}
+    return {hashlib.md5(w.encode()).hexdigest() for w in ws if w}
+ev=[e for e in ev if not re.search(r'example\.invalid|^life\.through\.numbers333\+',e.get('email',''))]
+dom=collections.defaultdict(lambda: collections.Counter())
+for e in ev: dom[e['email'].split('@')[-1].lower()][e['event']]+=1
+rcpt=collections.defaultdict(list)
+for e in ev: rcpt[e['email'].lower()].append(e)
+cands=[]
+for i,(em,es) in enumerate(rcpt.items()):
+    t=toks(em); s=(2 if t&FN else 0)+(2 if t&LN else 0)
+    bounced=[x for x in es if 'ounce' in x['event'] or 'locked' in x['event']]
+    if s or (bounced and 'walla' in em):
+        cands.append({'r':f'#{i}','name_match':s,'domain':em.split('@')[-1],
+          'events':sorted([(x['date'][:16],x['event'],(x.get('subject') or '')[:28],(x.get('reason') or '')[:60]) for x in es])})
+print(json.dumps({'events_30d':len(ev),'by_domain':{k:dict(v) for k,v in sorted(dom.items(),key=lambda kv:-sum(kv[1].values()))[:12]},
+ 'tz_sample':(ev[0]['date'] if ev else None),'walla_or_name_recipients':cands},ensure_ascii=False))
+PY
+)
+  ann notice "sd-5-brevo-domains" "$(echo "$OUT" | scrub | cut -c1-3800)"
+  rm -f /tmp/ev30.json
+fi
