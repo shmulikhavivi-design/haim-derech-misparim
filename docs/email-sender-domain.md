@@ -61,3 +61,9 @@ Supabase ← **Haim Derech Misparim Staging** ← Authentication ← Emails ← 
 1. **רק אחרי שלב 6:** Brevo ← Transactional ← Logs ← לחפש את הכתובת. אם היא ב-**Blocked contacts** עם סיבה Hard/Soft bounce, אפשר לשחרר. אם הסיבה Unsubscribed או Spam complaint, לא משחררים.
 2. המשתמש נכנס למסך ההתחברות עם האימייל והסיסמה. מופיעה הודעת "צריך לאשר" וכפתור **"לא קיבלתם מייל אימות? שלחו לי מייל חדש"**. הכפתור שולח דרך Supabase (`auth.resend`) קישור אימות **חדש**, במקום הקודם שאולי פג. בלי מחיקת חשבון ובלי עקיפת האימות.
 3. לחלופין (⛔ אישור), הבעלים מפעילים את אותה בקשה עבור הכתובת: `POST /auth/v1/resend` עם `type: signup`.
+
+## מצב 24.10 בערב (אחרי ההחלפה)
+- ✅ Production: Redirect URLs כולל הדומיין החדש והישנים, Site URL = `https://haimderechmisparim.com`, Sender = `noreply@haimderechmisparim.com`, `MAIL_FROM` / `MAIL_REPLY_TO` הוגדרו. מיילים יוצאים מהשולח החדש ונמסרים ל-Gmail (בהתחלה לספאם — דומיין חדש).
+- **SPF:** אין היום אף רשומת SPF בדומיין ואין MX (אף שירות אחר לא שולח ממנו). להוסיף רשומה **אחת**: TXT `@` = `v=spf1 include:spf.brevo.com ~all` ⛔ אישור.
+- **מעקב קליקים/פתיחות ב-Brevo:** בחבילה החינמית אי אפשר לכבות אותו למיילי מערכת (לפי Brevo — רק ללקוחות Enterprise, בבקשה). אפשר רק "מעקב אנונימי", שלא מוריד את עטיפת הקישורים. אם Walla ידחה גם מהשולח החדש — המעבר לספק בלי עטיפת קישורים ועם כתובת החזרות על הדומיין שלנו (למשל Resend) הוא הפתרון.
+- **תבניות:** ב-Production עדיין תבניות ברירת המחדל באנגלית. טיוטות בעברית: [email-templates.md](email-templates.md) ⛔ אישור.
