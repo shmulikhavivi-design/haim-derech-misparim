@@ -8,6 +8,17 @@ NEW='haimderechmisparim.com'
 PROD_ANON='sb_publishable_wwoXFH3xChSfQxHKZEbTKA_t_u5aGMP'
 STG_ANON='sb_publishable_UXJrkbmi6h3j3Yvaey5Nvw_HIDJOy40'
 sudo apt-get install -y -q dnsutils >/dev/null 2>&1
+BUF=/tmp/md_buf.txt; : > $BUF
+ann(){ printf '[%s] %s\n' "$2" "$3" >> $BUF; }
+flush(){ python3 -I - "$BUF" <<'PY'
+import sys
+t=open(sys.argv[1],encoding='utf-8').read(); n=3300; parts=[t[i:i+n] for i in range(0,len(t),n)] or ['']
+for i,c in enumerate(parts[:9],1):
+    c=c.replace('%','%25').replace('\r','%0D').replace('\n','%0A')
+    print(f'::notice title=md-part-{i}-of-{len(parts)}::{c}')
+PY
+}
+trap flush EXIT
 scrub(){ sed -E 's/[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/<user>@\1/g'; }
 
 # ---------- 1. DNS ----------
