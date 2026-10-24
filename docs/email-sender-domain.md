@@ -3,6 +3,12 @@
 ## למה
 היום השולח הוא `life.through.numbers333@gmail.com` דרך Brevo. Brevo לא רשאי לשלוח בשם כתובת Gmail, ולכן הוא מחליף את השולח בכתובת על דומיין משותף שלו (`…t-sender-sib.com`). לחלק משרתי המייל יש מוניטין נמוך לדומיין המשותף הזה, והם דוחים את המייל. כך קרה ב-24.10, כשמייל אישור ההרשמה של משתמשת חדשה נדחה בשגיאה 554 ("poor reputation of a domain used in message transfer"). אי אפשר לתקן מוניטין של דומיין משותף. הפתרון הוא דומיין משלנו, מאומת ב-Brevo.
 
+## ממצאים (24.10, Brevo, 30 יום, קריאה בלבד)
+- Gmail: 39 מתוך 39 נמסרו. maxxspace.com: 4 מתוך 4.
+- Walla: 0 מתוך 5. walla.com 3 החזרות, walla.co.il 2. אלה 4 כתובות שונות, כולן במייל אישור הרשמה, כולן 554.
+- השולח בפועל: `12475065.brevosend.com`. אין ב-Brevo שולח או דומיין מאומתים.
+- שרתי הדואר של Walla הם Cisco Secure Email (`iphmx.com`). הם בודקים מוניטין של כל דומיין שמשתתף בהעברה, ודוחים את הדומיין המשותף של Brevo.
+
 ## מה נשאר כמו שהוא
 - חשבון Brevo, שרת ה-SMTP (`smtp-relay.brevo.com`, פורט 587) ושם המשתמש/המפתח של ה-SMTP.
 - תבניות המייל וכתובת הקשר בתוכן (`life.through.numbers333@gmail.com`).
@@ -39,6 +45,7 @@ Cloudflare ← הדומיין ← DNS ← Records ← Add record. את הערכ�
 ### 5. Staging קודם
 Supabase ← **Haim Derech Misparim Staging** ← Authentication ← Emails ← SMTP Settings ← **Sender email** = `noreply@<הדומיין>` ← Save.
 בדיקה: הרצת `scripts/email/e2e_resend_staging.py` דרך GitHub Actions (רק כתובות כינוי של תיבת האפליקציה), ובדיקה בתיבה ובכותרות המייל (Show original): `DKIM: PASS` עם הדומיין שלנו, `DMARC: PASS`.
+**בדיקת Walla (חובה):** מייל אישור אחד מ-Staging לתיבת Walla של הבעלים. אם הוא עדיין נדחה, Cisco חוסם גם את כתובת ההחזרות של Brevo. במקרה כזה עוברים לספק שגם כתובת ההחזרות שלו על הדומיין שלנו (למשל Resend, `send.<הדומיין>`), עם אותו דומיין ובלי השפעה על משתמשים רשומים.
 
 ### 6. Production ⛔ אישור
 - Supabase ← **Haim Derech Misparim** ← Authentication ← Emails ← SMTP Settings ← **Sender email** = `noreply@<הדומיין>` ← Save. שאר השדות נשארים.
