@@ -1,0 +1,27 @@
+# בדיקות Staging בלבד, בלי סודות (רק המפתח הציבורי של Staging). מיילים רק לכתובות כינוי של תיבת האפליקציה.
+name: Staging email resend test
+on: { push: { branches: [ 'staging-tests/email-resend' ] } }
+permissions: { contents: read }
+jobs:
+  e2e:
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      max-parallel: 1
+      matrix:
+        target: [ local, newdomain ]
+    steps:
+      - uses: actions/checkout@v5
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      - run: python3 -m pip install --quiet playwright==1.55.0 && python3 -m playwright install --with-deps chromium
+      - name: Resend verification e2e (${{ matrix.target }})
+        env:
+          STAGING_PAGE_URL: ${{ matrix.target == 'newdomain' && 'https://haimderechmisparim.com/staging.html' || '' }}
+          EMAIL_TAG: ${{ matrix.target == 'newdomain' && '-nd' || '-lc' }}
+        run: python3 scripts/email/e2e_resend_staging.py out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: 'shots-${{ matrix.target }}', path: out/, retention-days: 3, if-no-files-found: ignore }
