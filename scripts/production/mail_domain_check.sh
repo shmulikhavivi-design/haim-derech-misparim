@@ -97,5 +97,10 @@ for mid in $(jq -r --arg s "$SINCE" '[.events[]? | select(.event=="requests" and
   ann notice "md-6-link" "קישור במייל ${mid:0:12}…: $L"
 done
 rm -f /tmp/ev1.json
+
+# Walla — סיכום לפי נמען (מזהה מקוצר במקום כתובת), 30 יום
+bv smtp/statistics/events --data-urlencode "days=30" --data-urlencode "limit=2500" --data-urlencode "sort=asc" > /tmp/evw.json
+ann notice "md-7-walla" "Walla לפי נמען (30 יום): $(jq -c '[.events[]? | select(((.email//"")|ascii_downcase|test("@walla\\.(com|co\\.il)$")))] | group_by(.email|ascii_downcase) | map({r:((.[0].email|ascii_downcase|@base64)|.[0:6]), dom:(.[0].email|split("@")[1]), first:(.[0].date|.[0:16]), last:(.[-1].date|.[0:16]), subj:([.[].subject]|unique), ev:(group_by(.event)|map({(.[0].event):length})|add), reasons:([.[]|select(.reason!=null and .reason!="")|.reason[0:90]]|unique), from:([.[].from]|unique)})' /tmp/evw.json | cut -c1-3000)"
+rm -f /tmp/evw.json
 rm -f /tmp/ev.json /tmp/p.html /tmp/main.html
 ann notice "prod-result" "maildomaincheck — קריאה בלבד. Supabase/מסד/משתמשים/מנויים/סליקה/Brevo/DNS לא שונו, לא נשלח מייל."
