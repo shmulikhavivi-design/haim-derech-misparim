@@ -33,6 +33,13 @@ done
 ann notice "md-1-dmarc" "DMARC: $(q _dmarc.$NEW TXT) | Google DNS: $(q _dmarc.$NEW TXT 8.8.8.8)"
 ann notice "md-1-mx" "MX: $(q $NEW MX) | www: A=$(q www.$NEW A) CNAME=$(q www.$NEW CNAME)"
 
+# Resend (test.<domain>) — מה קיים היום בשמות שהרשומות החדשות יתפסו, וכל סוג רשומה (קריאה בלבד)
+for n in "resend._domainkey.test.$NEW" "send.test.$NEW" "rsend.test.$NEW" "test.$NEW" "_dmarc.test.$NEW"; do
+  ann notice "md-8-resend" "$n → CNAME: $(q $n CNAME) | TXT: $(q $n TXT | cut -c1-80) | MX: $(q $n MX) | A: $(q $n A)"
+done
+ann notice "md-8-wild" "wildcard (*.$NEW): A=$(q "zz-probe-$RANDOM.$NEW" A) CNAME=$(q "zz-probe-$RANDOM.$NEW" CNAME) | Pages CNAME של השורש/test: $(q test.$NEW CNAME)"
+ann notice "md-8-targets" "יעדי Resend: send.forge.rmta.net A=$(q send.forge.rmta.net A) TXT=$(q send.forge.rmta.net TXT | cut -c1-80) MX=$(q send.forge.rmta.net MX) | rsend-apne1.forge.rmta.net A=$(q rsend-apne1.forge.rmta.net A) MX=$(q rsend-apne1.forge.rmta.net MX)"
+
 # ---------- 2. כתובות האתר ----------
 curl -sS -m 30 -o /tmp/main.html "https://raw.githubusercontent.com/shmulikhavivi-design/haim-derech-misparim/main/index.html"
 MAINMD=$(md5sum /tmp/main.html | cut -c1-8)
