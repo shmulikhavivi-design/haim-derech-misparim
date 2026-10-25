@@ -109,7 +109,7 @@ print(f'ריצה {RUN}', flush=True)
 code = 1
 try:
     import urllib.request
-    live = urllib.request.urlopen('https://haimderechmisparim.com/?v=' + RUN, timeout=30).read().decode('utf-8')
+    live = urllib.request.urlopen(urllib.request.Request('https://haimderechmisparim.com/?v=' + RUN, headers={'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'}), timeout=30).read().decode('utf-8')
     STG_URL = 'https://ousepgdvzammgkxkweze.supabase.co'
     n1 = live.count("'https://qtspzigjlbtckqfyaubp.supabase.co'")
     live = live.replace("'https://qtspzigjlbtckqfyaubp.supabase.co'", "'" + STG_URL + "'")
