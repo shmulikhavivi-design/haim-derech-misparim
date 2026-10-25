@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -506,6 +506,24 @@ if [ "$MODE" = "e2eadminpanel" ]; then
   echo "$OUT"; ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SKIP|SUMMARY|Traceback)|ניקוי|Error' | tail -n 40)"
   [ $RC -eq 0 ] || stop "בדיקת הדפדפן של לוח הניהול נכשלה."
   ann notice "staging-result" "✅ e2eadminpanel: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
+fi
+if [ "$MODE" = "e2elivefinal" ]; then
+  STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
+  mkdir -p /tmp/livefinal
+  curl -sS -m 30 -A 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' "https://haimderechmisparim.com/?v=$(date +%s)" -o /tmp/livefinal/live.html || stop "האתר החי לא נטען"
+  for m in hdmAutoUpdate matchQueueRelaxed hdmSetTargetMark; do grep -q "$m" /tmp/livefinal/live.html || stop "בגרסה החיה חסר $m"; done
+  sed -e "s#'https://qtspzigjlbtckqfyaubp.supabase.co'#'https://ousepgdvzammgkxkweze.supabase.co'#" \
+      -e "s#var STAGING_PUBLISHABLE_KEY = 'sb_publishable_[A-Za-z0-9_-]*'#var STAGING_PUBLISHABLE_KEY = '$STAGING_PUBLISHABLE_KEY'#" /tmp/livefinal/live.html > /tmp/livefinal/index.html
+  grep -q qtspzigjlbtckqfyaubp /tmp/livefinal/index.html && stop "הקוד החי עדיין מצביע ל-Production — לא הורץ"
+  RCALL=0; ALL=""
+  for t in e2e_free_noempty e2e_target_mark e2e_autoupdate; do
+    OUT=$(STAGING_DB_URL="$URL" PAGE_NEW="/tmp/livefinal/index.html" timeout 900 python3 "$ROOT/scripts/staging_e2e/$t.py" 2>&1) && RC=0 || RC=$?
+    echo "$OUT"; ALL="$ALL
+[$t] $(echo "$OUT" | grep -E '^(FAIL|SUMMARY|ERROR)|ניקוי' | tail -n 12)"; [ $RC -eq 0 ] || RCALL=1
+  done
+  ann notice "staging-e2e" "$ALL"
+  [ $RCALL -eq 0 ] || stop "בדיקת הקוד החי נכשלה (ראו פלט)."
+  ann notice "staging-result" "✅ e2elivefinal: הקוד החי מהאתר עבר את כל בדיקות הדפדפן מול Staging"; exit 0
 fi
 if [ "$MODE" = "e2enoempty" ]; then
   STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
