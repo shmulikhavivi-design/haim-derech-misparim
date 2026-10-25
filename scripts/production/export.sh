@@ -3,7 +3,7 @@
 # export — גיבוי חיצוני מלא, קריאה בלבד מ-Production. הקובץ מוצפן (AES-256 + RSA) לפני שהוא יוצא מהשרת,
 # כך שגם אם מישהו מוריד את ה-artifact, אי אפשר לקרוא אותו בלי המפתח הפרטי (שלא נמצא בריפו).
 # =====================================================================
-RO="https://api.supabase.com/v1/projects/$PROD_REF/database/query/read-only"
+RO="https://api.supabase.com/v1/projects/$PROD_REF/database/query"  # the current token runs queries read-only
 OUTD="${RUNNER_TEMP:-/tmp}/hdm-export"; rm -rf "$OUTD"; mkdir -p "$OUTD/data"
 roq(){ curl -sS -m 120 -o "$2" -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$RO" -d "$(jq -nc --arg q "$1" '{query:$q}')" || echo 000; }
 get(){ local n="$1" q="$2"; local c; c=$(roq "select coalesce(json_agg(t),'[]'::json) as j from ($q) t" "$OUTD/raw.json"); [ "$c" = 201 ] || stop "גיבוי $n: HTTP $c $(jq -r '.message // empty' "$OUTD/raw.json" | cut -c1-200)"; jq -c '.[0].j' "$OUTD/raw.json" > "$OUTD/data/$n.json"; echo "$n=$(jq length "$OUTD/data/$n.json")"; }
