@@ -398,6 +398,7 @@ if [ "$MODE" = "smtpbackup" ]; then
   source "$HERE/smtp_backup.sh"; exit 0
 fi
 if [ "$MODE" = "maildomaincheck" ]; then
+  case "${COMMIT_MSG:-}" in *"[walla-log]"*) source "$HERE/walla_log.sh"; exit 0;; esac
   source "$HERE/mail_domain_check.sh"; exit 0
 fi
 if [ "$MODE" = "domainprep" ]; then
