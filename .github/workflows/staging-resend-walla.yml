@@ -1,0 +1,27 @@
+# Resend → Walla delivery test — Staging ONLY.
+# Runs only on push to staging-tests/run with [resend:...] in the commit subject. Mode from commit subject: [resend:check] (default, no email) / [resend:send].
+# Secrets (GitHub environment "staging" only, never in code): RESEND_API_KEY, RESEND_TEST_TO.
+# Does not touch Brevo, Supabase Production, or the live app.
+name: Staging Resend Walla test
+on:
+  push:
+    branches: [ 'staging-tests/run' ]
+permissions:
+  contents: read
+jobs:
+  resend:
+    if: github.repository == 'shmulikhavivi-design/haim-derech-misparim' && contains(github.event.head_commit.message, '[resend:')
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run test
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_TEST_TO: ${{ secrets.RESEND_TEST_TO }}
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          MODE=check
+          case "$MSG" in *"[resend:send]"*) MODE=send;; esac
+          MODE=$MODE python3 scripts/email/resend_walla_test.py
