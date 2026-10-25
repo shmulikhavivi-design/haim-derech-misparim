@@ -9,7 +9,7 @@ ann notice "plans-before" "$(jq -r '.[0].p' /tmp/q.json)"
 if [ "$MODE" = "freeverify" ]; then
   for u in https://haimderechmisparim.com/ https://haim-derech-misparim.pages.dev/ https://shmulikhavivi-design.github.io/haim-derech-misparim/; do
     H=$(curl -sS -m 30 -L "$u?v=$(date +%s)" || true)
-    ann notice "site" "$u | target-mark(#44): $(printf '%s' "$H" | grep -c 'hdmSetTargetMark') | free-level(#43): $(printf '%s' "$H" | grep -c "🔒 🎯 ושיחות")"
+    ann notice "site" "$u | #43:$(printf '%s' "$H" | grep -c "🔒 🎯 ושיחות") #44:$(printf '%s' "$H" | grep -c 'hdmSetTargetMark') #45:$(printf '%s' "$H" | grep -c 'hdmAutoUpdate') #46:$(printf '%s' "$H" | grep -c 'matchQueueRelaxed')"
   done
   P=$(jq -r '.[0].p' /tmp/q.json)
   [ "$P" = "free:true:false:false:false:0:false:none:0:0 | basic:true:false:true:true:5:false:none:0:2990 | plus:true:true:true:true:∞:true:none:0:4890 | vip:true:true:true:true:∞:true:after_my_target:30:7990" ] && ann notice "prod-result" "✅ VERIFIED: רק free.can_rate השתנה" || ann notice "prod-result" "NOT-APPLIED-OR-DIFFERENT: $P"
