@@ -16,6 +16,24 @@ q "select substr(md5(d.id),1,6) id, coalesce((select s.plan from public.hdm_subs
 w "== interests (masked from -> to, from plan)"
 q "select substr(md5(data->>'from'),1,6) f, substr(md5(data->>'to'),1,6) t, coalesce((select s.plan from public.hdm_subscriptions s where s.profile_id=data->>'from' and s.status in ('active','canceled') and (s.current_period_end is null or s.current_period_end>now())),'free') pl, to_timestamp((data->>'ts')::bigint/1000) at time zone 'Asia/Jerusalem' ts from public.docs where collection='interests'" | jq -c '.[]?' >> $BUF
 w "== plans"; q "select plan, can_rate, rating_details, can_target, can_chat from public.hdm_plans order by sort_order" | jq -c '.[]?' >> $BUF
+w "== eligibility per viewer (gender both ways + age both ways, excl. self & hidden): viewer | plan | ageMin-ageMax | eligible (masked(age))"
+q "with pr as (select d.id, d.data, coalesce(nullif(d.data->>'age','')::int, date_part('year', age(pp.birthdate))::int) age,
+       exists(select 1 from public.hdm_hidden_profiles h where h.profile_id=d.id) hidden,
+       coalesce((select s.plan from public.hdm_subscriptions s where s.profile_id=d.id and s.status in ('active','canceled') and (s.current_period_end is null or s.current_period_end>now())),'free') plan
+     from public.docs d left join public.hdm_profile_private pp on pp.profile_id=d.id where d.collection='profiles'),
+   g as (select id, data, age, hidden, plan,
+       case when data->>'gender' like 'גבר%' then 'm' when data->>'gender' like 'אישה%' then 'f' else '?' end gc,
+       case when data->>'lookingFor' like 'גבר%' then 'm' when data->>'lookingFor' like 'נש%' then 'f' else 'any' end sc,
+       nullif(data->>'ageMin','')::int amin, nullif(data->>'ageMax','')::int amax from pr)
+   select substr(md5(v.id),1,6) v, v.plan, coalesce(v.amin::text,'')||'-'||coalesce(v.amax::text,'') rng,
+     (select string_agg(substr(md5(c.id),1,6)||'('||c.age||')', ' ') from g c where c.id<>v.id and not c.hidden
+        and (v.sc='any' or v.sc=c.gc) and (c.sc='any' or c.sc=v.gc)
+        and (c.age is null or ((v.amin is null or c.age>=v.amin) and (v.amax is null or c.age<=v.amax)))
+        and (v.age is null or ((c.amin is null or v.age>=c.amin) and (c.amax is null or v.age<=c.amax)))) eligible
+   from g v order by v.plan, v.id" | jq -r '.[]? | [.v,.plan,.rng,(.eligible//"NONE")]|join(" | ")' >> $BUF
+for u in https://haimderechmisparim.com/ https://haim-derech-misparim.pages.dev/ https://shmulikhavivi-design.github.io/haim-derech-misparim/; do
+  w "headers $u: $(curl -sSI -m 20 "$u" | grep -iE '^(cache-control|age|last-modified|cf-cache-status|etag):' | tr -d '\r' | tr '\n' ' ')"
+done
 w "== function fingerprints (md5 of definition)"
 q "select p.proname, substr(md5(pg_get_functiondef(p.oid)),1,8) h from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('hdm_match_ratings','hdm_compat','hdm_send_target','hdm_my_targets','hdm_my_entitlements','hdm_plan_of','hdm_plan_row','hdm_has_interest','hdm_profile_exists','hdm_is_age_blocked','hdm_blocked_between') order by 1" | jq -r '.[]? | .proname+"="+.h' | tr '\n' ' ' >> $BUF
 python3 -I - "$BUF" <<'PY'
