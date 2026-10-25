@@ -7347,5 +7347,42 @@
     };
   })();
 </script>
+<script>
+  // =====================================================================
+  // עדכון גרסה אוטומטי: אפליקציה שנשארה פתוחה (למשל באייפון, ברקע) ממשיכה להריץ את הקוד הישן גם אחרי פרסום.
+  // כשחוזרים לאפליקציה (או כל 10 דקות) בודקים אם הדף באתר השתנה; אם כן — מרעננים פעם אחת, רק כשלא מקלידים.
+  // =====================================================================
+  (function hdmAutoUpdate(){
+    var base = null, busy = false, lastCheck = 0;
+    function norm(t){ return String(t).replace(/<script[^>]*(cdn-cgi|cloudflare|beacon)[^>]*>[\s\S]*?<\/script>/gi, '').replace(/data-cf[a-z-]*="[^"]*"/gi, ''); }
+    function hash(t){ t = norm(t); var h = 0; for(var i = 0; i < t.length; i++){ h = (h * 31 + t.charCodeAt(i)) | 0; } return h + ':' + t.length; }
+    function fetchPage(){
+      var u = location.pathname + (location.pathname.slice(-1) === '/' ? '' : '') + '?hdmv=' + Date.now();
+      return fetch(u, { cache: 'no-store', credentials: 'same-origin' }).then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); });
+    }
+    function typing(){
+      var a = document.activeElement;
+      return !!(a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a.type !== 'checkbox' && a.type !== 'radio')) && String(a.value || '').length);
+    }
+    function check(force){
+      if(busy || !base) return;
+      if(!force && Date.now() - lastCheck < 60000) return;
+      busy = true; lastCheck = Date.now();
+      fetchPage().then(function(t){
+        var recent = 0; try{ recent = parseInt(sessionStorage.getItem('hdm_updated_at') || '0', 10); }catch(e){}
+        if(hash(t) !== base && !typing() && Date.now() - recent > 5 * 60 * 1000){   // לכל היותר רענון אחד ב-5 דקות (מונע לולאה)
+          try{ sessionStorage.setItem('hdm_updated_at', String(Date.now())); }catch(e){}
+          location.reload();
+        }
+      }).catch(function(){}).then(function(){ busy = false; });
+    }
+    window.__hdmCheckUpdate = function(){ lastCheck = 0; check(true); };
+    // הבסיס: הדף כפי שהוא באתר ברגע הטעינה
+    fetchPage().then(function(t){ base = hash(t); }).catch(function(){});
+    document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') check(false); });
+    window.addEventListener('pageshow', function(e){ if(e.persisted) check(true); });
+    setInterval(function(){ if(document.visibilityState === 'visible') check(false); }, 10 * 60 * 1000);
+  })();
+</script>
 </body>
 </html>
