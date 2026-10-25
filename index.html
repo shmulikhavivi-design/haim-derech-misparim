@@ -2061,7 +2061,7 @@
     document.getElementById('match-num').textContent = '–';
     var mx = document.getElementById('match-extra'); if(mx) mx.textContent = '';
     document.getElementById('match-pct').textContent = '';
-    document.getElementById('match-why').textContent = 'חזרו מאוחר יותר, משתמשים חדשים מצטרפים כל הזמן.';
+    document.getElementById('match-why').textContent = 'עדיין אין פרופילים שמתאימים להעדפות שלך. משתמשים חדשים מצטרפים כל הזמן — נשמח לראות אותך שוב בקרוב.';
     document.getElementById('match-photo').style.backgroundImage = '';
   }
 
@@ -2074,6 +2074,9 @@
     var result = overallCompatibility(myProfile, data);
     document.getElementById('match-pct').textContent = matchCategoryLabel(result);
     document.getElementById('match-why').textContent = generateWhy(result);
+    try{ if(matchQueueRelaxed && currentMatchId && !passesMatchPrefs({ id: currentMatchId, data: data }, myProfile)){
+      var ag = document.getElementById('match-age'); ag.textContent = (ag.textContent ? ag.textContent + ' · ' : '') + 'מחוץ לטווח הגילאים שבחרת';
+    } }catch(e){}
     showCardPhoto(currentMatchId, data);
     try{ hdmApplyTargetMark(); }catch(e){}
   }
@@ -2301,6 +2304,17 @@
   }
   var matchQueuePrefKey = null;
 
+  var matchQueueRelaxed = false;
+  function hdmFreeRelaxAllowed(){ try{ return typeof hdmPlanId === 'function' && hdmPlanId() === 'free'; }catch(e){ return false; } }
+  function hdmPassesRelaxed(entry, ownerProfile){
+    if(!entry) return false;
+    if(isFictitiousId(entry.id)) return false;
+    if(isBlockedPair(entry.id)) return false;
+    return passesGenderFilter(entry, ownerProfile);
+  }
+  function hdmQueueRule(entry, ownerProfile){
+    return (matchQueueRelaxed && hdmFreeRelaxAllowed()) ? hdmPassesRelaxed(entry, ownerProfile) : passesMatchPrefs(entry, ownerProfile);
+  }
   async function buildMatchQueueIfNeeded(){
     if(matchQueue && matchQueueFor === myId && matchQueuePrefKey === genderPrefKey(myProfile)) return;
     var owner = myId, ownerProfile = myProfile;
@@ -2319,7 +2333,15 @@
     }
     if(myId !== owner) return;   // המשתמש הוחלף בזמן הטעינה — הרשימה הזו לא שלו
     pool = pool.filter(function(e){ return !isSelfCard(e, owner, ownerProfile); });
-    pool = pool.filter(function(e){ return passesMatchPrefs(e, ownerProfile); });
+    var strict = pool.filter(function(e){ return passesMatchPrefs(e, ownerProfile); });
+    // מסלול חינם: אם אין אף פרופיל בטווח הגילאים — מציגים פרופילים לפי מגדר בלבד (בשני הכיוונים), כדי שלא יוצג מסך ריק.
+    // 🎯 וצ'אט נשארים חסומים בחינם; הסינון לפי מגדר, חסימות ופרופילים מוסתרים נשאר כמו שהוא.
+    matchQueueRelaxed = false;
+    if(!strict.length && hdmFreeRelaxAllowed()){
+      var relaxed = pool.filter(function(e){ return hdmPassesRelaxed(e, ownerProfile); });
+      if(relaxed.length){ strict = relaxed; matchQueueRelaxed = true; }
+    }
+    pool = strict;
     matchQueuePrefKey = genderPrefKey(ownerProfile);
     matchQueue = pool; // every candidate stays browsable via swipe, regardless of past 🎯 taps
     matchQueueFor = owner;
@@ -2338,10 +2360,10 @@
       if(ni !== -1) index = ni;
     }
     // הגנה נוספת: כרטיס שלא מתאים למגדר / להעדפה לא מוצג לעולם
-    if(matchQueue && matchQueue.some(function(e){ return !passesMatchPrefs(e, myProfile); })){
+    if(matchQueue && matchQueue.some(function(e){ return !hdmQueueRule(e, myProfile); })){
       var keepEntry = matchQueue[Math.max(0, Math.min(index, matchQueue.length - 1))];
       var keepId = keepEntry && keepEntry.id;
-      matchQueue = matchQueue.filter(function(e){ return passesMatchPrefs(e, myProfile); });
+      matchQueue = matchQueue.filter(function(e){ return hdmQueueRule(e, myProfile); });
       var ki = matchQueue.map(function(e){ return e.id; }).indexOf(keepId);
       index = ki !== -1 ? ki : Math.min(index, Math.max(0, matchQueue.length - 1));
     }
@@ -6240,6 +6262,13 @@
   // ---- הכול יחד, אחרי כל טעינה של המסלול ----
   function hdmApplyPlanUI(){
     var f = hdmFeatures(), plan = hdmPlanId();
+    try{
+      if(plan === 'free' && !matchQueueRelaxed && matchQueue && !matchQueue.length && matchQueueFor === myId){
+        matchQueue = null; if(hdmIsActive('screen-match')) loadNextMatch();
+      }else if(plan && plan !== 'free' && matchQueueRelaxed){
+        matchQueue = null; matchQueueRelaxed = false; if(hdmIsActive('screen-match')) loadNextMatch();   // שודרג — חוזרים לטווח הגילאים הרגיל
+      }
+    }catch(e){}
     var sn = document.getElementById('set-plan-name');
     if(sn) sn.textContent = plan ? HDM_PLAN_INFO[plan].name : (hdmPlanKnown() && !hdmEnt.error && !hdmEnt.installed ? 'בקרוב' : '‹');
     var ll = document.getElementById('hdm-liked-link');
