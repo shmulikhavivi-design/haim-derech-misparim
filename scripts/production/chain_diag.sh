@@ -16,6 +16,7 @@ q "select substr(md5(d.id),1,6) id, coalesce((select s.plan from public.hdm_subs
 w "== interests (masked from -> to, from plan)"
 q "select substr(md5(data->>'from'),1,6) f, substr(md5(data->>'to'),1,6) t, coalesce((select s.plan from public.hdm_subscriptions s where s.profile_id=data->>'from' and s.status in ('active','canceled') and (s.current_period_end is null or s.current_period_end>now())),'free') pl, to_timestamp((data->>'ts')::bigint/1000) at time zone 'Asia/Jerusalem' ts from public.docs where collection='interests'" | jq -c '.[]?' >> $BUF
 w "== plans"; q "select plan, can_rate, rating_details, can_target, can_chat from public.hdm_plans order by sort_order" | jq -c '.[]?' >> $BUF
+w "== public age field present: $(q "select count(*) filter (where data ? 'age') with_age, count(*) total from public.docs where collection='profiles'" | jq -c .)"
 w "== eligibility per viewer (gender both ways + age both ways, excl. self & hidden): viewer | plan | ageMin-ageMax | eligible (masked(age))"
 q "with pr as (select d.id, d.data, coalesce(nullif(d.data->>'age','')::int, date_part('year', age(pp.birthdate))::int) age,
        exists(select 1 from public.hdm_hidden_profiles h where h.profile_id=d.id) hidden,
