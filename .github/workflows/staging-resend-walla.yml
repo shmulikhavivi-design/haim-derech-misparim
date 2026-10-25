@@ -20,4 +20,9 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MSG: ${{ github.event.head_commit.message }}
         run: |
-          python3 scripts/email/resend_walla_test.py
+          set -o pipefail
+          python3 scripts/email/resend_walla_test.py | tee out.txt
+      - name: Publish result as annotation
+        if: always()
+        run: |
+          python3 -c "import sys;t=open('out.txt').read() if __import__('os').path.exists('out.txt') else 'no output';t=t.replace('%','%25').replace('\r','').replace('\n','%0A');print('::notice title=resend-diag::'+t)"
