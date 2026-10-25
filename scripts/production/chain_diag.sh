@@ -6,14 +6,15 @@ A="https://api.supabase.com/v1/projects/$PROD_REF"
 q(){ curl -sS -m 120 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$A/database/query" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
 M="substr(md5(%s),1,6)"
 BUF=/tmp/cd.txt; : > $BUF; w(){ printf '%s\n' "$*" >> $BUF; }
+w "== privileges: $(q "select has_function_privilege('public.hdm_match_ratings(text[])','execute') x" | jq -c .)"
 w "== profiles: masked id | plan | private row | life_path | birth names | gender>looking | age | hidden | has account"
-q "select substr(md5(d.id),1,6) id, public.hdm_plan_of(d.id) plan, (pp.profile_id is not null) priv, pp.life_path lp,
-     (pp.birth_first_name is not null and pp.birth_last_name is not null) names, d.data->>'gender' g, d.data->>'lookingFor' lf,
+q "select substr(md5(d.id),1,6) id, coalesce((select s.plan from public.hdm_subscriptions s where s.profile_id=d.id and s.status in ('active','canceled') and (s.current_period_end is null or s.current_period_end>now())),'free') plan, (pp.profile_id is not null) priv, pp.life_path lp,
+     (coalesce(pp.birth_first_name,'')<>'' and coalesce(pp.birth_last_name,'')<>'') names, pp.expression_number ex, pp.vowel_number vw, pp.consonants_number cn, pp.birthday_number bd, (d.data->>'deleted') del, d.data->>'gender' g, d.data->>'lookingFor' lf,
      date_part('year', age(pp.birthdate))::int age, exists(select 1 from public.hdm_hidden_profiles h where h.profile_id=d.id) hidden,
      exists(select 1 from public.hdm_accounts a where a.profile_id=d.id) acct
-   from public.docs d left join public.hdm_profile_private pp on pp.profile_id=d.id where d.collection='profiles' order by 2,1" | jq -r '.[]? | [.id,.plan,.priv,.lp,.names,(.g+">"+(.lf//"")),.age,.hidden,.acct]|map(tostring)|join(" | ")' >> $BUF
+   from public.docs d left join public.hdm_profile_private pp on pp.profile_id=d.id where d.collection='profiles' order by 2,1" | jq -r '.[]? | [.id,.plan,.priv,.lp,.names,.ex,.vw,.cn,.bd,((.g//"")+">"+(.lf//"")),.age,.hidden,.acct,.del]|map(tostring)|join(" | ")' >> $BUF
 w "== interests (masked from -> to, from plan)"
-q "select substr(md5(data->>'from'),1,6) f, substr(md5(data->>'to'),1,6) t, public.hdm_plan_of(data->>'from') pl, to_timestamp((data->>'ts')::bigint/1000) at time zone 'Asia/Jerusalem' ts from public.docs where collection='interests'" | jq -c '.[]?' >> $BUF
+q "select substr(md5(data->>'from'),1,6) f, substr(md5(data->>'to'),1,6) t, coalesce((select s.plan from public.hdm_subscriptions s where s.profile_id=data->>'from' and s.status in ('active','canceled') and (s.current_period_end is null or s.current_period_end>now())),'free') pl, to_timestamp((data->>'ts')::bigint/1000) at time zone 'Asia/Jerusalem' ts from public.docs where collection='interests'" | jq -c '.[]?' >> $BUF
 w "== plans"; q "select plan, can_rate, rating_details, can_target, can_chat from public.hdm_plans order by sort_order" | jq -c '.[]?' >> $BUF
 # simulate as each user with an account
 USERS=$(q "select a.auth_user_id::text u, a.profile_id p from public.hdm_accounts a join public.docs d on d.collection='profiles' and d.id=a.profile_id" | jq -r '.[]? | .u+" "+.p')
