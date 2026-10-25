@@ -5272,7 +5272,7 @@
         'אימייל לכל הפניות: ' + HDM_CONTACT_EMAIL]
     ]},
     business: { title: 'מחירים, אספקת השירות ופרטי העסק', sections: [
-      ['עדכון אחרון', '21 באוקטובר 2026'],
+      ['עדכון אחרון', '25 באוקטובר 2026'],
       ['פרטי העסק',
         'שם העסק: ' + HDM_BUSINESS.name + '. מפעילי האפליקציה: ' + HDM_BUSINESS.owners + '.',
         'מספר עוסק: ' + hdmBiz('legalId') + ' (עוסק מורשה).',
@@ -5280,7 +5280,7 @@
         'טלפון: ' + hdmBiz('phone') + ' · אימייל: ' + HDM_CONTACT_EMAIL],
       ['השירותים והמחירים',
         'האפליקציה היא שירות היכרויות דיגיטלי על בסיס נומרולוגיה. ההרשמה והשימוש במסלול החינם ללא תשלום. המסלולים בתשלום הם מנוי חודשי שמתחדש אוטומטית עד לביטולו.',
-        'חינם — ₪0: צפייה בפרופילים ובתמונות בלבד, ללא שליחת 🎯, ללא צ׳אטים וללא הצגת דירוגי התאמה.',
+        'חינם — ₪0: צפייה בפרופילים ובתמונות והצגת רמת התאמה (ללא הסבר); ללא שליחת 🎯 וללא צ׳אטים.',
         'בסיסי — ₪29.90 לחודש: הצגת רמת התאמה (ללא הסבר); שליחת 🎯 ופתיחת צ׳אט לאחר סימון הדדי; עד 5 שיחות חדשות בכל חודש חיוב; הודעות ללא הגבלה בשיחות קיימות כל עוד המנוי פעיל.',
         'פלוס — ₪48.90 לחודש: התאמות ושיחות ללא הגבלה; אפשרות לראות מי סימן אותי ב־🎯; רמת התאמה וניתוח נומרולוגי מקוצר.',
         'VIP (בקרוב — עדיין לא פתוח להצטרפות) — ₪79.90 לחודש: כל הטבות פלוס; ניתוח נומרולוגי מורחב מיד לאחר סימון 🎯; 30% הנחה על שירותי נומרולוגיה אצל נומרולוגית.',
@@ -6078,7 +6078,7 @@
   // =====================================================================
   var HDM_PLAN_INFO = {
     free:  { name: 'חינם',  price: '₪0',     per: '',
-             items: ['צפייה בפרופילים ובתמונות בלבד', 'ללא שליחת 🎯', 'ללא צ׳אטים', 'ללא הצגת דירוגי התאמה'] },
+             items: ['צפייה בפרופילים ובתמונות', 'הצגת רמת התאמה: ❤️ גבוהה מאוד, 🩷 טובה או 💔 מאתגרת (ללא הסבר)', 'ללא שליחת 🎯', 'ללא צ׳אטים'] },
     basic: { name: 'בסיסי', price: '₪29.90', per: 'לחודש',
              items: ['הצגת רמת התאמה: ❤️ גבוהה מאוד, 🩷 טובה או 💔 מאתגרת (ללא הסבר)', 'שליחת 🎯 ופתיחת צ׳אט רק לאחר סימון הדדי', 'עד 5 שיחות חדשות בכל חודש חיוב', 'הודעות ללא הגבלה בשיחות קיימות כל עוד המנוי פעיל'] },
     plus:  { name: 'פלוס',  price: '₪48.90', per: 'לחודש',
@@ -6088,7 +6088,7 @@
   };
   var HDM_PLAN_ORDER = ['free', 'basic', 'plus', 'vip'];
   var HDM_PLAN_FEATURES = {
-    free:  { target: false, chat: false, chatLimit: 0,    score: 'none',  whoLiked: false, analysis: 'none',   vip: false },
+    free:  { target: false, chat: false, chatLimit: 0,    score: 'label', whoLiked: false, analysis: 'none',   vip: false },
     basic: { target: true,  chat: true,  chatLimit: 5,    score: 'label', whoLiked: false, analysis: 'none',   vip: false },
     plus:  { target: true,  chat: true,  chatLimit: null, score: 'full',  whoLiked: true,  analysis: 'none',   vip: false },
     vip:   { target: true,  chat: true,  chatLimit: null, score: 'full',  whoLiked: true,  analysis: 'own',    vip: true }
@@ -6223,7 +6223,7 @@
     why.style.display = f.score === 'full' ? '' : 'none';
     var plan = hdmPlanId();
     if(!plan){ box.innerHTML = ''; return; }
-    if(plan === 'free'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 דירוג התאמה, 🎯 ושיחות — מהמסלול הבסיסי</span>'; return; }
+    if(plan === 'free'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 🎯 ושיחות — מהמסלול הבסיסי</span>'; return; }
     if(plan === 'basic'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 ניתוח מקוצר — בפלוס · ניתוח מורחב — ב־VIP</span>'; return; }
     if(plan === 'plus'){ box.innerHTML = '<span class="hdm-lock" onpointerdown="event.stopPropagation()" onclick="hdmOpenPlans()">🔒 ניתוח נומרולוגי מורחב — במסלול VIP</span>'; return; }
     box.innerHTML = '';
@@ -7345,6 +7345,43 @@
       await ensureConsent();
       return id;
     };
+  })();
+</script>
+<script>
+  // =====================================================================
+  // עדכון גרסה אוטומטי: אפליקציה שנשארה פתוחה (למשל באייפון, ברקע) ממשיכה להריץ את הקוד הישן גם אחרי פרסום.
+  // כשחוזרים לאפליקציה (או כל 10 דקות) בודקים אם הדף באתר השתנה; אם כן — מרעננים פעם אחת, רק כשלא מקלידים.
+  // =====================================================================
+  (function hdmAutoUpdate(){
+    var base = null, busy = false, lastCheck = 0;
+    function norm(t){ return String(t).replace(/<script[^>]*(cdn-cgi|cloudflare|beacon)[^>]*>[\s\S]*?<\/script>/gi, '').replace(/data-cf[a-z-]*="[^"]*"/gi, ''); }
+    function hash(t){ t = norm(t); var h = 0; for(var i = 0; i < t.length; i++){ h = (h * 31 + t.charCodeAt(i)) | 0; } return h + ':' + t.length; }
+    function fetchPage(){
+      var u = location.pathname + (location.pathname.slice(-1) === '/' ? '' : '') + '?hdmv=' + Date.now();
+      return fetch(u, { cache: 'no-store', credentials: 'same-origin' }).then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); });
+    }
+    function typing(){
+      var a = document.activeElement;
+      return !!(a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a.type !== 'checkbox' && a.type !== 'radio')) && String(a.value || '').length);
+    }
+    function check(force){
+      if(busy || !base) return;
+      if(!force && Date.now() - lastCheck < 60000) return;
+      busy = true; lastCheck = Date.now();
+      fetchPage().then(function(t){
+        var recent = 0; try{ recent = parseInt(sessionStorage.getItem('hdm_updated_at') || '0', 10); }catch(e){}
+        if(hash(t) !== base && !typing() && Date.now() - recent > 5 * 60 * 1000){   // לכל היותר רענון אחד ב-5 דקות (מונע לולאה)
+          try{ sessionStorage.setItem('hdm_updated_at', String(Date.now())); }catch(e){}
+          location.reload();
+        }
+      }).catch(function(){}).then(function(){ busy = false; });
+    }
+    window.__hdmCheckUpdate = function(){ lastCheck = 0; check(true); };
+    // הבסיס: הדף כפי שהוא באתר ברגע הטעינה
+    fetchPage().then(function(t){ base = hash(t); }).catch(function(){});
+    document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') check(false); });
+    window.addEventListener('pageshow', function(e){ if(e.persisted) check(true); });
+    setInterval(function(){ if(document.visibilityState === 'visible') check(false); }, 10 * 60 * 1000);
   })();
 </script>
 </body>
