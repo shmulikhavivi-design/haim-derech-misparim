@@ -56,8 +56,8 @@ begin
   r := pg_temp.as_user(uF, format('select public.hdm_match_ratings(%L::text[])::text', T)); j := substr(r, 4)::jsonb;
   perform pg_temp.chk('חינם', 'מקבל דירוג מהשרת (לא נחסם)', 'ok:%', r);
   perform pg_temp.chk('חינם', 'דירוג לכל 6 הפרופילים', '6', (select count(*)::text from jsonb_object_keys(j)));
-  perform pg_temp.chk('חינם', 'רק תווית + ציון — בלי פירוט/קטגוריות/goodCount', 'label,score', (select string_agg(distinct k, ',' order by k) from jsonb_each(j) e, jsonb_object_keys(e.value) k));
-  labels := (select string_agg(distinct v->>'label', '|' order by v->>'label') from jsonb_each(j) e(k, v));
+  perform pg_temp.chk('חינם', 'רק תווית + ציון — בלי פירוט/קטגוריות/goodCount', 'label,score', (select string_agg(distinct kk.kk, ',' order by kk.kk) from jsonb_each(j) e, jsonb_object_keys(e.value) as kk(kk)));
+  labels := (select string_agg(distinct e.value->>'label', '|' order by e.value->>'label') from jsonb_each(j) e);
   perform pg_temp.chk('חינם', 'התוויות הן רמות התאמה מוכרות (' || coalesce(labels, '') || ')', 'ok', case when labels is not null and labels ~ '^(התאמה[^|]*)(\|התאמה[^|]*)*$' then 'ok' else coalesce(labels, '∅') end);
   r := pg_temp.as_user(uF, format('select public.hdm_my_entitlements()->>''canRate''')); perform pg_temp.chk('חינם', 'hdm_my_entitlements: canRate=true', 'ok:true', r);
   r := pg_temp.as_user(uF, format('select public.hdm_my_entitlements()->>''ratingDetails''')); perform pg_temp.chk('חינם', 'hdm_my_entitlements: ratingDetails=false', 'ok:false', r);
@@ -73,12 +73,12 @@ begin
 
   -- ---- המסלולים בתשלום: אותה צורה כמו קודם ----
   r := pg_temp.as_user(uB, format('select public.hdm_match_ratings(%L::text[])::text', T)); j := substr(r, 4)::jsonb;
-  perform pg_temp.chk('בסיסי', 'תווית + ציון בלבד (כמו קודם)', 'label,score', (select string_agg(distinct k, ',' order by k) from jsonb_each(j) e, jsonb_object_keys(e.value) k));
+  perform pg_temp.chk('בסיסי', 'תווית + ציון בלבד (כמו קודם)', 'label,score', (select string_agg(distinct kk.kk, ',' order by kk.kk) from jsonb_each(j) e, jsonb_object_keys(e.value) as kk(kk)));
   perform pg_temp.chk('בסיסי', '🎯 עובד', 'ok:%', pg_temp.as_user(uB, format('select public.hdm_send_target(%L)::text', T[2])));
   r := pg_temp.as_user(uP, format('select public.hdm_match_ratings(%L::text[])::text', T)); j := substr(r, 4)::jsonb;
-  perform pg_temp.chk('פלוס', 'דירוג עם פירוט (כמו קודם)', 'categories,goodCount,karmicCount,label,score', (select string_agg(distinct k, ',' order by k) from jsonb_each(j) e, jsonb_object_keys(e.value) k));
+  perform pg_temp.chk('פלוס', 'דירוג עם פירוט (כמו קודם)', 'categories,goodCount,karmicCount,label,score', (select string_agg(distinct kk.kk, ',' order by kk.kk) from jsonb_each(j) e, jsonb_object_keys(e.value) as kk(kk)));
   r := pg_temp.as_user(uV, format('select public.hdm_match_ratings(%L::text[])::text', T)); j := substr(r, 4)::jsonb;
-  perform pg_temp.chk('VIP', 'דירוג עם פירוט (כמו קודם)', 'categories,goodCount,karmicCount,label,score', (select string_agg(distinct k, ',' order by k) from jsonb_each(j) e, jsonb_object_keys(e.value) k));
+  perform pg_temp.chk('VIP', 'דירוג עם פירוט (כמו קודם)', 'categories,goodCount,karmicCount,label,score', (select string_agg(distinct kk.kk, ',' order by kk.kk) from jsonb_each(j) e, jsonb_object_keys(e.value) as kk(kk)));
 
   -- ---- הרשמה ופרופיל: משתמש חדש עובד כרגיל ----
   perform pg_temp.chk('הרשמה', 'משתמש חדש מקבל פרופיל', 'ok', case when F <> '' and F2 <> '' then 'ok' else 'חסר' end);
