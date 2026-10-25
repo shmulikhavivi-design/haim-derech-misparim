@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -507,6 +507,14 @@ if [ "$MODE" = "e2eadminpanel" ]; then
   [ $RC -eq 0 ] || stop "בדיקת הדפדפן של לוח הניהול נכשלה."
   ann notice "staging-result" "✅ e2eadminpanel: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
 fi
+if [ "$MODE" = "e2efreelevel" ]; then
+  STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
+  case "${STAGING_PUBLISHABLE_KEY:-}" in sb_publishable_*) ;; *) stop "חסר מפתח ציבורי של Staging.";; esac
+  OUT=$(STAGING_DB_URL="$URL" PAGE_NEW="$ROOT/scripts/staging_e2e/freelevel/staging.html" timeout 600 python3 "$ROOT/scripts/staging_e2e/e2e_free_level.py" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY|ERROR)|ניקוי|Traceback' | tail -n 40)"
+  [ $RC -eq 0 ] || stop "בדיקת הדפדפן של מסלול חינם נכשלה (ראו פלט)."
+  ann notice "staging-result" "✅ e2efreelevel: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
+fi
 if [ "$MODE" = "e2egolive" ]; then
   STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
   case "${STAGING_PUBLISHABLE_KEY:-}" in sb_publishable_*) ;; *) stop "חסר מפתח ציבורי של Staging.";; esac
@@ -745,6 +753,8 @@ case "$MODE" in
   tests35)   FILE="$SQLDIR/35_staging_plans_alerts_tests.sql" ;;
   install36) FILE="$SQLDIR/36_staging_billing_alerts_more.sql" ;;
   install38) FILE="$SQLDIR/38_staging_admin_panel.sql" ;;
+  install45) FILE="$SQLDIR/45_staging_free_match_level.sql" ;;
+  tests46)   FILE="$SQLDIR/46_staging_free_match_level_tests.sql" ;;
   install43) FILE="$SQLDIR/43_staging_email_claim.sql" ;;
   tests44)   FILE="$SQLDIR/44_staging_email_claim_tests.sql" ;;
   install42) FILE="$SQLDIR/42_staging_admin_refresh.sql" ;;
@@ -760,6 +770,14 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests46" ]; then
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+  [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות רמת ההתאמה במסלול חינם עברו ($SUMM)."
+  ann notice "staging-result" "✅ tests46: $SUMM — חינם רואה רמת התאמה בלבד (הכול בוטל)"; exit 0
+fi
+if [ "$MODE" = "install45" ]; then
+  ann notice "staging-result" "✅ install45: free.can_rate=true ב-Staging (שאר המסלולים נבדקו ללא שינוי)"; exit 0
+fi
 if [ "$MODE" = "tests44" ]; then
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
   [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות מניעת השליחה הכפולה עברו ($SUMM)."

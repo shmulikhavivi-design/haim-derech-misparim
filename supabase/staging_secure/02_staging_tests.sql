@@ -184,9 +184,9 @@ begin
     t_area := t_area || text 'חינם'; t_name := t_name || text 'רואה פרופילים ותמונות';
     t_exp := t_exp || text 'ok:true'; t_got := t_got || r;
 
-    r := pg_temp.as_user(uF, format($q$ select public.hdm_match_ratings(array[%L])::text $q$, B));
-    t_area := t_area || text 'חינם'; t_name := t_name || text 'אין דירוג התאמה';
-    t_exp := t_exp || text 'err:HDM_PLAN_REQUIRED'; t_got := t_got || r;
+    r := pg_temp.as_user(uF, format($q$ select (public.hdm_match_ratings(array[%L])->%L ? 'label')::text || '/' || (public.hdm_match_ratings(array[%L])->%L ? 'categories')::text $q$, B, B, B, B));
+    t_area := t_area || text 'חינם'; t_name := t_name || text 'רמת התאמה בלבד, בלי פירוט';
+    t_exp := t_exp || text 'ok:true/false'; t_got := t_got || r;
 
     r := pg_temp.as_user(uF, format($q$ select public.hdm_send_target(%L)::text $q$, B));
     t_area := t_area || text 'חינם'; t_name := t_name || text 'אין סימון 🎯';
