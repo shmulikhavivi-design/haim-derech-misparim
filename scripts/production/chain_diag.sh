@@ -16,20 +16,6 @@ q "select substr(md5(d.id),1,6) id, coalesce((select s.plan from public.hdm_subs
 w "== interests (masked from -> to, from plan)"
 q "select substr(md5(data->>'from'),1,6) f, substr(md5(data->>'to'),1,6) t, coalesce((select s.plan from public.hdm_subscriptions s where s.profile_id=data->>'from' and s.status in ('active','canceled') and (s.current_period_end is null or s.current_period_end>now())),'free') pl, to_timestamp((data->>'ts')::bigint/1000) at time zone 'Asia/Jerusalem' ts from public.docs where collection='interests'" | jq -c '.[]?' >> $BUF
 w "== plans"; q "select plan, can_rate, rating_details, can_target, can_chat from public.hdm_plans order by sort_order" | jq -c '.[]?' >> $BUF
-# simulate as each user with an account
-USERS=$(q "select a.auth_user_id::text u, a.profile_id p from public.hdm_accounts a join public.docs d on d.collection='profiles' and d.id=a.profile_id" | jq -r '.[]? | .u+" "+.p')
-OTHERS=$(q "select coalesce(json_agg(id),'[]') j from public.docs where collection='profiles'" | jq -c '.[0].j')
-w "== simulated app calls per user (masked): plan | entitlements canRate | match_ratings result | my_targets"
-while read -r U P; do
-  [ -n "$U" ] || continue
-  CL=$(jq -nc --arg u "$U" '{sub:$u, role:"authenticated"}')
-  pre="with s as materialized (select set_config('request.jwt.claims', '$CL', true) x, set_config('request.jwt.claim.sub', '$U', true) y)"
-  E=$(q "$pre select (select public.hdm_my_entitlements()->>'plan') || '/canRate=' || (select public.hdm_my_entitlements()->>'canRate') r from s" | jq -r '.[0].r // .message // .' | cut -c1-120)
-  R=$(q "$pre select (select public.hdm_match_ratings(array(select jsonb_array_elements_text('$OTHERS'::jsonb))))::text r from s" | jq -r '.[0].r // .message // .' )
-  RS=$(printf '%s' "$R" | jq -r 'if type=="object" then ((keys|length|tostring) + " rated; labels=" + ([.[].label]|unique|join(","))) else . end' 2>/dev/null || printf '%s' "$R" | cut -c1-160)
-  T=$(q "$pre select (select public.hdm_my_targets())::text r from s" | jq -r '.[0].r // .message // .' | jq -c 'if type=="array" then map({to:(.id|tostring|.[0:2]+"…"),mutual}) else . end' 2>/dev/null | cut -c1-200)
-  w "$(printf '%s' "$P" | md5sum | cut -c1-6) | $E | $RS | targets=$T"
-done <<< "$USERS"
 w "== function fingerprints (md5 of definition)"
 q "select p.proname, substr(md5(pg_get_functiondef(p.oid)),1,8) h from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('hdm_match_ratings','hdm_compat','hdm_send_target','hdm_my_targets','hdm_my_entitlements','hdm_plan_of','hdm_plan_row','hdm_has_interest','hdm_profile_exists','hdm_is_age_blocked','hdm_blocked_between') order by 1" | jq -r '.[]? | .proname+"="+.h' | tr '\n' ' ' >> $BUF
 python3 -I - "$BUF" <<'PY'
