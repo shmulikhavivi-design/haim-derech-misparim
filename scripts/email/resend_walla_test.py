@@ -62,7 +62,7 @@ dkim = dig(f"resend._domainkey.{DOMAIN}", "TXT")
 ok("DKIM resend._domainkey.test", any("p=" in x for x in dkim), (dkim[0][:40] + "…") if dkim else "none")
 mx_send = dig(f"send.{DOMAIN}", "MX"); spf_send = dig(f"send.{DOMAIN}", "TXT")
 ok("Return-Path send.test MX", bool(mx_send), ", ".join(mx_send))
-ok("Return-Path send.test SPF", any("amazonses" in x for x in spf_send), "; ".join(spf_send))
+ok("Return-Path send.test SPF", any(x.startswith("v=spf1") and "ip4:" in x for x in spf_send), "; ".join(spf_send))
 dm_sub = dig(f"_dmarc.{DOMAIN}", "TXT"); dm_root = dig(f"_dmarc.{ROOT}", "TXT")
 ok("DMARC on test subdomain", None, "; ".join(dm_sub) or "none → inherits root policy")
 ok("DMARC on root", any("v=DMARC1" in x for x in dm_root), "; ".join(dm_root))
@@ -75,6 +75,41 @@ for dn in (DOMAIN, ROOT):
     r = dig(f"{dn}.dbl.spamhaus.org", "A")
     ok(f"Spamhaus DBL {dn}", None if any(x.startswith("127.255.255") for x in r) else (not r),
        "listed!" if r and not any(x.startswith("127.255.255") for x in r) else ("not listed" if not r else "resolver blocked, inconclusive"))
+
+
+print("=" * 60, "\n2b) EXTRA: DKIM size, Brevo records, domain age, blocklists\n" + "=" * 60)
+import base64
+try:
+    pk = "".join(dkim).split("p=")[1].split(";")[0]
+    bits = (len(base64.b64decode(pk)) - 38) * 8
+    ok("DKIM key size", bits >= 1000, f"~{bits} bit")
+except Exception as e:
+    ok("DKIM key size", None, f"could not parse ({e})")
+for sel in ("brevo1._domainkey", "brevo2._domainkey", "mail._domainkey"):
+    v = dig(f"{sel}.{ROOT}", "TXT") or dig(f"{sel}.{ROOT}", "CNAME")
+    if v: ok(f"Brevo DKIM {sel}.{ROOT} (Production sender)", True, v[0][:50])
+for name in (ROOT, DOMAIN):
+    try:
+        with urllib.request.urlopen(f"https://rdap.org/domain/{ROOT}", timeout=20) as r:
+            ev = {e["eventAction"]: e["eventDate"][:10] for e in json.loads(r.read()).get("events", [])}
+        ok("domain registration date (age)", None, f"registered {ev.get('registration')}")
+    except Exception as e:
+        ok("domain registration date (age)", None, f"RDAP unavailable ({e})")
+    break
+def sysdig(name):
+    out = subprocess.run(["dig", "+short", "A", name], capture_output=True, text=True, timeout=20).stdout
+    return [l.strip() for l in out.splitlines() if l.strip()]
+for zone in ("dbl.spamhaus.org", "multi.surbl.org", "multi.uribl.com"):
+    for dn in (ROOT, DOMAIN):
+        r = sysdig(f"{dn}.{zone}")
+        blocked = any(x.startswith("127.255.255") or x == "127.0.0.1" and "uribl" in zone for x in r)
+        ok(f"domain blocklist {zone} {dn}", None if blocked else (not r), "inconclusive (resolver blocked)" if blocked else ("LISTED " + str(r) if r else "not listed"))
+for ip in ("52.3.252.119", "44.222.39.36", "199.249.231.1"):
+    rev = ".".join(reversed(ip.split(".")))
+    for zone in ("zen.spamhaus.org", "bl.spamcop.net", "b.barracudacentral.org", "psbl.surriel.com"):
+        r = sysdig(f"{rev}.{zone}")
+        blocked = any(x.startswith("127.255.255") for x in r)
+        ok(f"Resend IP {ip} on {zone}", None if blocked else (not r), "inconclusive" if blocked else ("LISTED " + str(r) if r else "not listed"))
 
 print("=" * 60, "\n3) SIGNUP-CONFIRMATION FLOW (simulated recipients only)\n" + "=" * 60)
 fake_url = "https://haimderechmisparim.com/staging.html#type=signup&token=TEST-ONLY-NOT-VALID"
