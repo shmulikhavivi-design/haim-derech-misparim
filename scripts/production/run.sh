@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in maildomaincheck|domainprep|signupdiag|adminhealthrehearse|smtpgmailtest|smtpbackup|custcheck|livecheckthree|livechecktwo|goliveapply|livecheck|termsrehearse|stagebready|stagecverify|mailtest|mailchain|ownerrenewoff|postadmin|launchcheck|hideapply|adminpreview|hiderehearse|ownerhidecheck|adminapply|adminrehearse|incidentnine|incidenteight|incidentseven|incidentsix|incidentfive|incidentfour|incidentthree|incidenttwo|incident|stagecapply|stagecrehearse|readiness|cronnow|stagearehearse|stageaapply|ownercardsync|cardlink|paycheck|payreplay|secretfix|secretcmp|paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in resendswitch|wallaretest|maildomaincheck|domainprep|signupdiag|adminhealthrehearse|smtpgmailtest|smtpbackup|custcheck|livecheckthree|livechecktwo|goliveapply|livecheck|termsrehearse|stagebready|stagecverify|mailtest|mailchain|ownerrenewoff|postadmin|launchcheck|hideapply|adminpreview|hiderehearse|ownerhidecheck|adminapply|adminrehearse|incidentnine|incidenteight|incidentseven|incidentsix|incidentfive|incidentfour|incidentthree|incidenttwo|incident|stagecapply|stagecrehearse|readiness|cronnow|stagearehearse|stageaapply|ownercardsync|cardlink|paycheck|payreplay|secretfix|secretcmp|paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -397,6 +397,8 @@ fi
 if [ "$MODE" = "smtpbackup" ]; then
   source "$HERE/smtp_backup.sh"; exit 0
 fi
+if [ "$MODE" = "resendswitch" ]; then source "$HERE/resend_switch.sh"; exit 0; fi
+if [ "$MODE" = "wallaretest" ]; then source "$HERE/walla_retest.sh"; exit 0; fi
 if [ "$MODE" = "maildomaincheck" ]; then
   case "${COMMIT_MSG:-}" in *"[walla-log]"*) source "$HERE/walla_log.sh"; exit 0;; *"[walla-root]"*) source "$HERE/walla_root.sh"; exit 0;; esac
   source "$HERE/mail_domain_check.sh"; exit 0
