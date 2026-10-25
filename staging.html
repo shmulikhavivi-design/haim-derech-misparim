@@ -839,7 +839,7 @@
       </div>
     </div>
     </div>
-    <div class="actions"><button type="button" class="skip-btn" id="skip-btn" aria-label="דילוג על הפרופיל" onclick="navCard(1)">❌</button><button class="target-btn" onclick="onTargetClick()" aria-label="סימון עניין">🎯</button></div>
+    <div class="actions"><button type="button" class="skip-btn" id="skip-btn" aria-label="דילוג על הפרופיל" onclick="navCard(1)">❌</button><button class="target-btn" id="target-btn" onclick="onTargetClick()" aria-label="סימון עניין" aria-pressed="false">🎯</button></div>
     <div class="hint" id="match-hint">לחצו על המטרה אם יש עניין</div>
     <div class="my-chats-link" id="my-chats-link">💬 השיחות שלי<span class="unread-badge" id="my-chats-badge" style="display:none"></span></div>
     <div class="my-chats-link" id="my-profile-link">👤 הפרופיל שלי</div>
@@ -2099,6 +2099,25 @@
     document.getElementById('match-pct').textContent = matchCategoryLabel(result);
     document.getElementById('match-why').textContent = generateWhy(result);
     showCardPhoto(currentMatchId, data);
+    try{ hdmApplyTargetMark(); }catch(e){}
+  }
+
+  // 🎯 שכבר סומן: מצב הכפתור נקבע לפי השרת (hdm_my_targets), כך שהסימון נשאר גם אחרי רענון וכניסה מחדש
+  var hdmTargetMarkSeq = 0;   // כל עדכון מבטל בדיקה ישנה שעוד לא חזרה מהשרת (כדי שתשובה ישנה לא תמחק סימון חדש)
+  function hdmSetTargetMark(on){
+    hdmTargetMarkSeq++;
+    var b = document.getElementById('target-btn');
+    if(!b) return;
+    b.classList.toggle('is-targeted', !!on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.setAttribute('aria-label', on ? 'סימנת עניין 🎯' : 'סימון עניין');
+  }
+  function hdmApplyTargetMark(){
+    var id = currentMatchId;
+    hdmSetTargetMark(false);
+    if(!id || typeof hdmPairStatus !== 'function' || !myId) return;
+    var seq = hdmTargetMarkSeq;
+    hdmPairStatus(id).then(function(st){ if(currentMatchId === id && seq === hdmTargetMarkSeq) hdmSetTargetMark(!!(st && st.mine)); }).catch(function(){});
   }
 
   // ---- תמונת פרופיל בכרטיס ההתאמה ----
@@ -4161,6 +4180,12 @@
   .skip-btn{ background:radial-gradient(circle at 35% 30%,#B0607F,#7C3E56 78%); border:1.5px solid var(--rose-edge); box-shadow:0 6px 18px rgba(153,79,105,.35), 0 6px 18px rgba(0,0,0,.35); }
   .target-btn{ background:radial-gradient(circle at 35% 30%,#B0607F,#7C3E56 78%); border:2px solid #E2B769;
     box-shadow:0 0 0 5px rgba(153,79,105,.16), 0 0 24px rgba(153,79,105,.45), 0 8px 22px rgba(0,0,0,.5); }
+  /* 🎯 שכבר סומן (נשמר בשרת): מילוי זהב, הילה ותג ✓ — נשאר גם אחרי רענון */
+  .target-btn{ position:relative; }
+  .target-btn.is-targeted{ background:radial-gradient(circle at 35% 30%,#F2D59A,#C9974A 78%); border-color:#F8DFA4;
+    box-shadow:0 0 0 4px rgba(242,213,154,.35), 0 0 28px rgba(242,213,154,.7), 0 8px 22px rgba(0,0,0,.5); }
+  .target-btn.is-targeted::after{ content:'✓'; position:absolute; top:-4px; right:-4px; width:24px; height:24px; border-radius:50%;
+    background:#0D1130; color:#F2D59A; border:1.5px solid #F2D59A; font-size:14px; line-height:21px; text-align:center; font-weight:700; }
   /* הדגשות: שורת תפריט בלחיצה, תגית "לא נקראו", תגית מנוי, כפתור ביטול מנוי */
   .set-row:active, .set-row:focus-visible{ background:rgba(153,79,105,.55); }
   .unread-badge, .hdm-badge{ background:#994F69; color:var(--rose-ink); }
@@ -7203,10 +7228,13 @@
         if(/HDM_NOT_AVAILABLE/.test(hdmStgMsg(e))){ flashTargetHint('לא ניתן ליצור קשר עם משתמש זה'); return; }
         throw e;
       }
-      try{ window.__hdmForgetInterests(); }catch(e){}
       if(me !== myId){ return; }
+      // אישור מוצג רק אם השרת אישר שהסימון נשמר; אחרת — הודעת שגיאה, והכפתור לפי המצב האמיתי בשרת
+      if(!res || res.targeted !== true){ flashTargetHint('הסימון לא נשמר — נסו ללחוץ 🎯 שוב'); hdmPairStatusForget(targetId); hdmApplyTargetMark(); return; }
+      try{ window.__hdmForgetInterests(); }catch(e){}
       if(myProfile){ var likes = (myProfile.likes || []).slice(); if(likes.indexOf(targetId) === -1) likes.push(targetId); myProfile.likes = likes; }
       hdmPairStatusForget(targetId);
+      if(currentMatchId === targetId) hdmSetTargetMark(true);
       try{ hdmApplyCardPlan(); }catch(e){}
       if(!res.mutual){
         flashTargetHint(res.extendedAnalysis ? 'העניין נשמר — הניתוח המורחב פתוח עכשיו ✨' : 'העניין נשמר — הצ׳אט ייפתח כשגם הצד השני ילחץ 🎯');
@@ -7223,7 +7251,8 @@
       release();
       openChat();
     }catch(e){
-      flashTargetHint('משהו השתבש — נסו ללחוץ 🎯 שוב');
+      flashTargetHint('הסימון לא נשמר — נסו ללחוץ 🎯 שוב');
+      try{ hdmPairStatusForget(targetId); hdmApplyTargetMark(); }catch(x){}
     }finally{
       release();
       var h = document.getElementById('match-hint');
