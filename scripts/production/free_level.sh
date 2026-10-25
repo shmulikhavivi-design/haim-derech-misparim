@@ -6,6 +6,11 @@ q(){ curl -sS -m 120 -o /tmp/q.json -w '%{http_code}' -X POST -H "Authorization:
 PERMS="select string_agg(plan||':'||can_rate||':'||rating_details||':'||can_target||':'||can_chat||':'||coalesce(monthly_new_chats::text,'∞')||':'||see_who_targeted||':'||extended_analysis||':'||limor_discount_pct||':'||price_agorot, ' | ' order by sort_order) as p from public.hdm_plans"
 C=$(q "$PERMS"); [ "$C" = 201 ] || stop "אין גישה למסד (HTTP $C: $(jq -r '.message//empty' /tmp/q.json | cut -c1-120)) — לא שונה כלום"
 ann notice "plans-before" "$(jq -r '.[0].p' /tmp/q.json)"
+if [ "$MODE" = "freeverify" ]; then
+  P=$(jq -r '.[0].p' /tmp/q.json)
+  [ "$P" = "free:true:false:false:false:0:false:none:0:0 | basic:true:false:true:true:5:false:none:0:2990 | plus:true:true:true:true:∞:true:none:0:4890 | vip:true:true:true:true:∞:true:after_my_target:30:7990" ] && ann notice "prod-result" "✅ VERIFIED: רק free.can_rate השתנה" || ann notice "prod-result" "NOT-APPLIED-OR-DIFFERENT: $P"
+  exit 0
+fi
 MIG=$(cat "$ROOT/supabase/production/22_production_free_match_level.sql")
 if [ "$MODE" = "freerehearse" ]; then
   BODY=$(printf '%s' "$MIG" | sed -e 's/^begin;$//' -e 's/^commit;$//')
