@@ -110,13 +110,13 @@ try:
         pg.evaluate("() => { window.__hdmMarker = 'old'; }")
         pg.evaluate("() => window.__hdmCheckUpdate()"); pg.wait_for_timeout(2500)
         check('בלי פרסום חדש — אין רענון', pg.evaluate("() => window.__hdmMarker") == 'old')
-        with open(d + '/index.html', 'a', encoding='utf-8') as f: f.write('\n<!-- deploy ' + RUN + ' -->\n')   # "פרסום" גרסה חדשה
+        with open(d + '/index.html', 'a', encoding='utf-8') as f: f.write('\n<script>window.__hdmBuild = "' + RUN + '";</script>\n')   # "פרסום" גרסה חדשה
         pg.evaluate("() => window.__hdmCheckUpdate()")
         try: pg.wait_for_function("() => window.__hdmMarker !== 'old'", timeout=15000)
         except Exception: pass
         pg.wait_for_timeout(3000)
         check('אחרי פרסום — האפליקציה עברה לגרסה החדשה', pg.evaluate("() => window.__hdmMarker") is None)
-        check('הגרסה החדשה נטענה', ('deploy ' + RUN) in pg.content())
+        check('הגרסה החדשה נטענה (הקוד החדש רץ)', pg.evaluate('() => window.__hdmBuild') == RUN, pg.evaluate('() => window.__hdmBuild'))
         try: pg.wait_for_function("() => myId", timeout=15000)
         except Exception: pass
         check('אחרי הרענון — עדיין מחוברת', pg.evaluate("() => myId") == u)
