@@ -40,7 +40,7 @@ begin
   insert into public.docs (collection, id, data) select 'profiles', p, '{"currentName":"בדיקה","gender":"אישה","birthdate":"1990-01-01"}'::jsonb from unnest(array[pB, pP, pV, pR, pX]) as p;
 
   -- ---- הגדרות המסלולים (מחיר : דירוג : פירוט : 🎯 : צ'אט : שיחות בחודש : מי סימן אותי : ניתוח מורחב : הנחה) ----
-  perform pg_temp.chk('מסלולים', 'חינם', '0:false:false:false:false:0:false:none:0', pg_temp.perms('free'));
+  perform pg_temp.chk('מסלולים', 'חינם — רמת התאמה בלבד', '0:true:false:false:false:0:false:none:0', pg_temp.perms('free'));
   perform pg_temp.chk('מסלולים', 'בסיסי ₪29.90 — דירוג, 🎯, 5 שיחות חדשות בחודש', '2990:true:false:true:true:5:false:none:0', pg_temp.perms('basic'));
   perform pg_temp.chk('מסלולים', 'פלוס ₪48.90 — פירוט, שיחות ללא הגבלה, בלי ניתוח מורחב', '4890:true:true:true:true:∞:true:none:0', pg_temp.perms('plus'));
   perform pg_temp.chk('מסלולים', 'VIP ₪79.90 — נשמר כמו שהוא (ניתוח מורחב, 30%)', '7990:true:true:true:true:∞:true:after_my_target:30', pg_temp.perms('vip'));
