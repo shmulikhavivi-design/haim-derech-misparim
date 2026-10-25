@@ -10,7 +10,7 @@ MIG=$(cat "$ROOT/supabase/production/22_production_free_match_level.sql")
 if [ "$MODE" = "freerehearse" ]; then
   BODY=$(printf '%s' "$MIG" | sed -e 's/^begin;$//' -e 's/^commit;$//')
   C=$(q "begin; $BODY ; $PERMS; rollback;")
-  ann notice "rehearse" "HTTP $C | אחרי השינוי (בתוך עסקה שבוטלה): $(jq -r '.[0].p // .message // .' /tmp/q.json | cut -c1-400)"
+  ann notice "rehearse" "HTTP $C | אחרי השינוי (בתוך עסקה שבוטלה): $(head -c 600 /tmp/q.json)"
   q "$PERMS" >/dev/null; ann notice "plans-after-rollback" "$(jq -r '.[0].p' /tmp/q.json) (לא השתנה)"
   ann notice "prod-result" "freerehearse: Production לא השתנה"; exit 0
 fi
