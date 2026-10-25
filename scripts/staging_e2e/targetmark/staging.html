@@ -2103,7 +2103,9 @@
   }
 
   // 🎯 שכבר סומן: מצב הכפתור נקבע לפי השרת (hdm_my_targets), כך שהסימון נשאר גם אחרי רענון וכניסה מחדש
+  var hdmTargetMarkSeq = 0;   // כל עדכון מבטל בדיקה ישנה שעוד לא חזרה מהשרת (כדי שתשובה ישנה לא תמחק סימון חדש)
   function hdmSetTargetMark(on){
+    hdmTargetMarkSeq++;
     var b = document.getElementById('target-btn');
     if(!b) return;
     b.classList.toggle('is-targeted', !!on);
@@ -2114,7 +2116,8 @@
     var id = currentMatchId;
     hdmSetTargetMark(false);
     if(!id || typeof hdmPairStatus !== 'function' || !myId) return;
-    hdmPairStatus(id).then(function(st){ if(currentMatchId === id) hdmSetTargetMark(!!(st && st.mine)); }).catch(function(){});
+    var seq = hdmTargetMarkSeq;
+    hdmPairStatus(id).then(function(st){ if(currentMatchId === id && seq === hdmTargetMarkSeq) hdmSetTargetMark(!!(st && st.mine)); }).catch(function(){});
   }
 
   // ---- תמונת פרופיל בכרטיס ההתאמה ----
