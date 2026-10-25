@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # chaindiag — READ ONLY (token runs read-only transactions). Masked ids. No writes, no mail, no charges.
 # Simulates the app's server calls as each relevant user via request.jwt.claims (read-only, same as the app).
+set +e +o pipefail
 A="https://api.supabase.com/v1/projects/$PROD_REF"
 q(){ curl -sS -m 120 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$A/database/query" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
 M="substr(md5(%s),1,6)"
