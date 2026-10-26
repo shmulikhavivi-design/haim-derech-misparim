@@ -47,22 +47,22 @@ begin
   j := substr(r, 4)::jsonb;
   ids := (select string_agg(e->>'id', ',') from jsonb_array_elements(j) e where (e->>'id')::uuid = any(ck));
   perform pg_temp.chk('בחירה', 'רק הניסיון שממתין לכרטיס (due) מוחזר', ck[1]::text, ids);
-  perform pg_temp.chk('בחירה', 'נפתח לפני פחות מדקה — לא', 'f', (ids like '%' || ck[2] || '%')::text);
-  perform pg_temp.chk('בחירה', 'בלי לקוח Morning — לא', 'f', (ids like '%' || ck[3] || '%')::text);
-  perform pg_temp.chk('בחירה', 'כבר יש כרטיס שמור — לא', 'f', (ids like '%' || ck[4] || '%')::text);
-  perform pg_temp.chk('בחירה', 'כבר נתפס לחיוב — לא', 'f', (ids like '%' || ck[5] || '%')::text);
-  perform pg_temp.chk('בחירה', 'פג תוקף — לא', 'f', (ids like '%' || ck[6] || '%')::text);
-  perform pg_temp.chk('מבנה', 'אותו מבנה כמו hdm_billing_checkout_lookup', 'plus|4890|pending|f',
+  perform pg_temp.chk('בחירה', 'נפתח לפני פחות מדקה — לא', 'false', (ids like '%' || ck[2] || '%')::text);
+  perform pg_temp.chk('בחירה', 'בלי לקוח Morning — לא', 'false', (ids like '%' || ck[3] || '%')::text);
+  perform pg_temp.chk('בחירה', 'כבר יש כרטיס שמור — לא', 'false', (ids like '%' || ck[4] || '%')::text);
+  perform pg_temp.chk('בחירה', 'כבר נתפס לחיוב — לא', 'false', (ids like '%' || ck[5] || '%')::text);
+  perform pg_temp.chk('בחירה', 'פג תוקף — לא', 'false', (ids like '%' || ck[6] || '%')::text);
+  perform pg_temp.chk('מבנה', 'אותו מבנה כמו hdm_billing_checkout_lookup', 'plus|4890|pending|false',
     (select (e->>'plan') || '|' || (e->>'amountAgorot') || '|' || (e->>'status') || '|' || (e->>'expired') from jsonb_array_elements(j) e where e->>'id' = ck[1]::text));
   perform pg_temp.chk('הרשאות', 'משתמש באפליקציה לא יכול להריץ', 'err:%permission denied%', pg_temp.as_user(u[1], 'select public.hdm_billing_pending_card_checkouts(50)::text'));
-  perform pg_temp.chk('הרשאות', 'anon לא יכול להריץ', 'f', has_function_privilege('anon', 'public.hdm_billing_pending_card_checkouts(int)', 'execute')::text);
+  perform pg_temp.chk('הרשאות', 'anon לא יכול להריץ', 'false', has_function_privilege('anon', 'public.hdm_billing_pending_card_checkouts(int)', 'execute')::text);
   perform pg_temp.chk('קריאה בלבד', 'הפונקציה לא שינתה אף ניסיון', '1|1|1|1|1|1',
     (select string_agg(cnt::text, '|') from (select count(*) cnt from public.hdm_checkouts where id = any(ck) group by id order by id) x));
-  perform pg_temp.chk('תפיסה', 'אחרי תפיסה אטומית — לא מוחזר שוב (אין חיוב כפול מהמשימה)', 'ok:t',
+  perform pg_temp.chk('תפיסה', 'אחרי תפיסה אטומית — לא מוחזר שוב (אין חיוב כפול מהמשימה)', 'ok:true',
     pg_temp.as_service(format('select public.hdm_billing_claim_checkout(%L, %L)::text', ck[1], 'morning-charge:' || ck[1])));
-  perform pg_temp.chk('תפיסה', 'תפיסה שנייה נכשלת', 'ok:f', pg_temp.as_service(format('select public.hdm_billing_claim_checkout(%L, %L)::text', ck[1], 'morning-charge:' || ck[1])));
+  perform pg_temp.chk('תפיסה', 'תפיסה שנייה נכשלת', 'ok:false', pg_temp.as_service(format('select public.hdm_billing_claim_checkout(%L, %L)::text', ck[1], 'morning-charge:' || ck[1])));
   r := pg_temp.as_service('select public.hdm_billing_pending_card_checkouts(50)::text');
-  perform pg_temp.chk('תפיסה', 'הניסיון שנתפס כבר לא ברשימה', 'f', (r like '%' || ck[1] || '%')::text);
+  perform pg_temp.chk('תפיסה', 'הניסיון שנתפס כבר לא ברשימה', 'false', (r like '%' || ck[1] || '%')::text);
   perform pg_temp.chk('מנוי', 'אף מנוי לא הופעל בבדיקה', '0', (select count(*)::text from public.hdm_subscriptions where profile_id = any(p) and plan <> 'free'));
 end $$;
 select n, area as "תחום", name as "בדיקה", exp as "צפוי", got as "התקבל", case when ok then '✅' else '❌' end as "עבר" from t_res order by n;
