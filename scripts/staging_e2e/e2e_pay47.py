@@ -97,28 +97,29 @@ print(f'ריצה {RUN}', flush=True)
 code = 1
 try:
     create()
-    # ---------------- א. השרת (Staging, הקוד של PR #47, סליקה כבויה) ----------------
-    st, b = http('POST', '/functions/v1/morning-checkout', {'checkoutId': str(uuid.uuid4()), 'origin': 'https://haimderechmisparim.com'})
-    check('שרת: בלי התחברות → 401', st == 401, [st, b])
-    st, tok = http('POST', '/auth/v1/token?grant_type=password', {'email': EMAIL, 'password': PW})
-    jwt = tok.get('access_token', '')
-    st, b = http('POST', '/functions/v1/morning-checkout', {'checkoutId': str(uuid.uuid4()), 'origin': 'https://haimderechmisparim.com'}, {'authorization': f'Bearer {jwt}'})
-    check('שרת: משתמש שלא ברשימת הבדיקה → 403, בלי פנייה ל-Morning', st == 403 and b.get('error') == 'not_open', [st, b])
-    # ניסיון ממתין "ישן" עם לקוח Morning — מה שהמשימה המתוזמנת הייתה משלימה. כשהסליקה כבויה — לא נוגעת.
-    uid = sql(f"select auth_user_id from public.hdm_accounts where profile_id='{PID}'")
-    ck = sql(f"""insert into public.hdm_checkouts (user_id, profile_id, plan, amount_agorot, terms_version, created_at, expires_at)
-                 values ('{uid}', '{PID}', 'plus', 4890, public.hdm_billing_current_terms(), now() - interval '3 minutes', now() + interval '20 minutes') returning id""").splitlines()[0]
-    sql(f"insert into public.hdm_billing_customers (profile_id, morning_client_id) values ('{PID}', 'p47-fake-{RUN}')")
-    st, b = http('POST', '/functions/v1/hdm-billing-worker', {}, {'x-hdm-cron': 'wrong'})
-    check('משימה מתוזמנת: בלי הסוד → 401', st == 401, [st, b])
-    if CRON:
-        st, b = http('POST', '/functions/v1/hdm-billing-worker', {}, {'x-hdm-cron': CRON})
-        cards = (b or {}).get('cards')
-        check('משימה מתוזמנת: רצה עם הקוד החדש ומדלגת כשהסליקה כבויה (MORNING_OFF)', st in (200, 500) and isinstance(cards, dict) and cards.get('skipped') in ('MORNING_OFF', 'dry_run'), [st, b])
-    row = sql(f"select status || '|' || coalesce(grow_process_id,'∅') from public.hdm_checkouts where id='{ck}'")
-    check('משימה מתוזמנת: הניסיון לא נתפס ולא שונה, אין תשלום', row == 'pending|∅' and sql(f"select count(*) from public.hdm_payments where profile_id='{PID}'") == '0', row)
-    check('המסלול לא השתנה (חינם)', sql(f"select public.hdm_plan_of('{PID}')") == 'free')
-    sql(f"update public.hdm_checkouts set status='expired', closed_at=now() where id='{ck}'")
+    if not os.environ.get('SKIP_SERVER'):
+        # ---------------- א. השרת (Staging, הקוד של PR #47, סליקה כבויה) ----------------
+        st, b = http('POST', '/functions/v1/morning-checkout', {'checkoutId': str(uuid.uuid4()), 'origin': 'https://haimderechmisparim.com'})
+        check('שרת: בלי התחברות → 401', st == 401, [st, b])
+        st, tok = http('POST', '/auth/v1/token?grant_type=password', {'email': EMAIL, 'password': PW})
+        jwt = tok.get('access_token', '')
+        st, b = http('POST', '/functions/v1/morning-checkout', {'checkoutId': str(uuid.uuid4()), 'origin': 'https://haimderechmisparim.com'}, {'authorization': f'Bearer {jwt}'})
+        check('שרת: משתמש שלא ברשימת הבדיקה → 403, בלי פנייה ל-Morning', st == 403 and b.get('error') == 'not_open', [st, b])
+        # ניסיון ממתין "ישן" עם לקוח Morning — מה שהמשימה המתוזמנת הייתה משלימה. כשהסליקה כבויה — לא נוגעת.
+        uid = sql(f"select auth_user_id from public.hdm_accounts where profile_id='{PID}'")
+        ck = sql(f"""insert into public.hdm_checkouts (user_id, profile_id, plan, amount_agorot, terms_version, created_at, expires_at)
+                     values ('{uid}', '{PID}', 'plus', 4890, public.hdm_billing_current_terms(), now() - interval '3 minutes', now() + interval '20 minutes') returning id""").splitlines()[0]
+        sql(f"insert into public.hdm_billing_customers (profile_id, morning_client_id) values ('{PID}', 'p47-fake-{RUN}')")
+        st, b = http('POST', '/functions/v1/hdm-billing-worker', {}, {'x-hdm-cron': 'wrong'})
+        check('משימה מתוזמנת: בלי הסוד → 401', st == 401, [st, b])
+        if CRON:
+            st, b = http('POST', '/functions/v1/hdm-billing-worker', {}, {'x-hdm-cron': CRON})
+            cards = (b or {}).get('cards')
+            check('משימה מתוזמנת: רצה עם הקוד החדש ומדלגת כשהסליקה כבויה (MORNING_OFF)', st in (200, 500) and isinstance(cards, dict) and cards.get('skipped') in ('MORNING_OFF', 'dry_run'), [st, b])
+        row = sql(f"select status || '|' || coalesce(grow_process_id,'∅') from public.hdm_checkouts where id='{ck}'")
+        check('משימה מתוזמנת: הניסיון לא נתפס ולא שונה, אין תשלום', row == 'pending|∅' and sql(f"select count(*) from public.hdm_payments where profile_id='{PID}'") == '0', row)
+        check('המסלול לא השתנה (חינם)', sql(f"select public.hdm_plan_of('{PID}')") == 'free')
+        sql(f"update public.hdm_checkouts set status='expired', closed_at=now() where id='{ck}'")
 
     # ---------------- ב. הדפדפן (תשובות מדומות — בלי חיוב) ----------------
     CK = str(uuid.uuid4())
