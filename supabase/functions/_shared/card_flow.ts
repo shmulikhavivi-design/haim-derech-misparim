@@ -5,7 +5,7 @@
 // =====================================================================
 import {
   CheckoutInfo, EnvFn, MorningClient, MorningError, PLAN_HE, assertMoneyAllowed, ensureMorningClient, findCardToken, tokenChargeBody,
-  tokenLinkBody, verifyChargeDocument,
+  appBase, returnBaseFor, tokenLinkBody, verifyChargeDocument,
 } from './morning.ts';
 
 export interface FlowDb {
@@ -27,7 +27,7 @@ export async function customerFor(m: MorningClient, db: FlowDb, c: CheckoutInfo)
   return id;
 }
 
-export async function runCardCheckout(step: 'start' | 'complete', c: CheckoutInfo, m: MorningClient, env: EnvFn, db: FlowDb): Promise<FlowResult> {
+export async function runCardCheckout(step: 'start' | 'complete', c: CheckoutInfo, m: MorningClient, env: EnvFn, db: FlowDb, origin?: unknown): Promise<FlowResult> {
   assertMoneyAllowed(env);
   const clientId = await customerFor(m, db, c);
   let token = c.token ?? null;
@@ -37,7 +37,16 @@ export async function runCardCheckout(step: 'start' | 'complete', c: CheckoutInf
   }
   if (!token) {
     if (step === 'complete') return { status: 202, body: { mode: 'waiting' } };
-    const link = await m.createTokenLink(tokenLinkBody(env, clientId, c)) as Record<string, unknown>;
+    // חוזרים לאותה כתובת שממנה הלקוח יצא (שם הוא מחובר). אם Morning דוחה את הכתובת — פעם אחת עם HDM_APP_URL. קישור לא מחייב.
+    const base = returnBaseFor(env, origin);
+    let link: Record<string, unknown>;
+    try {
+      link = await m.createTokenLink(tokenLinkBody(env, clientId, c, base)) as Record<string, unknown>;
+    } catch (e) {
+      if (!(e instanceof MorningError && e.code === 'REJECTED') || base === appBase(env)) throw e;
+      db.log?.(`token link rejected for return base, retrying with HDM_APP_URL: ${e.message.slice(0, 200)}`);
+      link = await m.createTokenLink(tokenLinkBody(env, clientId, c)) as Record<string, unknown>;
+    }
     const url = typeof link.url === 'string' ? link.url : '';
     if (!/^https:\/\//.test(url)) throw new MorningError('NO_URL', 'Morning לא החזירה קישור לשמירת כרטיס');
     return { status: 200, body: { mode: 'redirect', url } };
@@ -60,4 +69,31 @@ export async function runCardCheckout(step: 'start' | 'complete', c: CheckoutInf
   }
   const result = await db.applyEvent(event);
   return { status: 200, body: { mode: event.outcome === 'approved' ? 'charged' : 'failed', result } };
+}
+
+// ---------------------------------------------------------------------
+// השלמה בצד השרת (26.10): הלקוח שמר כרטיס אצל Grow ואז סגר את הדף / לא חזר / חזר בלי חיבור.
+// המשימה המתוזמנת (hdm-billing-worker, כל 5 דקות) עוברת על ניסיונות ממתינים ומשלימה אותם בדיוק כמו "השלמת התשלום":
+// אותה תפיסה אטומית (חיוב אחד לכל ניסיון, גם במקביל לדפדפן), הפעלה רק אחרי אישור מ-Morning ואימות המסמך.
+// לא נוגעים בניסיון שפג, שכבר נתפס, שאין לו לקוח Morning (לא יוצרים לקוחות מכאן), או שנפתח לפני פחות מדקה.
+// ---------------------------------------------------------------------
+export interface SweepSummary { charged: number; failed: number; waiting: number; processing: number; skipped: number }
+export async function sweepCardCheckouts(list: CheckoutInfo[], m: MorningClient, env: EnvFn, db: FlowDb, now = Date.now()): Promise<SweepSummary> {
+  const sum: SweepSummary = { charged: 0, failed: 0, waiting: 0, processing: 0, skipped: 0 };
+  assertMoneyAllowed(env);
+  for (const c of list) {
+    const pid = String((c as unknown as Record<string, unknown>).processId ?? '');
+    const young = now - Date.parse(c.createdAt) < 60_000;
+    if (!c || c.status !== 'pending' || c.expired || Date.parse(c.expiresAt) <= now || pid || c.token || young) { sum.skipped++; continue; }
+    if (!await db.customerId(c.profileId)) { sum.skipped++; continue; }
+    try {
+      const r = await runCardCheckout('complete', c, m, env, db);
+      const mode = String(r.body.mode);
+      if (mode === 'charged') sum.charged++; else if (mode === 'failed') sum.failed++;
+      else if (mode === 'waiting') sum.waiting++; else sum.processing++;
+    } catch (e) {
+      sum.processing++; db.log?.(`sweep ${c.id}: ${e instanceof Error ? e.message.slice(0, 200) : ''}`);
+    }
+  }
+  return sum;
 }

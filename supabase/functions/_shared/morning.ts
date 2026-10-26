@@ -301,9 +301,36 @@ export async function ensureMorningClient(m: MorningClient, email: string | null
   return c.id;
 }
 
+// ---------------------------------------------------------------------
+// כתובת החזרה מדף Grow (תקלה 26.10): הלקוח חייב לחזור לאותה כתובת שבה הוא מחובר. ההתחברות נשמרת בדפדפן לפי כתובת,
+// ולכן חזרה ל-pages.dev ממי שמחובר ב-haimderechmisparim.com מגיעה בלי חיבור — הכרטיס נשמר אצל Grow אבל החיוב לא הושלם.
+// הדפדפן שולח את ה-origin שלו; השרת מקבל רק כתובות מרשימה סגורה, אחרת HDM_APP_URL.
+// ---------------------------------------------------------------------
+export const PROD_RETURN_BASES = [
+  'https://haimderechmisparim.com',
+  'https://www.haimderechmisparim.com',
+  'https://haim-derech-misparim.pages.dev',
+  'https://shmulikhavivi-design.github.io/haim-derech-misparim',
+];
+export const appBase = (env: EnvFn) => (env('HDM_APP_URL') || '').trim().replace(/\/+$/, '');
+
+/** בסיס כתובת החזרה לפי ה-origin של הדפדפן — רק מהרשימה (HDM_RETURN_BASES, או ברירת המחדל ב-Production). אחרת HDM_APP_URL. */
+export function returnBaseFor(env: EnvFn, origin: unknown): string {
+  const fallback = appBase(env);
+  if (typeof origin !== 'string' || !/^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(origin.trim())) return fallback;
+  const o = origin.trim().toLowerCase();
+  const fromEnv = env('HDM_RETURN_BASES').split(',').map((x) => x.trim().replace(/\/+$/, '')).filter(Boolean);
+  const list = fromEnv.length ? fromEnv : (env('HDM_ENV') === 'production' ? PROD_RETURN_BASES : []);
+  for (const b of list) {
+    if (!/^https:\/\//i.test(b)) continue;
+    if (new URL(b).origin.toLowerCase() === o) return b;
+  }
+  return fallback;
+}
+
 /** גוף הבקשה לקישור שמירת הכרטיס. externalKey חייב להיות מזהה תקין — מזהה הלקוח ב-Morning (נבדק מול Production 22.10). */
-export function tokenLinkBody(env: EnvFn, clientId: string, ck: { id: string }): Record<string, unknown> {
-  const app = (env('HDM_APP_URL') || '').replace(/\/+$/, '');
+export function tokenLinkBody(env: EnvFn, clientId: string, ck: { id: string }, base?: string): Record<string, unknown> {
+  const app = (base || appBase(env)).replace(/\/+$/, '');
   return {
     lang: 'he',
     pluginId: env('MORNING_PLUGIN_ID') || undefined,

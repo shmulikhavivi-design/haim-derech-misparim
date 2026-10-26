@@ -58,7 +58,7 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|install36|tests37|e2eworker|install34|tests35|e2ealerts|install32|tests33|e2ecard|install30|tests31|e2evip|keynames|e2emorning|check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|install36|tests37|e2eworker|install34|tests35|e2ealerts|install32|tests33|e2ecard|install30|tests31|e2evip|keynames|e2emorning|check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
@@ -66,12 +66,12 @@ jobs:
         run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
 
       - uses: actions/setup-python@v6
-        if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2efreelevel' || steps.mode.outputs.mode == 'e2etargetmark' || steps.mode.outputs.mode == 'e2elivecode' || steps.mode.outputs.mode == 'e2eautoupdate' || steps.mode.outputs.mode == 'e2enoempty' || steps.mode.outputs.mode == 'e2elivefinal' || steps.mode.outputs.mode == 'e2egolive' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
+        if: steps.mode.outputs.mode == 'e2epay' || steps.mode.outputs.mode == 'e2eage' || steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2efreelevel' || steps.mode.outputs.mode == 'e2etargetmark' || steps.mode.outputs.mode == 'e2elivecode' || steps.mode.outputs.mode == 'e2eautoupdate' || steps.mode.outputs.mode == 'e2enoempty' || steps.mode.outputs.mode == 'e2elivefinal' || steps.mode.outputs.mode == 'e2egolive' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
         with:
           python-version: '3.12'
 
       - name: Browser (e2e only)
-        if: steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2efreelevel' || steps.mode.outputs.mode == 'e2etargetmark' || steps.mode.outputs.mode == 'e2elivecode' || steps.mode.outputs.mode == 'e2eautoupdate' || steps.mode.outputs.mode == 'e2enoempty' || steps.mode.outputs.mode == 'e2elivefinal' || steps.mode.outputs.mode == 'e2egolive' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
+        if: steps.mode.outputs.mode == 'e2epay' || steps.mode.outputs.mode == 'e2eage' || steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2efreelevel' || steps.mode.outputs.mode == 'e2etargetmark' || steps.mode.outputs.mode == 'e2elivecode' || steps.mode.outputs.mode == 'e2eautoupdate' || steps.mode.outputs.mode == 'e2enoempty' || steps.mode.outputs.mode == 'e2elivefinal' || steps.mode.outputs.mode == 'e2egolive' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
         run: |
           python3 -m pip install --quiet playwright==1.55.0 pillow
           timeout 360 python3 -m playwright install --with-deps chromium || timeout 300 python3 -m playwright install chromium
@@ -116,11 +116,11 @@ jobs:
           echo "::notice title=e2egrow-deploy::$(printf '%s' "$OUT" | grep -iE 'deployed|function' | tail -n 6 | tr '\n' ' ' | cut -c1-500)"
       # ---- e2emorning: פריסת פונקציות Morning ל-Staging (הסליקה כבויה) + בדיקות כניסה + Sandbox של Morning אם יש מפתחות ----
       - name: Morning e2e — setup CLI
-        if: contains(fromJSON('["e2emorning","e2eflow","e2eworker"]'), steps.mode.outputs.mode)
+        if: contains(fromJSON('["e2emorning","e2eflow","e2eworker","e2epay"]'), steps.mode.outputs.mode)
         uses: supabase/setup-cli@v1
         with: { version: latest }
       - name: Morning e2e — deploy to Staging (charging off)
-        if: contains(fromJSON('["e2emorning","e2eflow"]'), steps.mode.outputs.mode)
+        if: contains(fromJSON('["e2emorning","e2eflow","e2epay"]'), steps.mode.outputs.mode)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
           SBX_ID: ${{ steps.mode.outputs.mode == 'e2emorning' && secrets.MORNING_SANDBOX_CLIENT_ID || '' }}
@@ -152,7 +152,8 @@ jobs:
           report(){ printf '::error title=e2emorning-%s::%s\n' "$1" "$(printf '%s' "$2" | grep -vE 'eyJ|sb_secret|sbp_' | tail -n 8 | tr '\n' ' ' | cut -c1-600)"; }
           OUT=$(supabase secrets set --project-ref "$REF" --env-file "$F" 2>&1) || { rm -f "$F"; report secrets "$OUT"; exit 1; }
           rm -f "$F"
-          OUT=$(supabase functions deploy morning-checkout morning-webhook morning-renewals --project-ref "$REF" --use-api --no-verify-jwt 2>&1) || { report deploy "$OUT"; exit 1; }
+          FNS="morning-checkout morning-webhook morning-renewals"; [ "${{ steps.mode.outputs.mode }}" = e2epay ] && FNS="$FNS hdm-billing-worker"
+          OUT=$(supabase functions deploy $FNS --project-ref "$REF" --use-api --no-verify-jwt 2>&1) || { report deploy "$OUT"; exit 1; }
           echo "::notice title=e2emorning-deploy::$(printf '%s' "$OUT" | grep -iE 'deployed|function' | tail -n 6 | tr '\n' ' ' | cut -c1-500)"
           sleep 5
       # ---- e2eworker: פונקציית מיילי הביטול ב-Staging עם מפתח Brevo לא תקף בכוונה (שום מייל לא נשלח) ----
@@ -275,7 +276,7 @@ jobs:
         run: bash scripts/staging_db/run.sh "$RUN_MODE"
 
       - name: Morning e2e — rotate test secrets, charging stays off (always)
-        if: always() && contains(fromJSON('["e2emorning","e2eflow"]'), steps.mode.outputs.mode)
+        if: always() && contains(fromJSON('["e2emorning","e2eflow","e2epay"]'), steps.mode.outputs.mode)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
         run: |
