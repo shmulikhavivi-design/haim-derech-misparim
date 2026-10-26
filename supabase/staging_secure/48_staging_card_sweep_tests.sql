@@ -64,6 +64,10 @@ begin
   r := pg_temp.as_service('select public.hdm_billing_pending_card_checkouts(50)::text');
   perform pg_temp.chk('תפיסה', 'הניסיון שנתפס כבר לא ברשימה', 'false', (r like '%' || ck[1] || '%')::text);
   perform pg_temp.chk('מנוי', 'אף מנוי לא הופעל בבדיקה', '0', (select count(*)::text from public.hdm_subscriptions where profile_id = any(p) and plan <> 'free'));
+  -- חזרה לאחור: שורת הביטול עובדת (בתוך הבדיקה — מתבטל בסוף, הפונקציה נשארת)
+  drop function public.hdm_billing_pending_card_checkouts(int);
+  perform pg_temp.chk('חזרה לאחור', 'שורת הביטול מסירה את הפונקציה', 'true', (to_regprocedure('public.hdm_billing_pending_card_checkouts(int)') is null)::text);
+  perform pg_temp.chk('חזרה לאחור', 'אחרי הביטול — התפיסה האטומית עדיין עובדת', 'ok:false', pg_temp.as_service(format('select public.hdm_billing_claim_checkout(%L, %L)::text', ck[1], 'x')));
 end $$;
 select n, area as "תחום", name as "בדיקה", exp as "צפוי", got as "התקבל", case when ok then '✅' else '❌' end as "עבר" from t_res order by n;
 select 'סיכום: עברו ' || count(*) filter (where ok) || ' מתוך ' || count(*) as "סיכום" from t_res;
