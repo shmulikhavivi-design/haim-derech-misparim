@@ -37,7 +37,7 @@ begin
   perform pg_temp.chk('הכנה', 'נפתחו 6 ניסיונות הצטרפות', '6', (select count(*)::text from public.hdm_checkouts where id = any(ck) and status = 'pending'));
   -- מצבים: due = ממתין לשמירת כרטיס (צריך להופיע); כל השאר — אסור
   update public.hdm_checkouts set created_at = now() - interval '3 minutes' where id = any(ck) and id <> ck[2];
-  insert into public.hdm_billing_customers (profile_id, morning_client_id) select p[i], pfx || '-cl-' || i from generate_series(1, 6) i where i <> 3;
+  insert into public.hdm_billing_customers (profile_id, morning_client_id) select p[g], pfx || '-cl-' || g from generate_series(1, 6) g where g <> 3;
   insert into public.hdm_billing_tokens (profile_id, grow_token, card_last4) values (p[4], pfx || '-tok', '4580');
   update public.hdm_checkouts set grow_process_id = 'morning-charge:' || id where id = ck[5];
   update public.hdm_checkouts set expires_at = now() - interval '1 second' where id = ck[6];
