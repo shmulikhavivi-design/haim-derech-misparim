@@ -70,3 +70,30 @@ export async function runCardCheckout(step: 'start' | 'complete', c: CheckoutInf
   const result = await db.applyEvent(event);
   return { status: 200, body: { mode: event.outcome === 'approved' ? 'charged' : 'failed', result } };
 }
+
+// ---------------------------------------------------------------------
+// השלמה בצד השרת (26.10): הלקוח שמר כרטיס אצל Grow ואז סגר את הדף / לא חזר / חזר בלי חיבור.
+// המשימה המתוזמנת (hdm-billing-worker, כל 5 דקות) עוברת על ניסיונות ממתינים ומשלימה אותם בדיוק כמו "השלמת התשלום":
+// אותה תפיסה אטומית (חיוב אחד לכל ניסיון, גם במקביל לדפדפן), הפעלה רק אחרי אישור מ-Morning ואימות המסמך.
+// לא נוגעים בניסיון שפג, שכבר נתפס, שאין לו לקוח Morning (לא יוצרים לקוחות מכאן), או שנפתח לפני פחות מדקה.
+// ---------------------------------------------------------------------
+export interface SweepSummary { charged: number; failed: number; waiting: number; processing: number; skipped: number }
+export async function sweepCardCheckouts(list: CheckoutInfo[], m: MorningClient, env: EnvFn, db: FlowDb, now = Date.now()): Promise<SweepSummary> {
+  const sum: SweepSummary = { charged: 0, failed: 0, waiting: 0, processing: 0, skipped: 0 };
+  assertMoneyAllowed(env);
+  for (const c of list) {
+    const pid = String((c as unknown as Record<string, unknown>).processId ?? '');
+    const young = now - Date.parse(c.createdAt) < 60_000;
+    if (!c || c.status !== 'pending' || c.expired || Date.parse(c.expiresAt) <= now || pid || c.token || young) { sum.skipped++; continue; }
+    if (!await db.customerId(c.profileId)) { sum.skipped++; continue; }
+    try {
+      const r = await runCardCheckout('complete', c, m, env, db);
+      const mode = String(r.body.mode);
+      if (mode === 'charged') sum.charged++; else if (mode === 'failed') sum.failed++;
+      else if (mode === 'waiting') sum.waiting++; else sum.processing++;
+    } catch (e) {
+      sum.processing++; db.log?.(`sweep ${c.id}: ${e instanceof Error ? e.message.slice(0, 200) : ''}`);
+    }
+  }
+  return sum;
+}

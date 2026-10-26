@@ -13,6 +13,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { CheckoutInfo, MorningClient, MorningError, PLAN_HE, assertMoneyAllowed, findCardToken, tokenChargeBody } from '../_shared/morning.ts';
 import { FlowDb, runCardCheckout } from '../_shared/card_flow.ts';
+import { makeFlowDb } from '../_shared/flow_db.ts';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
@@ -24,21 +25,8 @@ const CORS = {
 const reply = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } });
 
-async function claim(id: string, ref: string): Promise<boolean> {
-  const { data, error } = await admin.rpc('hdm_billing_claim_checkout', { p_checkout: id, p_process_id: ref });
-  if (error) throw error;
-  return data === true;
-}
-
-const flowDb: FlowDb = {
-  async customerId(pid) { const { data } = await admin.from('hdm_billing_customers').select('morning_client_id').eq('profile_id', pid).maybeSingle(); return (data?.morning_client_id as string) ?? null; },
-  async saveCustomer(pid, id) { const { error } = await admin.from('hdm_billing_customers').upsert({ profile_id: pid, morning_client_id: id }); if (error) throw error; },
-  async profileName(pid) { const { data } = await admin.from('docs').select('data').eq('collection', 'profiles').eq('id', pid).maybeSingle(); return String(((data?.data ?? {}) as Record<string, unknown>).currentName ?? '').trim(); },
-  async saveToken(pid, tok, last4) { const { error } = await admin.rpc('hdm_billing_save_token', { p_profile: pid, p_token: tok, p_last4: last4 }); if (error) throw error; },
-  claim,
-  async applyEvent(ev) { const { data, error } = await admin.rpc('hdm_billing_apply_grow_event', { p: ev }); if (error) throw error; return ((data as Record<string, unknown>)?.result as string) ?? null; },
-  log(msg) { console.error('morning-checkout:', msg); },
-};
+const flowDb: FlowDb = makeFlowDb(admin, 'morning-checkout');
+const claim = (id: string, ref: string) => flowDb.claim(id, ref);
 
 // מנוי בתשלום קיים בלי כרטיס שמור (למשל תשלום ראשון בדף תשלום): מקשר את הכרטיס שהלקוח שמר אצל Grow. בלי חיוב.
 async function syncCard(userId: string): Promise<Response> {

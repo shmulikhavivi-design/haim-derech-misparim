@@ -2,7 +2,7 @@
 // הרצה: deno test --no-check supabase/functions/_shared/card_flow_test.ts
 import { strict as A } from 'node:assert';
 import { CheckoutInfo, MorningClient, MorningError, PROD_API, SANDBOX_API, tokenChargeBody } from './morning.ts';
-import { FlowDb, runCardCheckout } from './card_flow.ts';
+import { FlowDb, runCardCheckout, sweepCardCheckouts } from './card_flow.ts';
 import { returnBaseFor } from './morning.ts';
 
 const envOf = (o: Record<string, string>) => (k: string) => o[k] ?? '';
@@ -236,4 +236,63 @@ Deno.test('26.10: ניסיון שפג אחרי ששמרו כרטיס — אין 
   D.st.claims.add(CK().id);                             // במסד: ניסיון שפג אינו ניתן לתפיסה (status<>'pending' / expires_at<=now)
   const r = await runCardCheckout('complete', CK({ expired: true, status: 'expired' }), m, envOf(PROD_LIKE), D.db);
   A.equal(r.body.mode, 'processing'); A.equal(M.st.chargeAttempts, 0); A.equal(D.st.events.length, 0);
+});
+
+// ---------------------------------------------------------------------
+// השלמה בצד השרת: הלקוח שמר כרטיס וסגר את הדף — המשימה המתוזמנת משלימה, פעם אחת בלבד
+// ---------------------------------------------------------------------
+const OLD = () => new Date(Date.now() - 3 * 60_000).toISOString();
+
+Deno.test('סגר את הדף אחרי שמירת הכרטיס → המשימה המתוזמנת מחייבת פעם אחת ומפעילה רק אחרי אישור', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  const c = CK({ plan: 'plus', amountAgorot: 4890, createdAt: OLD() });
+  await runCardCheckout('start', c, m, env, D.db, 'https://haimderechmisparim.com');
+  M.saveCard('cl-1');
+  const s1 = await sweepCardCheckouts([c], m, env, D.db);
+  A.equal(s1.charged, 1); A.equal(M.st.charges, 1);
+  A.equal(D.st.events.length, 1); A.equal(D.st.events[0].outcome, 'approved'); A.equal(D.st.events[0].checkoutId, c.id);
+  const s2 = await sweepCardCheckouts([c], m, env, D.db);          // ריצה חוזרת של המשימה
+  A.equal(M.st.chargeAttempts, 1); A.equal(s2.charged, 0);
+});
+
+Deno.test('המשימה והדפדפן במקביל (חזרה מאוחרת מ-Grow) → חיוב אחד בלבד', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  const c = CK({ createdAt: OLD() });
+  await runCardCheckout('start', c, m, env, D.db, 'https://haimderechmisparim.com');
+  M.saveCard('cl-1');
+  const [sw, b1, b2] = await Promise.all([sweepCardCheckouts([c], m, env, D.db),
+    runCardCheckout('complete', c, m, env, D.db), runCardCheckout('complete', c, m, env, D.db)]);
+  A.equal(M.st.chargeAttempts, 1); A.equal(M.st.charges, 1); A.equal(D.st.events.length, 1);
+  A.equal(sw.charged + [b1, b2].filter((r) => r.body.mode === 'charged').length, 1);
+});
+
+Deno.test('המשימה לא נוגעת: עדיין בדף של Grow / ניסיון שפג / נתפס כבר / בלי לקוח Morning / נפתח לפני פחות מדקה', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  const c = CK({ createdAt: OLD() });
+  await runCardCheckout('start', c, m, env, D.db, 'https://haimderechmisparim.com');
+  const w = await sweepCardCheckouts([c], m, env, D.db);            // הכרטיס עוד לא נשמר
+  A.equal(w.waiting, 1); A.equal(M.st.chargeAttempts, 0);
+  M.saveCard('cl-1');
+  const cases = [CK({ createdAt: OLD(), expired: true }), CK({ createdAt: OLD(), expiresAt: new Date(Date.now() - 1000).toISOString() }),
+                 CK({ createdAt: OLD(), status: 'paid' }), { ...CK({ createdAt: OLD() }), processId: 'morning-charge:x' } as unknown as CheckoutInfo,
+                 CK({ createdAt: OLD(), profileId: 'no-customer' }), CK({ createdAt: new Date().toISOString() })];
+  const s = await sweepCardCheckouts(cases, m, env, D.db);
+  A.equal(s.skipped, cases.length); A.equal(M.st.chargeAttempts, 0); A.equal(M.st.clients.length, 1);   // לא נוצר לקוח חדש
+});
+
+Deno.test('המקרה של 26.10: כרטיס שמור + ניסיון שפג → המשימה לא מחייבת את הלקוח', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  D.st.customers.set('p1', 'cl-1'); M.saveCard('cl-1');
+  const s = await sweepCardCheckouts([CK({ plan: 'plus', amountAgorot: 4890, createdAt: OLD(), status: 'expired', expired: true })], m, env, D.db);
+  A.equal(s.skipped, 1); A.equal(M.st.chargeAttempts, 0); A.equal(D.st.events.length, 0);
+});
+
+Deno.test('כרטיס נדחה במשימה → כישלון, המנוי לא מופעל; סליקה כבויה → לא נשלח כלום', async () => {
+  const M = fakeMorning({ decline: true }), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f);
+  D.st.customers.set('p1', 'cl-1'); M.saveCard('cl-1');
+  const s = await sweepCardCheckouts([CK({ createdAt: OLD() })], m, envOf(PROD_LIKE), D.db);
+  A.equal(s.failed, 1); A.ok(!D.st.events.some((e) => e.outcome === 'approved'));
+  const M2 = fakeMorning(), off = { ...PROD_LIKE, MORNING_LIVE: '0' };
+  await A.rejects(sweepCardCheckouts([CK({ createdAt: OLD() })], new MorningClient(envOf(off), M2.f), envOf(off), fakeDb().db), MorningError);
+  A.equal(M2.st.bodies.length, 0);
 });
