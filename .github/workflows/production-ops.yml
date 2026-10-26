@@ -20,7 +20,7 @@ jobs:
         env: { COMMIT_MSG: '${{ github.event.head_commit.message }}' }
         run: |
           mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[prod:\([a-z]*\)\].*/\1/p'); mode="${mode:-check}"
-          case "$mode" in sqlsweep|postdeploy|fndeployonly|fnrollback|backupnow|fntokcheck|livefoureight|tokprobe|custnow|grantcheck|agediag|paydiagthree|paydiagtwo|chaindiag|freeverify|freerehearse|freeapply|resendswitch|wallaretest|maildomaincheck|domainprep|signupdiag|adminhealthrehearse|smtpgmailtest|smtpbackup|custcheck|livecheckthree|livechecktwo|goliveapply|livecheck|termsrehearse|stagebready|stagecverify|mailtest|mailchain|ownerrenewoff|postadmin|launchcheck|hideapply|adminpreview|hiderehearse|ownerhidecheck|adminapply|adminrehearse|incidentnine|incidenteight|incidentseven|incidentsix|incidentfive|incidentfour|incidentthree|incidenttwo|incident|stagecapply|stagecrehearse|readiness|cronnow|stagearehearse|stageaapply|ownercardsync|cardlink|paycheck|payreplay|secretfix|secretcmp|paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
+          case "$mode" in tokaudit|sqlsweep|postdeploy|fndeployonly|fnrollback|backupnow|fntokcheck|livefoureight|tokprobe|custnow|grantcheck|agediag|paydiagthree|paydiagtwo|chaindiag|freeverify|freerehearse|freeapply|resendswitch|wallaretest|maildomaincheck|domainprep|signupdiag|adminhealthrehearse|smtpgmailtest|smtpbackup|custcheck|livecheckthree|livechecktwo|goliveapply|livecheck|termsrehearse|stagebready|stagecverify|mailtest|mailchain|ownerrenewoff|postadmin|launchcheck|hideapply|adminpreview|hiderehearse|ownerhidecheck|adminapply|adminrehearse|incidentnine|incidenteight|incidentseven|incidentsix|incidentfive|incidentfour|incidentthree|incidenttwo|incident|stagecapply|stagecrehearse|readiness|cronnow|stagearehearse|stageaapply|ownercardsync|cardlink|paycheck|payreplay|secretfix|secretcmp|paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon|secrets) ;; *) echo "unknown mode $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
       - name: Secret names (presence only)
         if: steps.mode.outputs.mode == 'secrets'
@@ -95,6 +95,22 @@ jobs:
           GH_RESEND_KEY: ${{ steps.mode.outputs.mode == 'resendswitch' && secrets.PRODUCTION_RESEND_API_KEY || '' }}
           FN_TOK: ${{ (steps.mode.outputs.mode == 'fntokcheck' || steps.mode.outputs.mode == 'backupnow' || steps.mode.outputs.mode == 'fndeployonly' || steps.mode.outputs.mode == 'fnrollback' || steps.mode.outputs.mode == 'postdeploy') && secrets.PRODUCTION_FUNCTIONS_TOKEN || '' }}
           DBW_TOK: ${{ steps.mode.outputs.mode == 'sqlsweep' && secrets.PRODUCTION_DB_WRITE_TOKEN || '' }}
+          TA_PRODUCTION_SUPABASE_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PRODUCTION_SUPABASE_TOKEN || '' }}
+          TA_PRODUCTION_FUNCTIONS_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PRODUCTION_FUNCTIONS_TOKEN || '' }}
+          TA_PRODUCTION_DB_WRITE_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PRODUCTION_DB_WRITE_TOKEN || '' }}
+          TA_SUPABASE_ACCESS_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.SUPABASE_ACCESS_TOKEN || '' }}
+          TA_SUPABASE_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.SUPABASE_TOKEN || '' }}
+          TA_SUPABASE_PAT: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.SUPABASE_PAT || '' }}
+          TA_SUPABASE_MANAGEMENT_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.SUPABASE_MANAGEMENT_TOKEN || '' }}
+          TA_PRODUCTION_DB_URL: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PRODUCTION_DB_URL || '' }}
+          TA_PROD_DB_URL: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PROD_DB_URL || '' }}
+          TA_SUPABASE_DB_URL: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.SUPABASE_DB_URL || '' }}
+          TA_DATABASE_URL: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.DATABASE_URL || '' }}
+          TA_DB_URL: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.DB_URL || '' }}
+          TA_SUPABASE_DB_PASSWORD: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.SUPABASE_DB_PASSWORD || '' }}
+          TA_PRODUCTION_DB_PASSWORD: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PRODUCTION_DB_PASSWORD || '' }}
+          TA_SUPABASE_SERVICE_ROLE_KEY: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}
+          TA_SUPABASE_SECRET_KEY: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.SUPABASE_SECRET_KEY || '' }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: bash scripts/production/run.sh "${{ steps.mode.outputs.mode }}"
       - name: Upload smoke screenshots
