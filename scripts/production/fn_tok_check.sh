@@ -20,7 +20,7 @@ ann notice "fn-token" "$L"
 [ -n "$FN" ] && ann notice "fn-deployed" "$FN"
 if [ "$C2" = 200 ]; then
   cmp1(){ local want have; want=$(printf '%s' "$2" | sha256sum | cut -d' ' -f1); have=$(jq -r --arg n "$1" '.[] | select(.name==$n) | .value' /tmp/fc.json)
-    if [ -z "$have" ]; then echo "$1=חסר"; elif [ "$want" = "$have" ]; then echo "$1=$3✅"; else echo "$1=$3שונה"; fi; }
+    if [ -z "$have" ]; then echo "$1=חסר"; elif [ "$want" = "$have" ]; then echo "$1=${3:-}✅"; else echo "$1=${3:-}שונה"; fi; }
   jq '.' /tmp/fc.json > /tmp/sec.json; cp /tmp/sec.json /tmp/fc.json
   S="$(cmp1 HDM_ENV production) | $(cmp1 MORNING_LIVE 1) | $(cmp1 MORNING_API_BASE https://api.greeninvoice.co.il/api/v1) | $(cmp1 MORNING_PLUGIN_ID 53ed9395-02de-4902-a1dd-28dd3f74a5fa) | $(cmp1 DRY_RUN 0)"
   S="$S | $(cmp1 HDM_APP_URL https://haim-derech-misparim.pages.dev 'pages.dev ') | $(cmp1 HDM_APP_URL https://haimderechmisparim.com 'דומיין ')"
