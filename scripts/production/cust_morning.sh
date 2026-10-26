@@ -8,5 +8,6 @@ ann notice "cm-db" "$D"
 CID=$(q "select morning_client_id from public.hdm_billing_customers where profile_id='$P'" | jq -r '.[0].morning_client_id // empty'); echo "::add-mask::${CID:-x}"
 command -v deno >/dev/null || { curl -fsSL https://deno.land/install.sh | sh -s -- -y >/dev/null 2>&1; export PATH="$HOME/.deno/bin:$PATH"; }
 echo "::add-mask::${MORNING_CLIENT_SECRET:-x}"
-CID="$CID" deno run --allow-net=api.morning.co,api.greeninvoice.co.il --allow-env --allow-read "$ROOT/scripts/production/cust_morning.ts" 2>&1 | grep '::notice' || ann notice "cm-morning" "בדיקת Morning לא רצה"
+CEMAIL=$(q "select lower(u.email) e from auth.users u join public.hdm_accounts a on a.auth_user_id=u.id where a.profile_id='$P'" | jq -r '.[0].e // empty'); echo "::add-mask::${CEMAIL:-x}"
+CEMAIL="$CEMAIL" CID="$CID" deno run --allow-net=api.morning.co,api.greeninvoice.co.il --allow-env --allow-read "$ROOT/scripts/production/cust_morning.ts" 2>&1 | grep '::notice' || ann notice "cm-morning" "בדיקת Morning לא רצה"
 ann notice "prod-result" "✅ custmorning: קריאה בלבד"
