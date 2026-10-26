@@ -2,7 +2,8 @@
 // הרצה: deno test --no-check supabase/functions/_shared/card_flow_test.ts
 import { strict as A } from 'node:assert';
 import { CheckoutInfo, MorningClient, MorningError, PROD_API, SANDBOX_API, tokenChargeBody } from './morning.ts';
-import { FlowDb, runCardCheckout } from './card_flow.ts';
+import { FlowDb, runCardCheckout, sweepCardCheckouts } from './card_flow.ts';
+import { returnBaseFor } from './morning.ts';
 
 const envOf = (o: Record<string, string>) => (k: string) => o[k] ?? '';
 const LIVE = { MORNING_CLIENT_ID: 'id-1', MORNING_CLIENT_SECRET: 'sec-1', MORNING_API_BASE: SANDBOX_API, MORNING_LIVE: '1',
@@ -14,7 +15,7 @@ const CK = (o: Partial<CheckoutInfo> = {}): CheckoutInfo => ({
   email: 'noa@example.com', token: null, ...o });
 
 // ---- Morning מדומה ----
-function fakeMorning(opts: { decline?: boolean; netFail?: boolean; docStatus?: number; docAmount?: number; existingClient?: boolean } = {}) {
+function fakeMorning(opts: { decline?: boolean; netFail?: boolean; docStatus?: number; docAmount?: number; existingClient?: boolean; rejectReturnHost?: string } = {}) {
   const st = { clients: [] as Record<string, unknown>[], tokens: [] as Record<string, unknown>[], charges: 0, chargeAttempts: 0,
                links: [] as Record<string, unknown>[], bodies: [] as string[], docs: new Map<string, Record<string, unknown>>() };
   if (opts.existingClient) st.clients.push({ id: 'cl-existing', emails: ['noa@example.com'], active: true });
@@ -24,7 +25,9 @@ function fakeMorning(opts: { decline?: boolean; netFail?: boolean; docStatus?: n
     if (url.includes('/oauth/token')) return json({ accessToken: 'AT', expiresAt: 9e9 });
     if (p === '/clients/search') { const em = JSON.parse(body).email; return json({ items: st.clients.filter((c) => (c.emails as string[]).includes(em)) }); }
     if (p === '/clients') { const c = { id: `cl-${st.clients.length + 1}`, ...JSON.parse(body) }; st.clients.push(c); return json(c, 201); }
-    if (p === '/payments/tokens/url') { st.links.push(JSON.parse(body)); return json({ success: true, errorCode: 0, url: 'https://secure.meshulam.co.il/credit-checkout-form?l=x' }); }
+    if (p === '/payments/tokens/url') { const lb = JSON.parse(body); st.links.push(lb);
+      if (opts.rejectReturnHost && String(lb.successUrl).includes(opts.rejectReturnHost)) return json({ errorCode: 1100, errorMessage: 'successUrl לא מורשה' }, 400);
+      return json({ success: true, errorCode: 0, url: 'https://secure.meshulam.co.il/credit-checkout-form?l=x' }); }
     if (p === '/payments/tokens/search') { const k = JSON.parse(body).externalKey; return json({ total: 0, items: st.tokens.filter((t) => t.externalKey === k) }); }
     const ch = /^\/payments\/tokens\/([^/]+)\/charge$/.exec(p);
     if (ch) {
@@ -167,4 +170,129 @@ Deno.test('פרטי כרטיס מלאים לא עוברים ולא נשמרים 
 Deno.test('חידוש חודשי משתמש באותו כרטיס שמור (גוף החיוב)', () => {
   const b = tokenChargeBody('חידוש מנוי בסיסי חודשי — חיים דרך מספרים', 2990) as Record<string, unknown>;
   A.equal(b.amount, 29.9); A.equal(b.type, 320); A.equal(b.maxPayments, 1);
+});
+
+// ---------------------------------------------------------------------
+// תקלה 26.10 — הלקוח מחובר ב-haimderechmisparim.com, ודף Grow החזיר אותו ל-HDM_APP_URL (pages.dev), שם אין לו חיבור.
+// הכרטיס נשמר אצל Grow, אבל "השלמת התשלום" לא הגיעה לשרת → לא חויב, לא הופעל, והוצגה הודעה על פתיחת הדף.
+// ---------------------------------------------------------------------
+const PROD_LIKE = { ...LIVE, HDM_ENV: 'production', HDM_APP_URL: 'https://haim-derech-misparim.pages.dev' };
+
+Deno.test('26.10: החזרה מ-Grow לאותה כתובת שממנה הלקוח יצא (הדומיין החדש) — לא ל-pages.dev', async () => {
+  const M = fakeMorning(), D = fakeDb();
+  const r = await runCardCheckout('start', CK({ plan: 'plus', amountAgorot: 4890 }), new MorningClient(envOf(PROD_LIKE), M.f), envOf(PROD_LIKE), D.db, 'https://haimderechmisparim.com');
+  A.equal(r.body.mode, 'redirect');
+  A.equal(M.st.links[0].successUrl, `https://haimderechmisparim.com/?billing=card&ck=${CK().id}`);
+  A.equal(M.st.chargeAttempts, 0);
+});
+
+Deno.test('26.10: כל אחת מהכתובות הרשמיות חוזרת לעצמה; GitHub Pages כולל את נתיב האפליקציה', () => {
+  const e = envOf(PROD_LIKE);
+  A.equal(returnBaseFor(e, 'https://haimderechmisparim.com'), 'https://haimderechmisparim.com');
+  A.equal(returnBaseFor(e, 'https://www.haimderechmisparim.com'), 'https://www.haimderechmisparim.com');
+  A.equal(returnBaseFor(e, 'https://haim-derech-misparim.pages.dev'), 'https://haim-derech-misparim.pages.dev');
+  A.equal(returnBaseFor(e, 'https://shmulikhavivi-design.github.io'), 'https://shmulikhavivi-design.github.io/haim-derech-misparim');
+});
+
+Deno.test('26.10: כתובת זרה / לא https / חסרה → HDM_APP_URL (אין הפניה פתוחה)', () => {
+  const e = envOf(PROD_LIKE);
+  for (const o of ['https://evil.example', 'http://haimderechmisparim.com', 'https://haimderechmisparim.com.evil.example', 'javascript:alert(1)', '', undefined, 42, 'https://haimderechmisparim.com/x']) {
+    A.equal(returnBaseFor(e, o), 'https://haim-derech-misparim.pages.dev', String(o));
+  }
+});
+
+Deno.test('26.10: Staging (לא production) בלי HDM_RETURN_BASES → תמיד HDM_APP_URL', () => {
+  A.equal(returnBaseFor(envOf({ ...LIVE }), 'https://haimderechmisparim.com'), 'https://app.example');
+  A.equal(returnBaseFor(envOf({ ...LIVE, HDM_RETURN_BASES: 'https://stage.example' }), 'https://stage.example'), 'https://stage.example');
+});
+
+Deno.test('26.10: אם Morning דוחה את כתובת החזרה — ניסיון אחד עם HDM_APP_URL, בלי חיוב', async () => {
+  const M = fakeMorning({ rejectReturnHost: 'haimderechmisparim.com' }), D = fakeDb();
+  const r = await runCardCheckout('start', CK(), new MorningClient(envOf(PROD_LIKE), M.f), envOf(PROD_LIKE), D.db, 'https://haimderechmisparim.com');
+  A.equal(r.body.mode, 'redirect'); A.equal(M.st.links.length, 2);
+  A.equal(M.st.links[1].successUrl, `https://haim-derech-misparim.pages.dev/?billing=card&ck=${CK().id}`);
+  A.equal(M.st.chargeAttempts, 0);
+});
+
+Deno.test('26.10: שחזור המקרה — כרטיס נשמר, ההשלמה לא הגיעה; לחיצה חוזרת על הצטרפות מחייבת פעם אחת ₪48.90 ומפעילה רק אחרי אישור', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  const plus = { plan: 'plus', amountAgorot: 4890 };
+  await runCardCheckout('start', CK(plus), m, env, D.db, 'https://haimderechmisparim.com');
+  M.saveCard('cl-1');                                   // הלקוח שמר כרטיס בדף של Grow; הדפדפן לא השלים
+  A.equal(M.st.chargeAttempts, 0); A.equal(D.st.events.length, 0);
+  const ck2 = CK({ ...plus, id: '99999999-2222-3333-4444-555555555555' });   // ניסיון חדש אחרי שהקודם פג
+  const [a, b] = await Promise.all([runCardCheckout('start', ck2, m, env, D.db, 'https://haimderechmisparim.com'),
+                                    runCardCheckout('complete', ck2, m, env, D.db)]);   // לחיצה + חזרה במקביל
+  A.equal(M.st.chargeAttempts, 1); A.equal(M.st.charges, 1);
+  A.deepEqual([a.body.mode, b.body.mode].sort(), ['charged', 'processing']);
+  A.equal(D.st.events.length, 1); A.equal(D.st.events[0].amountAgorot, 4890); A.equal(D.st.events[0].checkoutId, ck2.id);
+  A.equal(M.st.links.length, 1);                        // לא נפתח דף שמירת כרטיס שני
+});
+
+Deno.test('26.10: ניסיון שפג אחרי ששמרו כרטיס — אין חיוב על הניסיון הישן', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f);
+  await runCardCheckout('start', CK(), m, envOf(PROD_LIKE), D.db, 'https://haimderechmisparim.com');
+  M.saveCard('cl-1');
+  D.st.claims.add(CK().id);                             // במסד: ניסיון שפג אינו ניתן לתפיסה (status<>'pending' / expires_at<=now)
+  const r = await runCardCheckout('complete', CK({ expired: true, status: 'expired' }), m, envOf(PROD_LIKE), D.db);
+  A.equal(r.body.mode, 'processing'); A.equal(M.st.chargeAttempts, 0); A.equal(D.st.events.length, 0);
+});
+
+// ---------------------------------------------------------------------
+// השלמה בצד השרת: הלקוח שמר כרטיס וסגר את הדף — המשימה המתוזמנת משלימה, פעם אחת בלבד
+// ---------------------------------------------------------------------
+const OLD = () => new Date(Date.now() - 3 * 60_000).toISOString();
+
+Deno.test('סגר את הדף אחרי שמירת הכרטיס → המשימה המתוזמנת מחייבת פעם אחת ומפעילה רק אחרי אישור', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  const c = CK({ plan: 'plus', amountAgorot: 4890, createdAt: OLD() });
+  await runCardCheckout('start', c, m, env, D.db, 'https://haimderechmisparim.com');
+  M.saveCard('cl-1');
+  const s1 = await sweepCardCheckouts([c], m, env, D.db);
+  A.equal(s1.charged, 1); A.equal(M.st.charges, 1);
+  A.equal(D.st.events.length, 1); A.equal(D.st.events[0].outcome, 'approved'); A.equal(D.st.events[0].checkoutId, c.id);
+  const s2 = await sweepCardCheckouts([c], m, env, D.db);          // ריצה חוזרת של המשימה
+  A.equal(M.st.chargeAttempts, 1); A.equal(s2.charged, 0);
+});
+
+Deno.test('המשימה והדפדפן במקביל (חזרה מאוחרת מ-Grow) → חיוב אחד בלבד', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  const c = CK({ createdAt: OLD() });
+  await runCardCheckout('start', c, m, env, D.db, 'https://haimderechmisparim.com');
+  M.saveCard('cl-1');
+  const [sw, b1, b2] = await Promise.all([sweepCardCheckouts([c], m, env, D.db),
+    runCardCheckout('complete', c, m, env, D.db), runCardCheckout('complete', c, m, env, D.db)]);
+  A.equal(M.st.chargeAttempts, 1); A.equal(M.st.charges, 1); A.equal(D.st.events.length, 1);
+  A.equal(sw.charged + [b1, b2].filter((r) => r.body.mode === 'charged').length, 1);
+});
+
+Deno.test('המשימה לא נוגעת: עדיין בדף של Grow / ניסיון שפג / נתפס כבר / בלי לקוח Morning / נפתח לפני פחות מדקה', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  const c = CK({ createdAt: OLD() });
+  await runCardCheckout('start', c, m, env, D.db, 'https://haimderechmisparim.com');
+  const w = await sweepCardCheckouts([c], m, env, D.db);            // הכרטיס עוד לא נשמר
+  A.equal(w.waiting, 1); A.equal(M.st.chargeAttempts, 0);
+  M.saveCard('cl-1');
+  const cases = [CK({ createdAt: OLD(), expired: true }), CK({ createdAt: OLD(), expiresAt: new Date(Date.now() - 1000).toISOString() }),
+                 CK({ createdAt: OLD(), status: 'paid' }), { ...CK({ createdAt: OLD() }), processId: 'morning-charge:x' } as unknown as CheckoutInfo,
+                 CK({ createdAt: OLD(), profileId: 'no-customer' }), CK({ createdAt: new Date().toISOString() })];
+  const s = await sweepCardCheckouts(cases, m, env, D.db);
+  A.equal(s.skipped, cases.length); A.equal(M.st.chargeAttempts, 0); A.equal(M.st.clients.length, 1);   // לא נוצר לקוח חדש
+});
+
+Deno.test('המקרה של 26.10: כרטיס שמור + ניסיון שפג → המשימה לא מחייבת את הלקוח', async () => {
+  const M = fakeMorning(), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f), env = envOf(PROD_LIKE);
+  D.st.customers.set('p1', 'cl-1'); M.saveCard('cl-1');
+  const s = await sweepCardCheckouts([CK({ plan: 'plus', amountAgorot: 4890, createdAt: OLD(), status: 'expired', expired: true })], m, env, D.db);
+  A.equal(s.skipped, 1); A.equal(M.st.chargeAttempts, 0); A.equal(D.st.events.length, 0);
+});
+
+Deno.test('כרטיס נדחה במשימה → כישלון, המנוי לא מופעל; סליקה כבויה → לא נשלח כלום', async () => {
+  const M = fakeMorning({ decline: true }), D = fakeDb(), m = new MorningClient(envOf(PROD_LIKE), M.f);
+  D.st.customers.set('p1', 'cl-1'); M.saveCard('cl-1');
+  const s = await sweepCardCheckouts([CK({ createdAt: OLD() })], m, envOf(PROD_LIKE), D.db);
+  A.equal(s.failed, 1); A.ok(!D.st.events.some((e) => e.outcome === 'approved'));
+  const M2 = fakeMorning(), off = { ...PROD_LIKE, MORNING_LIVE: '0' };
+  await A.rejects(sweepCardCheckouts([CK({ createdAt: OLD() })], new MorningClient(envOf(off), M2.f), envOf(off), fakeDb().db), MorningError);
+  A.equal(M2.st.bodies.length, 0);
 });

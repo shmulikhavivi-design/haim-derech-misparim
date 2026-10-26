@@ -51,9 +51,11 @@ jobs:
         run: sudo bash scripts/release/test_billing_local.sh
 
       - uses: denoland/setup-deno@v2
+        if: ${{ !cancelled() }}   # בדיקות הפונקציות רצות גם אם שלב ה-SQL נכשל (תקלה קיימת, לא קשורה)
         with: { deno-version: v2.x }
 
       - name: Billing functions — unit tests with simulated Morning (no network, no charges)
+        if: ${{ !cancelled() }}
         run: |
           set +e
           OUT=$(deno test --no-check supabase/functions/_shared/morning_test.ts supabase/functions/_shared/card_flow_test.ts supabase/functions/_shared/email_worker_test.ts 2>&1); RC=$?
@@ -64,5 +66,6 @@ jobs:
           exit $RC
 
       - name: Billing functions — type check
+        if: ${{ !cancelled() }}
         run: |
           deno check supabase/functions/_shared/card_flow.ts supabase/functions/morning-checkout/index.ts supabase/functions/morning-webhook/index.ts supabase/functions/morning-renewals/index.ts supabase/functions/hdm-billing-worker/index.ts

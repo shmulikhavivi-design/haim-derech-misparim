@@ -13,6 +13,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { CheckoutInfo, MorningClient, MorningError, PLAN_HE, assertMoneyAllowed, findCardToken, tokenChargeBody } from '../_shared/morning.ts';
 import { FlowDb, runCardCheckout } from '../_shared/card_flow.ts';
+import { makeFlowDb } from '../_shared/flow_db.ts';
 
 const env = (k: string) => Deno.env.get(k) ?? '';
 const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
@@ -24,21 +25,8 @@ const CORS = {
 const reply = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } });
 
-async function claim(id: string, ref: string): Promise<boolean> {
-  const { data, error } = await admin.rpc('hdm_billing_claim_checkout', { p_checkout: id, p_process_id: ref });
-  if (error) throw error;
-  return data === true;
-}
-
-const flowDb: FlowDb = {
-  async customerId(pid) { const { data } = await admin.from('hdm_billing_customers').select('morning_client_id').eq('profile_id', pid).maybeSingle(); return (data?.morning_client_id as string) ?? null; },
-  async saveCustomer(pid, id) { const { error } = await admin.from('hdm_billing_customers').upsert({ profile_id: pid, morning_client_id: id }); if (error) throw error; },
-  async profileName(pid) { const { data } = await admin.from('docs').select('data').eq('collection', 'profiles').eq('id', pid).maybeSingle(); return String(((data?.data ?? {}) as Record<string, unknown>).currentName ?? '').trim(); },
-  async saveToken(pid, tok, last4) { const { error } = await admin.rpc('hdm_billing_save_token', { p_profile: pid, p_token: tok, p_last4: last4 }); if (error) throw error; },
-  claim,
-  async applyEvent(ev) { const { data, error } = await admin.rpc('hdm_billing_apply_grow_event', { p: ev }); if (error) throw error; return ((data as Record<string, unknown>)?.result as string) ?? null; },
-  log(msg) { console.error('morning-checkout:', msg); },
-};
+const flowDb: FlowDb = makeFlowDb(admin, 'morning-checkout');
+const claim = (id: string, ref: string) => flowDb.claim(id, ref);
 
 // מנוי בתשלום קיים בלי כרטיס שמור (למשל תשלום ראשון בדף תשלום): מקשר את הכרטיס שהלקוח שמר אצל Grow. בלי חיוב.
 async function syncCard(userId: string): Promise<Response> {
@@ -64,6 +52,7 @@ async function syncCard(userId: string): Promise<Response> {
 }
 
 Deno.serve(async (req) => {
+  let stepOf = 'start';
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (req.method !== 'POST') return reply(405, { error: 'method' });
   try {
@@ -77,6 +66,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const step = body.step === 'complete' ? 'complete' : body.step === 'sync' ? 'sync' : 'start';
+    stepOf = step;
     if (step === 'sync') return await syncCard(who.user.id);
     let checkoutId = body.checkoutId;
     if (step === 'complete' && typeof checkoutId !== 'string') {   // חזרה מהדף בלי מזהה — הניסיון האחרון של המשתמש
@@ -123,12 +113,12 @@ Deno.serve(async (req) => {
     }
 
     // הצטרפות (או שדרוג בלי כרטיס שמור): כרטיס שמור → חיוב מהשרת; אין כרטיס → קישור שמירת כרטיס של Grow
-    const r = await runCardCheckout(step, c, m, env, flowDb);
+    const r = await runCardCheckout(step, c, m, env, flowDb, body.origin);
     return reply(r.status, r.body);
   } catch (e) {
     const code = e instanceof MorningError ? e.code : 'ERROR';
-    console.error('morning-checkout', code, e instanceof Error ? e.message.slice(0, 300) : '');
+    console.error('morning-checkout', stepOf, code, e instanceof Error ? e.message.slice(0, 300) : '');
     const status = code === 'MORNING_OFF' || code === 'PRODUCTION_BLOCKED' ? 503 : 502;
-    return reply(status, { error: code });
+    return reply(status, { error: code, step: stepOf });
   }
 });
