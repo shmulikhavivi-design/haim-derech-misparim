@@ -2,6 +2,9 @@
 # paydiagtwo (26.10) — אבחון "לא הצלחנו לפתוח את הדף המאובטח לשמירת הכרטיס". קריאה בלבד: אין יצירת לקוח, אין קישור, אין חיוב.
 # יומני morning-checkout (72 שעות), ניסיונות תשלום, השוואת טביעות סודות, ובדיקת Morning בקריאה בלבד. הכול מוצפן (הריפו ציבורי).
 A="https://api.supabase.com/v1/projects/$PROD_REF"; RO="$A/database/query/read-only"
+set +e +o pipefail
+ST(){ curl -sS -m 20 -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOK" "$1" || echo 000; }
+ann notice "paydiag2-token" "projects=$(ST https://api.supabase.com/v1/projects) project=$(ST $A) secrets=$(ST $A/secrets) functions=$(ST $A/functions) logs=$(ST "$A/analytics/endpoints/logs.all?sql=select%201")"
 OUTD="${RUNNER_TEMP:-/tmp}/hdm-export"; rm -rf "$OUTD"; mkdir -p "$OUTD/out" "$OUTD/w"; W="$OUTD/w"
 lq(){ curl -sS -m 60 -G -H "Authorization: Bearer $TOK" "$A/analytics/endpoints/logs.all" --data-urlencode "sql=$1" --data-urlencode "iso_timestamp_start=$2" --data-urlencode "iso_timestamp_end=$3"; }
 for d in 0 1 2; do
@@ -24,7 +27,7 @@ cmp1(){ local want have; want=$(printf '%s' "$2" | sha256sum | cut -d' ' -f1); h
   echo "HDM_BILLING_ALLOWED_USERS=$(jq -r '.[] | select(.name=="HDM_BILLING_ALLOWED_USERS") | "קיים"' /tmp/sc.json)"
   echo "names=$(jq -r '[.[].name]|join(",")' /tmp/sc.json)"; } > "$W/secrets.txt"
 rm -f /tmp/sc.json
-curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/functions" | jq -c '[.[] | {slug, version, status, verify_jwt, updated_at}]' > "$W/functions.json"
+curl -sS -m 30 -H "Authorization: Bearer $TOK" "$A/functions" | jq -c '[.[]? | objects | {slug, version, status, verify_jwt, updated_at}]' > "$W/functions.json"
 command -v deno >/dev/null || { curl -fsSL https://deno.land/install.sh | sh -s -- -y >/dev/null 2>&1; export PATH="$HOME/.deno/bin:$PATH"; }
 echo "::add-mask::${MORNING_CLIENT_SECRET:-x}"
 CUSTS=$(jq -c '[.[0].j[]?] ' "$W/cust.json" 2>/dev/null || echo '[]')
