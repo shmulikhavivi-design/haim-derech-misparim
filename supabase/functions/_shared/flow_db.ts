@@ -15,15 +15,10 @@ export function makeFlowDb(admin: any, tag: string): FlowDb {
   };
 }
 
-/** ניסיונות ממתינים שעדיין בתוקף ולא נתפסו (לכל היותר limit), דרך hdm_billing_checkout_lookup. */
+/** ניסיונות הצטרפות שממתינים לשמירת כרטיס (בתוקף, לא נתפסו, יש לקוח Morning, אין כרטיס שמור, בני דקה ומעלה).
+ *  דרך hdm_billing_pending_card_checkouts — ל-service_role אין גישה ישירה לטבלה hdm_checkouts (נמצא ב-Staging 26.10). */
 export async function pendingCheckouts(admin: any, limit = 20): Promise<CheckoutInfo[]> {
-  const { data, error } = await admin.from('hdm_checkouts').select('id').eq('status', 'pending').is('grow_process_id', null)
-    .gt('expires_at', new Date().toISOString()).order('created_at', { ascending: true }).limit(limit);
+  const { data, error } = await admin.rpc('hdm_billing_pending_card_checkouts', { p_limit: limit });
   if (error) throw error;
-  const out: CheckoutInfo[] = [];
-  for (const r of (data ?? []) as { id: string }[]) {
-    const { data: ck, error: e } = await admin.rpc('hdm_billing_checkout_lookup', { p_checkout: r.id });
-    if (!e && ck) out.push(ck as CheckoutInfo);
-  }
-  return out;
+  return (Array.isArray(data) ? data : []) as CheckoutInfo[];
 }
