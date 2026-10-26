@@ -142,6 +142,7 @@ try:
                 check('w1: אחרי השמירה הסינון מתעדכן מיד (בן 36 כבר לא מוצג, בלי רענון)', M36 not in s3['ids'] and not s3['bad'], s3)
                 pg.reload(wait_until='networkidle'); pg.wait_for_timeout(3000); s4 = st(pg)
                 check('w1: אחרי רענון — אותו טווח, אותה תוצאה', M36 not in s4['ids'] and M22 not in s4['ids'] and not s4['bad'], s4)
+                sql(f"update public.docs set data = data || jsonb_build_object('ageMin','30','ageMax','43') where collection='profiles' and id='{W1}'")   # מחזירים לטווח המקורי לבדיקות הבאות
             c.close()
         check('אין שגיאות JavaScript בדף', not errors, errors[:3])
         br.close()
