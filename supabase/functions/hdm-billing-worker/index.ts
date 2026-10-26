@@ -30,7 +30,11 @@ Deno.serve(async (req) => {
     try {
       const list = await pendingCheckouts(sb);
       cards = list.length ? await sweepCardCheckouts(list, new MorningClient(env, fetch), env, makeFlowDb(sb, 'hdm-billing-worker')) : { none: true };
-    } catch (e) { cards = { skipped: e instanceof MorningError ? e.code : 'error' }; if (!(e instanceof MorningError)) console.error('sweep', String(e).slice(0, 200)); }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String((e as Record<string, unknown>)?.message ?? JSON.stringify(e));
+      cards = e instanceof MorningError ? { skipped: e.code } : { skipped: 'error', reason: msg.slice(0, 200) };
+      if (!(e instanceof MorningError)) console.error('sweep', msg.slice(0, 200));
+    }
   }
   try {
     return out({ email: await sendQueuedEmails(env, rpc, fetch), cards });

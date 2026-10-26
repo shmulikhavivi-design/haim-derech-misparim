@@ -107,7 +107,7 @@ try:
     # ניסיון ממתין "ישן" עם לקוח Morning — מה שהמשימה המתוזמנת הייתה משלימה. כשהסליקה כבויה — לא נוגעת.
     uid = sql(f"select auth_user_id from public.hdm_accounts where profile_id='{PID}'")
     ck = sql(f"""insert into public.hdm_checkouts (user_id, profile_id, plan, amount_agorot, terms_version, created_at, expires_at)
-                 values ('{uid}', '{PID}', 'plus', 4890, public.hdm_billing_current_terms(), now() - interval '3 minutes', now() + interval '20 minutes') returning id""")
+                 values ('{uid}', '{PID}', 'plus', 4890, public.hdm_billing_current_terms(), now() - interval '3 minutes', now() + interval '20 minutes') returning id""").splitlines()[0]
     sql(f"insert into public.hdm_billing_customers (profile_id, morning_client_id) values ('{PID}', 'p47-fake-{RUN}')")
     st, b = http('POST', '/functions/v1/hdm-billing-worker', {}, {'x-hdm-cron': 'wrong'})
     check('משימה מתוזמנת: בלי הסוד → 401', st == 401, [st, b])
