@@ -93,7 +93,7 @@ jobs:
           GH_BREVO_API: ${{ (steps.mode.outputs.mode == 'maildomaincheck' || steps.mode.outputs.mode == 'domainprep' || steps.mode.outputs.mode == 'signupdiag' || steps.mode.outputs.mode == 'readiness' || steps.mode.outputs.mode == 'livecheck' || steps.mode.outputs.mode == 'livechecktwo' || steps.mode.outputs.mode == 'livecheckthree' || steps.mode.outputs.mode == 'custcheck' || steps.mode.outputs.mode == 'smtpgmailtest' || steps.mode.outputs.mode == 'stagecapply' || steps.mode.outputs.mode == 'incidentfour' || steps.mode.outputs.mode == 'incidentsix' || steps.mode.outputs.mode == 'hiderehearse' || steps.mode.outputs.mode == 'launchcheck' || steps.mode.outputs.mode == 'mailchain' || steps.mode.outputs.mode == 'mailtest') && secrets.BREVO_API_KEY || '' }}
           GH_BREVO_SMTP: ${{ steps.mode.outputs.mode == 'readiness' && secrets.BREVO_SMTP_KEY || '' }}
           GH_RESEND_KEY: ${{ steps.mode.outputs.mode == 'resendswitch' && secrets.PRODUCTION_RESEND_API_KEY || '' }}
-          FN_TOK: ${{ steps.mode.outputs.mode == 'fntokcheck' && secrets.PRODUCTION_FUNCTIONS_TOKEN || '' }}
+          FN_TOK: ${{ (steps.mode.outputs.mode == 'fntokcheck' || steps.mode.outputs.mode == 'backupnow') && secrets.PRODUCTION_FUNCTIONS_TOKEN || '' }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: bash scripts/production/run.sh "${{ steps.mode.outputs.mode }}"
       - name: Upload smoke screenshots

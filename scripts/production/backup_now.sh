@@ -29,7 +29,17 @@ TABS=$(jq -r '.[0].t // empty' "$OUTD/t.json"); [ -n "$TABS" ] || FAIL="$FAIL ta
 for t in $TABS; do get "t_$t" "select * from public.\"$t\""; done
 roq "select now() taken_at, (select count(*) from auth.users) auth_users, (select count(*) from public.docs where collection='profiles') profiles, (select count(*) from public.hdm_subscriptions) subscriptions, (select count(*) from public.hdm_payments) payments" "$OUTD/fp.json" >/dev/null
 jq -c '.[0]' "$OUTD/fp.json" > "$OUTD/data/fingerprint.json"
-(cd "$OUTD/data" && sha256sum *.json > SHA256SUMS)
+# הקוד של פונקציות השרת כפי שהוא פרוס עכשיו (נקודת חזרה לפני פריסה) — עם טוקן הפונקציות, קריאה בלבד
+if [ -n "${FN_TOK:-}" ]; then
+  echo "::add-mask::$FN_TOK"; mkdir -p "$OUTD/data/functions"; FL=""
+  for f in morning-checkout morning-webhook morning-renewals hdm-billing-worker; do
+    c=$(curl -sS -m 60 -o "$OUTD/data/functions/$f.eszip" -w '%{http_code}' -H "Authorization: Bearer $FN_TOK" "https://api.supabase.com/v1/projects/$PROD_REF/functions/$f/body" || echo 000)
+    [ "$c" = 200 ] && [ -s "$OUTD/data/functions/$f.eszip" ] && FL="$FL $f=✅($(wc -c < "$OUTD/data/functions/$f.eszip")B)" || { FL="$FL $f=❌(HTTP $c)"; FAIL="$FAIL fn-$f"; }
+  done
+  curl -sS -m 30 -H "Authorization: Bearer $FN_TOK" "https://api.supabase.com/v1/projects/$PROD_REF/functions" | jq -c '[.[] | {slug, version, status, verify_jwt, updated_at, entrypoint_path, import_map}]' > "$OUTD/data/functions/list.json"
+  ann notice "backup-functions" "קוד הפונקציות הפרוס נשמר:$FL"
+fi
+(cd "$OUTD/data" && sha256sum *.json > SHA256SUMS; [ -d functions ] && sha256sum functions/* >> SHA256SUMS)
 rm -f "$OUTD/raw.json" "$OUTD/cnt.json" "$OUTD/t.json" "$OUTD/fp.json"
 [ -z "$FAIL" ] || { rm -rf "$OUTD/data"; ann error "backup" "⛔ הגיבוי לא שלם:$FAIL — לא נשמר"; stop "גיבוי לא שלם"; }
 ann notice "backup-counts" "$(echo $L) | $(jq -c . "$OUTD/data/fingerprint.json")"
