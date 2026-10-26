@@ -5,7 +5,7 @@
 // =====================================================================
 import {
   CheckoutInfo, EnvFn, MorningClient, MorningError, PLAN_HE, assertMoneyAllowed, ensureMorningClient, findCardToken, tokenChargeBody,
-  tokenLinkBody, verifyChargeDocument,
+  appBase, returnBaseFor, tokenLinkBody, verifyChargeDocument,
 } from './morning.ts';
 
 export interface FlowDb {
@@ -27,7 +27,7 @@ export async function customerFor(m: MorningClient, db: FlowDb, c: CheckoutInfo)
   return id;
 }
 
-export async function runCardCheckout(step: 'start' | 'complete', c: CheckoutInfo, m: MorningClient, env: EnvFn, db: FlowDb): Promise<FlowResult> {
+export async function runCardCheckout(step: 'start' | 'complete', c: CheckoutInfo, m: MorningClient, env: EnvFn, db: FlowDb, origin?: unknown): Promise<FlowResult> {
   assertMoneyAllowed(env);
   const clientId = await customerFor(m, db, c);
   let token = c.token ?? null;
@@ -37,7 +37,16 @@ export async function runCardCheckout(step: 'start' | 'complete', c: CheckoutInf
   }
   if (!token) {
     if (step === 'complete') return { status: 202, body: { mode: 'waiting' } };
-    const link = await m.createTokenLink(tokenLinkBody(env, clientId, c)) as Record<string, unknown>;
+    // חוזרים לאותה כתובת שממנה הלקוח יצא (שם הוא מחובר). אם Morning דוחה את הכתובת — פעם אחת עם HDM_APP_URL. קישור לא מחייב.
+    const base = returnBaseFor(env, origin);
+    let link: Record<string, unknown>;
+    try {
+      link = await m.createTokenLink(tokenLinkBody(env, clientId, c, base)) as Record<string, unknown>;
+    } catch (e) {
+      if (!(e instanceof MorningError && e.code === 'REJECTED') || base === appBase(env)) throw e;
+      db.log?.(`token link rejected for return base, retrying with HDM_APP_URL: ${e.message.slice(0, 200)}`);
+      link = await m.createTokenLink(tokenLinkBody(env, clientId, c)) as Record<string, unknown>;
+    }
     const url = typeof link.url === 'string' ? link.url : '';
     if (!/^https:\/\//.test(url)) throw new MorningError('NO_URL', 'Morning לא החזירה קישור לשמירת כרטיס');
     return { status: 200, body: { mode: 'redirect', url } };

@@ -64,6 +64,7 @@ async function syncCard(userId: string): Promise<Response> {
 }
 
 Deno.serve(async (req) => {
+  let stepOf = 'start';
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (req.method !== 'POST') return reply(405, { error: 'method' });
   try {
@@ -77,6 +78,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const step = body.step === 'complete' ? 'complete' : body.step === 'sync' ? 'sync' : 'start';
+    stepOf = step;
     if (step === 'sync') return await syncCard(who.user.id);
     let checkoutId = body.checkoutId;
     if (step === 'complete' && typeof checkoutId !== 'string') {   // חזרה מהדף בלי מזהה — הניסיון האחרון של המשתמש
@@ -123,12 +125,12 @@ Deno.serve(async (req) => {
     }
 
     // הצטרפות (או שדרוג בלי כרטיס שמור): כרטיס שמור → חיוב מהשרת; אין כרטיס → קישור שמירת כרטיס של Grow
-    const r = await runCardCheckout(step, c, m, env, flowDb);
+    const r = await runCardCheckout(step, c, m, env, flowDb, body.origin);
     return reply(r.status, r.body);
   } catch (e) {
     const code = e instanceof MorningError ? e.code : 'ERROR';
-    console.error('morning-checkout', code, e instanceof Error ? e.message.slice(0, 300) : '');
+    console.error('morning-checkout', stepOf, code, e instanceof Error ? e.message.slice(0, 300) : '');
     const status = code === 'MORNING_OFF' || code === 'PRODUCTION_BLOCKED' ? 503 : 502;
-    return reply(status, { error: code });
+    return reply(status, { error: code, step: stepOf });
   }
 });

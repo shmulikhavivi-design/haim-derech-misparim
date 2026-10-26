@@ -6497,9 +6497,30 @@
   // אפשרות 2 (22.10): הלקוח מזין כרטיס פעם אחת בדף מאובטח של Grow (שמירת כרטיס) → השרת מחייב את החודש הראשון בכרטיס השמור.
   // אם כבר יש כרטיס שמור — השרת מחייב מיד. המנוי מופעל רק אחרי שהשרת קיבל אישור חיוב ואימת את המסמך מול Morning.
   var HDM_PAY_ERR = 'לא הצלחנו לפתוח את הדף המאובטח לשמירת הכרטיס. לא בוצע חיוב. נסו שוב בעוד רגע.';
+  // תקלה 26.10: החזרה מ-Grow הגיעה לכתובת אחרת מזו שבה הלקוח מחובר → בלי חיבור → "השלמת התשלום" נכשלה והוצגה הודעה על פתיחת הדף.
+  // עכשיו: חוזרים לאותה כתובת (origin), הודעה נכונה לכל שלב, וניסיון ממתין נשמר עד ההתחברות. השרת מחייב פעם אחת בלבד.
+  var HDM_PAY_DONE_ERR = 'הכרטיס נשמר אצל Grow, אבל עוד לא הצלחנו להשלים את התשלום. לא בוצע חיוב. אפשר ללחוץ "השלמת התשלום" בעוד רגע.';
+  var HDM_PAY_AUTH_ERR = 'צריך להתחבר שוב כדי להשלים את התשלום. לא בוצע חיוב — מיד אחרי ההתחברות נשלים אותו אוטומטית.';
+  var HDM_PAY_EXPIRED = 'ניסיון התשלום פג או כבר טופל. לא בוצע חיוב נוסף. אפשר ללחוץ שוב על הצטרפות למסלול.';
+  var HDM_PEND_KEY = 'hdm_pending_card_ck';
+  function hdmPendSet(ck){ try{ if(ck) localStorage.setItem(HDM_PEND_KEY, JSON.stringify({ ck: ck, t: Date.now() })); }catch(x){} }
+  function hdmPendGet(){
+    try{ var o = JSON.parse(localStorage.getItem(HDM_PEND_KEY) || 'null');
+         if(o && /^[0-9a-f-]{36}$/i.test(o.ck || '') && Date.now() - o.t < 30 * 60e3) return o.ck;
+         localStorage.removeItem(HDM_PEND_KEY); }catch(x){}
+    return null;
+  }
+  function hdmPendClear(){ try{ localStorage.removeItem(HDM_PEND_KEY); }catch(x){} }
+  function hdmFnStatus(err){ try{ var c = err && err.context; if(c && typeof c.status === 'number') return c.status; }catch(x){} return 0; }
   async function hdmMorningPay(checkoutId, step){
-    var r = await window.__sb.functions.invoke('morning-checkout', { body: step ? { checkoutId: checkoutId, step: step } : { checkoutId: checkoutId } });
-    if(r && r.error) throw { hint: HDM_PAY_ERR };
+    var body = { checkoutId: checkoutId, origin: location.origin }; if(step) body.step = step;
+    var r = await window.__sb.functions.invoke('morning-checkout', { body: body });
+    if(r && r.error){
+      var st = hdmFnStatus(r.error);
+      if(st === 401) throw { hint: HDM_PAY_AUTH_ERR, status: st, auth: true };
+      if(step === 'complete' && (st === 404 || st === 409)) throw { hint: HDM_PAY_EXPIRED, status: st, done: true };
+      throw { hint: step === 'complete' ? HDM_PAY_DONE_ERR : HDM_PAY_ERR, status: st, retry: st === 0 || st >= 500 };
+    }
     var d = (r && r.data) || {};
     if(d.mode === 'redirect' && /^https:\/\//.test(d.url || '')){ location.href = d.url; return 'redirect'; }
     if(d.mode === 'charged' || d.mode === 'processing' || d.mode === 'waiting' || d.mode === 'card_saved') return d.mode;
@@ -6517,7 +6538,7 @@
   window.hdmCardComplete = async function(ck){
     if(hdmCardBusy) return; hdmCardBusy = true;
     try{ hdmToast('הכרטיס נשמר אצל Grow. משלימים את התשלום…'); }catch(x){}
-    var n = 0, last = '';
+    var n = 0, last = '', errs = 0;
     while(n++ < 30){
       if(!myId){ await new Promise(function(r){ setTimeout(r, 2000); }); continue; }
       try{
@@ -6527,15 +6548,26 @@
           if(sd.mode === 'card_saved'){ try{ hdmToast('הכרטיס נשמר לחידוש החודשי' + (sd.last4 ? ' (מסתיים ב-' + sd.last4 + ')' : '') + '. לא בוצע חיוב.'); }catch(x){} break; }
         }
         last = await hdmMorningPay(ck, 'complete');
-        if(last === 'charged'){ await hdmPaidOk(); break; }
-      }catch(e){ try{ hdmToast((e && e.hint) || HDM_PAY_ERR); }catch(x){} break; }
+        if(last === 'charged'){ hdmPendClear(); await hdmPaidOk(); break; }
+      }catch(e){
+        if(e && e.retry && ++errs < 4){ await new Promise(function(r){ setTimeout(r, 4000); }); continue; }   // תקלה זמנית — שוב (השרת מחייב פעם אחת בלבד)
+        if(!(e && e.auth)) hdmPendClear();   // בלי חיבור — נשאר ממתין עד ההתחברות
+        last = 'error'; try{ hdmToast((e && e.hint) || (ck ? HDM_PAY_DONE_ERR : HDM_PAY_ERR)); }catch(x){} break;
+      }
       await new Promise(function(r){ setTimeout(r, 4000); });
     }
+    if(!myId && ck) try{ hdmToast(HDM_PAY_AUTH_ERR); }catch(x){}
     if(last === 'processing') try{ hdmToast('התשלום בבדיקה מול ספק הסליקה. לא יבוצע חיוב נוסף. נעדכן כאן כשהמנוי יופעל.'); }catch(x){}
     else if(last === 'waiting') try{ hdmToast('עוד לא קיבלנו מ-Grow את שמירת הכרטיס. אם סיימת, נסו "השלמת התשלום" שוב בעוד דקה.'); }catch(x){}
     hdmCardBusy = false;
     try{ await hdmRefreshPlan(true); hdmRenderPlans(); }catch(x){}
   };
+  var hdmPendTried = {};
+  setInterval(function(){
+    if(!myId || hdmCardBusy) return;
+    var ck = hdmPendGet(); if(!ck || hdmPendTried[ck]) return;
+    hdmPendTried[ck] = true; window.hdmCardComplete(ck);
+  }, 5000);
   window.hdmGrowStartCheckout = async function(plan){
     if(hdmCo.busy) return;
     hdmCo.busy = true; hdmCo.err = false; hdmCo.msg = 'פותחים את הדף המאובטח של Grow…'; hdmRenderCheckout();
@@ -6559,7 +6591,7 @@
     var m = /[?&]billing=(return|failed|card)\b/.exec(location.search); if(!m) return;
     var ckm = /[?&]ck=([0-9a-f-]{36})\b/i.exec(location.search);
     try{ history.replaceState(null, '', location.pathname + location.hash); }catch(x){}
-    if(m[1] === 'card'){ setTimeout(function(){ window.hdmCardComplete(ckm ? ckm[1] : null); }, 1500); return; }
+    if(m[1] === 'card'){ if(ckm) hdmPendSet(ckm[1]); setTimeout(function(){ window.hdmCardComplete(ckm ? ckm[1] : null); }, 1500); return; }
     setTimeout(function(){
       var ok = m[1] === 'return';
       try{ hdmToast(ok ? 'אם התשלום הושלם, המנוי יופעל מיד עם האישור מספק הסליקה (בדרך כלל עד דקה). קבלה תישלח באימייל.'
@@ -6778,7 +6810,7 @@
       // Morning (Grow): פונקציית השרת מחייבת את הכרטיס השמור בסכום הזה, והמסלול מתעדכן רק אחרי אישור מ-Morning
       else if(HDM_CHECKOUT.live){
         hdmBillUI.msg = 'מבצעים את החיוב…'; hdmRenderPlans();
-        var fx = await window.__sb.functions.invoke('morning-checkout', { body: { checkoutId: r.data.checkoutId } });
+        var fx = await window.__sb.functions.invoke('morning-checkout', { body: { checkoutId: r.data.checkoutId, origin: location.origin } });
         var fd = (fx && fx.data) || {};
         if(fd.mode === 'redirect' && /^https:\/\//.test(fd.url || '')){ location.href = fd.url; return; }
         if(fd.result === 'upgraded'){ hdmBillUI = null; hdmToast('התשלום אושר והמסלול שודרג.'); }
