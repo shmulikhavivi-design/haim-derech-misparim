@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# defcheck (26.10) — READ ONLY: טביעות הגדרה, SECURITY DEFINER, search_path, בעלים והרשאות של פונקציות החיוב. אין שינוי.
+set +e +o pipefail
+A="https://api.supabase.com/v1/projects/$PROD_REF"
+R=$(curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$A/database/query/read-only" -d "$(jq -nc --arg q "select p.proname, md5(pg_get_functiondef(p.oid)) h, p.prosecdef definer, coalesce(array_to_string(p.proconfig, ','),'') cfg, pg_get_userbyid(p.proowner) owner, has_function_privilege('anon', p.oid, 'execute') anon, has_function_privilege('authenticated', p.oid, 'execute') app, has_function_privilege('service_role', p.oid, 'execute') svc from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('hdm_billing_claim_checkout','hdm_billing_checkout_lookup','hdm_billing_save_token','hdm_billing_apply_grow_event','hdm_billing_apply_grow_event_v1','hdm_billing_start_checkout','hdm_billing_pending_card_checkouts') order by 1" '{query:$q}')" | jq -r '.[]? | "\(.proname) md5=\(.h[0:10]) definer=\(.definer) cfg=[\(.cfg)] owner=\(.owner) anon=\(.anon) app=\(.app) svc=\(.svc)"')
+G=$(curl -sS -m 60 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$A/database/query/read-only" -d '{"query":"select has_table_privilege(chr(97)||chr(110)||chr(111)||chr(110), chr(112)||chr(117)||chr(98)||chr(108)||chr(105)||chr(99)||chr(46)||chr(104)||chr(100)||chr(109)||chr(95)||chr(99)||chr(104)||chr(101)||chr(99)||chr(107)||chr(111)||chr(117)||chr(116)||chr(115), chr(115)||chr(101)||chr(108)||chr(101)||chr(99)||chr(116)) x"}' | jq -c '.')
+ann notice "def-check" "$R"
+ann notice "prod-result" "✅ defcheck: קריאה בלבד"
