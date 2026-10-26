@@ -8,6 +8,10 @@ q "select (select count(*) from public.hdm_billing_tokens where profile_id='$PID
 q "select coalesce(json_agg(json_build_object('name',p.proname,'args',pg_get_function_identity_arguments(p.oid),'def',pg_get_functiondef(p.oid))),'[]') j from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('hdm_billing_save_token','hdm_billing_claim_checkout','hdm_billing_checkout_lookup','hdm_billing_start_checkout','hdm_billing_apply_grow_event')" > "$W/fns.json"
 q "select column_name, data_type, is_nullable from information_schema.columns where table_schema='public' and table_name in ('hdm_billing_tokens','hdm_billing_customers') order by table_name, ordinal_position" > "$W/cols.json"
 q "select conname, pg_get_constraintdef(oid) d, conrelid::regclass::text t from pg_constraint where conrelid in ('public.hdm_billing_tokens'::regclass,'public.hdm_billing_customers'::regclass,'public.hdm_checkouts'::regclass)" > "$W/cons.json"
+q "select coalesce(json_agg(row_to_json(k) order by created_at),'[]') j from (select created_at, updated_at, refreshed_at, not_after, user_agent from auth.sessions where user_id='c4754d21-c937-4dd6-8d34-bad1ed49f519') k" > "$W/sessions.json"
+q "select coalesce(json_agg(row_to_json(k) order by created_at),'[]') j from (select created_at, payload->>'action' action, payload->'traits'->>'provider' prov from auth.audit_log_entries where payload->>'actor_id'='c4754d21-c937-4dd6-8d34-bad1ed49f519' and created_at > now() - interval '3 days') k" > "$W/audit.json"
+q "select created_at, email_confirmed_at, last_sign_in_at, raw_user_meta_data ? 'email_redirect' r from auth.users where id='c4754d21-c937-4dd6-8d34-bad1ed49f519'" > "$W/user.json"
+q "select coalesce(json_agg(json_build_object('t',created_at,'action',payload->>'action','referer',payload->'traits'->>'referer')),'[]') j from auth.audit_log_entries where created_at > now() - interval '3 days' and payload->>'action' in ('user_signedup','user_confirmation_requested')" > "$W/signups.json"
 CID=$(q "select morning_client_id from public.hdm_billing_customers where profile_id='$PID'" | jq -r '.[0].morning_client_id // empty'); echo "::add-mask::${CID:-x}"
 command -v deno >/dev/null || { curl -fsSL https://deno.land/install.sh | sh -s -- -y >/dev/null 2>&1; export PATH="$HOME/.deno/bin:$PATH"; }
 echo "::add-mask::${MORNING_CLIENT_SECRET:-x}"
@@ -18,4 +22,4 @@ openssl rand -out "$OUTD/k.bin" 32
 openssl enc -aes-256-cbc -pbkdf2 -salt -in "$OUTD/r.json" -out "$OUTD/out/backup.tgz.enc" -pass file:"$OUTD/k.bin"
 openssl pkeyutl -encrypt -pubin -inkey "$HERE/session_2610_public.pem" -pkeyopt rsa_padding_mode:oaep -in "$OUTD/k.bin" -out "$OUTD/out/key.enc"
 shred -u "$OUTD/k.bin" "$OUTD/r.json"
-ann notice "prod-result" "✅ paydiagthree: נאסף ומוצפן (קריאה בלבד)"
+ann notice "prod-result" "✅ paydiagthree (2): נאסף ומוצפן (קריאה בלבד)"
