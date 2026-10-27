@@ -487,7 +487,7 @@ if [ "$MODE" = "targetcompat" ]; then
   [ -n "$TOK" ] || stop "חסר טוקן"; source "$HERE/target_compat.sh"; exit 0
 fi
 if [ "$MODE" = "targetinstall" ] || [ "$MODE" = "targetrehearse" ] || [ "$MODE" = "targetverify" ]; then
-  [ -n "$TOK" ] || stop "חסר טוקן"; EXPECT_SHA=6560e8be5189f63e81b7e17f590a0116e4a3e694f8d5195348d057ea51f49102 source "$HERE/target_install.sh"; exit 0
+  [ -n "$TOK" ] || stop "חסר טוקן"; EXPECT_SHA=33a75011fd34c5ed0ac484b2a272eed2f451cd41b02feb126db4269951485385 source "$HERE/target_install.sh"; exit 0
 fi
 if [ "$MODE" = "prefourninetwo" ]; then
   [ -n "$TOK" ] || stop "חסר טוקן"; source "$HERE/pre49_two.sh"; exit 0

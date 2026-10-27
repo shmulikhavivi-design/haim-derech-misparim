@@ -25,7 +25,7 @@ SNAP="select json_build_object(
  'plan_sale',(select md5(string_agg(to_jsonb(p)::text,',' order by plan)) from public.hdm_plan_sale p),
  'cancel_outbox',(select count(*) from public.hdm_email_outbox),
  'cron',(select string_agg(jobname||':'||active,',' order by jobname) from cron.job),
- 'functions',(select md5(string_agg(p.proname||pg_get_function_identity_arguments(p.oid)||md5(pg_get_functiondef(p.oid)),',' order by 1)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f' and p.proname not in ('hdm_target_email_text','hdm_target_email_on_interest','hdm_target_email_claim','hdm_target_email_done','hdm_my_email_prefs','hdm_set_target_emails','hdm_target_email_begin','hdm_target_email_allowed')),
+ 'functions',(select md5(string_agg(p.proname||pg_get_function_identity_arguments(p.oid)||md5(pg_get_functiondef(p.oid)),',' order by 1)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f' and p.proname not in ('hdm_target_email_text','hdm_target_email_on_interest','hdm_target_email_claim','hdm_target_email_done','hdm_my_email_prefs','hdm_set_target_emails','hdm_target_email_begin','hdm_target_email_allowed','hdm_target_email_lock_held')),
  'triggers',(select md5(string_agg(c.relname||t.tgname||pg_get_triggerdef(t.oid),',' order by 1)) from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and not t.tgisinternal and t.tgname<>'hdm_target_email_on_interest'),
  'policies',(select md5(string_agg(tablename||policyname||coalesce(qual,'')||coalesce(with_check,''),',' order by 1)) from pg_policies where schemaname='public')) r"
 if [ "$MODE" = "targetverify" ]; then
