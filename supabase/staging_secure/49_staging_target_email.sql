@@ -1,7 +1,7 @@
 -- =====================================================================
 -- חיים דרך מספרים — תשתית התראת מייל על קבלת חץ 🎯 (גרסה 2, 27.10.2026).
 -- אותו קובץ בדיוק רץ ב-Staging ואחר כך ב-Production (רק באישור הבעלים).
--- רק מוסיף: 3 טבלאות חדשות, טריגר אחד, 7 פונקציות. לא מוחק ולא משנה נתון קיים.
+-- רק מוסיף: 3 טבלאות חדשות, טריגר אחד, 8 פונקציות. לא מוחק ולא משנה נתון קיים.
 -- לא שולח מיילים: רק תור. השליחה (hdm-target-mailer) היא שלב נפרד.
 --
 -- מניעת כפילויות — "לכל היותר פעם אחת":
@@ -13,8 +13,10 @@
 --     (5xx / ניתוק / זמן קצוב) = uncertain — לא נשלח שוב.
 -- הגבלה: זוג שולח→מקבל — מייל אחד ל-30 יום; מקבל — עד 3 ב-24 שעות.
 --   נעילה לכל מקבל (advisory lock) — נאכף גם כשכמה חצים נשלחים בו-זמנית.
--- ביטול התראות: מבטל מיד כל מייל שבתור, ונבדק שוב רגע לפני המסירה ל-Brevo.
--- פרטיות: בתור ובמייל אין שום פרט על השולח. נשלח רק לאימייל מאומת, לא חסום, ולא כשיש חסימה.
+-- ביטול התראות: מבטל מיד כל מייל שבתור, ונבדק שוב רגע לפני המסירה ל-Brevo. ביטול ומסירה ננעלים
+--   לכל משתמש (advisory lock) — מה שקרה קודם קובע: ביטול שקדם למסירה תמיד מונע את השליחה.
+-- רגע לפני המסירה נבדק שוב: אימייל מאומת, חשבון פעיל, אין חסימה בין השניים, והחץ עדיין קיים.
+-- פרטיות: במייל אין שום פרט על השולח. מזהה השולח נשמר בתור בשרת בלבד (לבדיקת חסימה) — סגור לאפליקציה.
 -- תקלה בטריגר לא מבטלת את החץ. "הכול או כלום"; הרצה חוזרת נעצרת בלי לשנות.
 -- =====================================================================
 begin;
@@ -60,10 +62,11 @@ create table public.hdm_target_email_log (
 );
 create index hdm_target_email_log_recipient on public.hdm_target_email_log (recipient_profile);
 
--- 3. תור המיילים — בלי פרטי השולח. הכתובת נלקחת מהחשבון רק ברגע המסירה.
+-- 3. תור המיילים. הכתובת נלקחת מהחשבון רק ברגע המסירה. מזהה השולח — לבדיקת חסימה בלבד, לא נשלח במייל.
 create table public.hdm_target_email_outbox (
   id               bigint generated always as identity primary key,
   user_id          uuid not null references auth.users(id) on delete cascade,
+  sender_profile   text not null references public.hdm_accounts(profile_id) on delete cascade,
   status           text not null default 'pending'
                    check (status in ('pending', 'claimed', 'sending', 'sent', 'retry', 'uncertain', 'failed', 'skipped')),
   created_at       timestamptz not null default now(),
@@ -77,6 +80,7 @@ create table public.hdm_target_email_outbox (
 );
 create index hdm_target_email_outbox_ready on public.hdm_target_email_outbox (next_attempt_at, id) where status in ('pending', 'retry', 'claimed');
 create index hdm_target_email_outbox_user on public.hdm_target_email_outbox (user_id, created_at);
+create index hdm_target_email_outbox_sender on public.hdm_target_email_outbox (sender_profile);
 
 alter table public.hdm_target_email_prefs   enable row level security;
 alter table public.hdm_target_email_log     enable row level security;
@@ -122,6 +126,7 @@ begin
     if public.hdm_blocked_between(s, r) then return null; end if;
     -- נעילה לכל מקבל עד סוף הטרנזקציה: חצים בו-זמניים לאותו מקבל נבדקים אחד אחרי השני
     perform pg_advisory_xact_lock(hashtextextended('hdm_target_email:' || ruid::text, 0));
+    if not public.hdm_target_email_allowed(ruid) then return null; end if;   -- שוב, אחרי הנעילה
     if (select count(*) from public.hdm_target_email_outbox o
          where o.user_id = ruid and o.created_at > now() - interval '24 hours') >= 3 then return null; end if;
     insert into public.hdm_target_email_log as l (sender_profile, recipient_profile) values (s, r)
@@ -129,7 +134,7 @@ begin
       where l.last_queued_at < now() - interval '30 days'
     returning true into ok;
     if ok is null then return null; end if;
-    insert into public.hdm_target_email_outbox (user_id) values (ruid);
+    insert into public.hdm_target_email_outbox (user_id, sender_profile) values (ruid, s);
   exception when others then
     raise warning 'hdm_target_email_on_interest: %', sqlerrm;   -- החץ נשמר בכל מקרה
   end;
@@ -162,17 +167,27 @@ begin
   select c.id, 'target_received'::text from c order by c.id;
 end $$;
 
--- 5ב. רגע לפני המסירה ל-Brevo: בדיקה אחרונה (ביטול התראות/חשבון), מעבר ל-sending ומסירת הכתובת.
---     רק קריאה אחת יכולה להצליח לכל שורה. שורה שלא הוחזרה — לא לשלוח.
+-- 5ב. רגע לפני המסירה ל-Brevo: בדיקה אחרונה, מעבר ל-sending ומסירת הכתובת. רק קריאה אחת מצליחה לכל שורה.
+--     נבדק: אימייל מאומת/חשבון פעיל, לא ביטל התראות, אין חסימה בין השניים, החץ עדיין קיים.
+--     נעילה לכל משתמש (כמו בביטול התראות): ביטול שקדם — מונע; שורה שלא הוחזרה — לא לשלוח.
 create function public.hdm_target_email_begin(p_id bigint)
 returns table (id bigint, to_email text, subject text, body_text text)
 language plpgsql volatile security definer set search_path = '' as $$
-declare uid uuid;
+declare uid uuid; snd text; rcp text;
 begin
-  select o.user_id into uid from public.hdm_target_email_outbox o where o.id = p_id and o.status = 'claimed' for update;
+  select o.user_id into uid from public.hdm_target_email_outbox o where o.id = p_id;
   if uid is null then return; end if;
+  perform pg_advisory_xact_lock(hashtextextended('hdm_target_email:' || uid::text, 0));
+  select o.sender_profile into snd from public.hdm_target_email_outbox o where o.id = p_id and o.status = 'claimed' for update;
+  if snd is null then return; end if;
+  select a.profile_id into rcp from public.hdm_accounts a where a.auth_user_id = uid;
   if not public.hdm_target_email_allowed(uid) then
     update public.hdm_target_email_outbox o set status = 'skipped', skipped = 'opted_out_or_unavailable' where o.id = p_id;
+    return;
+  end if;
+  if rcp is null or public.hdm_blocked_between(snd, rcp)
+     or not exists (select 1 from public.docs d where d.collection = 'interests' and d.id = snd || '__' || rcp) then
+    update public.hdm_target_email_outbox o set status = 'skipped', skipped = 'blocked_or_withdrawn' where o.id = p_id;
     return;
   end if;
   update public.hdm_target_email_outbox o set status = 'sending', sending_at = now(), attempts = o.attempts + 1 where o.id = p_id;
@@ -209,6 +224,7 @@ returns jsonb language plpgsql volatile security definer set search_path = '' as
 begin
   if auth.uid() is null then raise exception 'HDM_NOT_SIGNED_IN' using errcode = 'P0001'; end if;
   if p_on is null then raise exception 'HDM_BAD_INPUT' using errcode = 'P0001'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('hdm_target_email:' || auth.uid()::text, 0));   -- מול מסירה בו-זמנית
   insert into public.hdm_target_email_prefs (user_id, target_emails, updated_at) values (auth.uid(), p_on, now())
   on conflict (user_id) do update set target_emails = excluded.target_emails, updated_at = now();
   if not p_on then
