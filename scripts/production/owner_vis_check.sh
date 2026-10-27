@@ -21,35 +21,17 @@ select json_build_object(
  'release_marker', (select json_agg(note) from public.hdm_release_marker where version='production_owner_admin_only'),
  'other_real_users', (select count(*) from public.hdm_accounts a, me where a.profile_id<>me.pid),
  'definer_fns_reading_profiles', (select json_agg(p.proname order by p.proname) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-     where n.nspname='public' and p.prosecdef and pg_get_functiondef(p.oid) ilike '%''profiles''%'
+     where n.nspname='public' and p.prokind='f' and p.prosecdef and pg_get_functiondef(p.oid) ilike '%''profiles''%'
        and has_function_privilege('authenticated', p.oid, 'execute')),
  'definer_fns_profiles_without_hidden_check', (select json_agg(p.proname order by p.proname) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-     where n.nspname='public' and p.prosecdef and pg_get_functiondef(p.oid) ilike '%''profiles''%'
+     where n.nspname='public' and p.prokind='f' and p.prosecdef and pg_get_functiondef(p.oid) ilike '%''profiles''%'
        and pg_get_functiondef(p.oid) not ilike '%hdm_profile_hidden%'
        and has_function_privilege('authenticated', p.oid, 'execute'))
 ) r
 SQL
 )
 q "$Q1" > /tmp/ov1.json
-ann notice "owner-vis" "$(jq -c '.[0].r // .' /tmp/ov1.json | cut -c1-3000)"
-# סימולציה: כל משתמש אחר (כ-authenticated, בתוך טרנזקציה לקריאה בלבד) — כמה פעמים הפרופיל של הבעלים חוזר בשאילתת הפרופילים
-Q2=$(cat <<'SQL'
-do $$
-declare me text; o record; seen int; tot int := 0; viewers int := 0; selfseen int;
-begin
-  select a.profile_id into me from public.hdm_accounts a join auth.users u on u.id=a.auth_user_id where md5(lower(u.email))='162e004328485070b0af8b256ad2e798';
-  for o in select a.auth_user_id uid from public.hdm_accounts a where a.profile_id<>me loop
-    perform set_config('request.jwt.claims', json_build_object('sub',o.uid,'role','authenticated')::text, true);
-    perform set_config('request.jwt.claim.sub', o.uid::text, true);
-    execute 'set local role authenticated';
-    select count(*) into seen from public.docs where collection='profiles' and id=me;
-    execute 'reset role';
-    viewers := viewers + 1; tot := tot + seen;
-  end loop;
-  raise exception 'HDMVIS viewers=% owner_seen_total=%', viewers, tot;
-end $$;
-SQL
-)
-q "$Q2" > /tmp/ov2.json
-ann notice "owner-vis-sim" "$(jq -c '.' /tmp/ov2.json | grep -oE 'HDMVIS[^"\\]*|"message":"[^"]{0,300}' | head -3)"
+jq -r '.[0].r // . | if type=="object" then to_entries[] | "\(.key)=\(.value|tostring)" else tostring end' /tmp/ov1.json > /tmp/ov1.txt 2>&1 || cp /tmp/ov1.json /tmp/ov1.txt
+n=0; while IFS= read -r line; do n=$((n+1)); ann notice "ov-$n" "$(printf '%s' "$line" | cut -c1-900)"; done < /tmp/ov1.txt
+[ "$n" -gt 0 ] || ann notice "ov-empty" "$(head -c 900 /tmp/ov1.json)"
 ann notice "prod-result" "ownervischeck — קריאה בלבד, שום דבר לא שונה"
