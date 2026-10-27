@@ -11,7 +11,6 @@ select json_build_object(
  'hidden_rows_total', (select count(*) from public.hdm_hidden_profiles),
  'owner_hidden', (select count(*) from public.hdm_hidden_profiles h, me where h.profile_id=me.pid),
  'owner_hidden_reason', (select string_agg(h.reason||' @ '||h.hidden_at::text, ',') from public.hdm_hidden_profiles h, me where h.profile_id=me.pid),
- 'hidden_fn_says', (select public.hdm_profile_hidden(me.pid) from me),
  'policy_uses_hidden', (select pg_get_expr(polqual, polrelid) like '%hdm_profile_hidden%' from pg_policy where polname='profiles_read'),
  'profiles_read_policy', (select pg_get_expr(polqual, polrelid) from pg_policy where polname='profiles_read'),
  'other_select_policies_on_docs', (select json_agg(polname) from pg_policy where polrelid='public.docs'::regclass and polcmd in ('r','*') and polname<>'profiles_read'),
