@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in defdump|defhash|e2elivetwo|e2ecombo|install47|tests48|e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in install49|tests50|e2etargetmail|defdump|defhash|e2elivetwo|e2ecombo|install47|tests48|e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -607,6 +607,30 @@ if [ "$MODE" = "e2elivecode" ]; then
   [ $RC -eq 0 ] || stop "בדיקת הקוד החי נכשלה (ראו פלט)."
   ann notice "staging-result" "✅ e2elivecode: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
 fi
+if [ "$MODE" = "e2etargetmail" ]; then
+  STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
+  case "${STAGING_PUBLISHABLE_KEY:-}" in sb_publishable_*) ;; *) stop "חסר מפתח ציבורי של Staging.";; esac
+  [ -n "${HDM_CRON_SECRET:-}" ] || stop "חסר סוד המשימה (שלב הפריסה לא רץ)."
+  OUT=$(STAGING_DB_URL="$URL" PAGE_NEW="$ROOT/scripts/staging_e2e/targetemail/staging.html" timeout 900 python3 "$ROOT/scripts/staging_e2e/e2e_target_email.py" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY|ERROR)|ניקוי|Traceback' | tail -n 40)"
+  [ $RC -eq 0 ] || stop "בדיקת התראת המייל על 🎯 נכשלה (ראו פלט)."
+  ann notice "staging-result" "✅ e2etargetmail: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
+fi
+if [ "$MODE" = "install49" ]; then
+  # טביעת אצבע של כל פונקציות public לפני ואחרי — כדי להוכיח שלא שונתה אף פונקציה קיימת (🎯/צ'אט/מנויים/סליקה)
+  FPQ="select coalesce(string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')=' || md5(pg_get_functiondef(p.oid)), E'\n' order by 1), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prokind = 'f'"
+  TGQ="select coalesce(string_agg(c.relname || '.' || t.tgname || '=' || md5(pg_get_triggerdef(t.oid)), E'\n' order by 1), '') from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname in ('public') and not t.tgisinternal"
+  "${RO[@]}" "${PSQL[@]}" -At -c "$FPQ" > /tmp/fp_before.txt; "${RO[@]}" "${PSQL[@]}" -At -c "$TGQ" > /tmp/tg_before.txt
+  OUT=$("${PSQL[@]}" -f "$SQLDIR/49_staging_target_email.sql" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; ann notice "staging-output" "$(echo "$OUT" | grep -E 'ERROR|עצירה' | tail -n 20)"
+  [ $RC -eq 0 ] || stop "49_staging_target_email.sql נעצר או נכשל. ההרצה היא 'הכול או כלום'."
+  "${RO[@]}" "${PSQL[@]}" -At -c "$FPQ" > /tmp/fp_after.txt; "${RO[@]}" "${PSQL[@]}" -At -c "$TGQ" > /tmp/tg_after.txt
+  CHANGED=$(comm -23 /tmp/fp_before.txt /tmp/fp_after.txt | cut -d= -f1); NEWF=$(comm -13 /tmp/fp_before.txt /tmp/fp_after.txt | cut -d= -f1 | tr '\n' ' ')
+  TCH=$(comm -23 /tmp/tg_before.txt /tmp/tg_after.txt | cut -d= -f1); NEWT=$(comm -13 /tmp/tg_before.txt /tmp/tg_after.txt | cut -d= -f1 | tr '\n' ' ')
+  ann notice "install49-diff" "פונקציות קיימות שהשתנו: ${CHANGED:-אף אחת} | טריגרים קיימים שהשתנו: ${TCH:-אף אחד} | פונקציות חדשות: $NEWF | טריגרים חדשים: $NEWT"
+  [ -z "$CHANGED" ] && [ -z "$TCH" ] || stop "פונקציה/טריגר קיימים השתנו — לא צפוי."
+  ann notice "staging-result" "✅ install49: התראת מייל על 🎯 הותקנה ב-Staging; אף פונקציה או טריגר קיימים לא השתנו ($(wc -l < /tmp/fp_before.txt) פונקציות נבדקו)"; exit 0
+fi
 if [ "$MODE" = "e2etargetmark" ]; then
   STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
   case "${STAGING_PUBLISHABLE_KEY:-}" in sb_publishable_*) ;; *) stop "חסר מפתח ציבורי של Staging.";; esac
@@ -861,6 +885,7 @@ case "$MODE" in
   tests35)   FILE="$SQLDIR/35_staging_plans_alerts_tests.sql" ;;
   install36) FILE="$SQLDIR/36_staging_billing_alerts_more.sql" ;;
   install38) FILE="$SQLDIR/38_staging_admin_panel.sql" ;;
+  tests50)   FILE="$SQLDIR/50_staging_target_email_tests.sql" ;;
   install47) FILE="$SQLDIR/47_staging_card_sweep.sql" ;;
   tests48)   FILE="$SQLDIR/48_staging_card_sweep_tests.sql" ;;
   install45) FILE="$SQLDIR/45_staging_free_match_level.sql" ;;
@@ -880,6 +905,13 @@ echo "$OUT"; { echo '```'; echo "$OUT" | tail -n 120; echo '```'; } >> "$SUMMARY
 ann notice "staging-output" "$(echo "$OUT" | grep -E '❌|✅|סיכום|ERROR|עצירה' | tail -n 90)"
 [ $RC -eq 0 ] || stop "$(basename "$FILE") נעצר או נכשל (ראו פלט). ההרצה היא 'הכול או כלום'."
 
+if [ "$MODE" = "tests50" ]; then
+  SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
+  [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות התראת המייל על 🎯 עברו ($SUMM)."
+  LEFT=$("${RO[@]}" "${PSQL[@]}" -At -c "select (select count(*) from auth.users where email like 'te%@example.invalid') + (select count(*) from public.hdm_target_email_outbox o where not exists (select 1 from auth.users u where u.id = o.user_id))")
+  [ "$LEFT" = "0" ] || stop "נשארו נתוני בדיקה ($LEFT)."
+  ann notice "staging-result" "✅ tests50: $SUMM — התראת מייל על 🎯 (הכול בוטל, לא נשמר כלום)"; exit 0
+fi
 if [ "$MODE" = "tests48" ]; then
   SUMM=$(echo "$OUT" | grep -oE 'עברו [0-9]+ מתוך [0-9]+' | tail -1); N1=$(echo "$SUMM" | awk '{print $2}'); N2=$(echo "$SUMM" | awk '{print $4}')
   [ -n "$N1" ] && [ "$N1" = "$N2" ] || stop "לא כל בדיקות השלמת ההצטרפות עברו ($SUMM)."
