@@ -176,10 +176,13 @@ try:
         for it in range(20):
             sql(f"delete from public.hdm_target_email_prefs where user_id='{ruid}'; update public.hdm_target_email_outbox set status='claimed', claimed_at=now(), skipped=null where id={rid}")
             with concurrent.futures.ThreadPoolExecutor(2) as ex:
-                fb = ex.submit(lambda: sql(f"select count(*) from public.hdm_target_email_begin({rid})"))
+                fb = ex.submit(lambda: subprocess.run(['psql', DB, '-X', '-At', '-v', 'ON_ERROR_STOP=1',
+                    '-c', f"select pg_advisory_lock(hashtextextended('hdm_target_email:{ruid}', 0))",
+                    '-c', f"select 'B' || count(*) from public.hdm_target_email_begin({rid})",
+                    '-c', f"select pg_advisory_unlock(hashtextextended('hdm_target_email:{ruid}', 0))"], capture_output=True, text=True).stdout)
                 fo = ex.submit(lambda: as_user(rcm, "select public.hdm_set_target_emails(false)"))
                 got, _ = fb.result(), fo.result()
-            got = got.strip().splitlines()[-1]; st = sql(f"select status from public.hdm_target_email_outbox where id={rid}")
+            got = '1' if 'B1' in got else ('0' if 'B0' in got else got); st = sql(f"select status from public.hdm_target_email_outbox where id={rid}")
             if got == '1' and st == 'sending': outcomes['sending'] += 1
             elif got == '0' and st == 'skipped': outcomes['skipped'] += 1
             else: outcomes['bad'].append((got, st))

@@ -1,7 +1,7 @@
 -- =====================================================================
--- חיים דרך מספרים — תשתית התראת מייל על קבלת חץ 🎯 (גרסה 3 — סופית, 27.10.2026).
+-- חיים דרך מספרים — תשתית התראת מייל על קבלת חץ 🎯 (גרסה 4, 27.10.2026).
 -- אותו קובץ בדיוק רץ ב-Staging ואחר כך ב-Production (רק באישור הבעלים).
--- רק מוסיף: 3 טבלאות חדשות, טריגר אחד, 8 פונקציות. לא מוחק ולא משנה נתון קיים.
+-- רק מוסיף: 3 טבלאות חדשות, טריגר אחד, 9 פונקציות. לא מוחק ולא משנה נתון קיים.
 -- לא שולח מיילים: רק תור. השליחה (hdm-target-mailer) היא שלב נפרד.
 --
 -- מניעת כפילויות — "לכל היותר פעם אחת":
@@ -13,16 +13,26 @@
 --     (5xx / ניתוק / זמן קצוב) = uncertain — לא נשלח שוב.
 -- הגבלה: זוג שולח→מקבל — מייל אחד ל-30 יום; מקבל — עד 3 ב-24 שעות.
 --   נעילה לכל מקבל (advisory lock) — נאכף גם כשכמה חצים נשלחים בו-זמנית.
--- ביטול התראות: מבטל מיד כל מייל שבתור, ונבדק שוב רגע לפני המסירה ל-Brevo. ביטול ומסירה ננעלים
---   לכל משתמש (advisory lock). שולח המיילים מחזיק את הנעילה לאורך כל המסירה ל-Brevo (begin → Brevo → done),
---   ולכן ביטול שנשמר לפני המסירה תמיד מונע את השליחה, וביטול שנשלח בזמן המסירה ממתין לסופה.
+-- ביטול התראות: מבטל מיד כל מייל שבתור, ונבדק שוב ב-begin רגע לפני המסירה ל-Brevo.
+--   נעילת טרנזקציה (xact) משתחררת ב-commit ולכן אינה מכסה את קריאת ה-HTTP. לכן:
+--   * begin מסרב לעבוד אם המתקשר אינו מחזיק כבר נעילת session של אותו משתמש (pg_advisory_lock) —
+--     זו הנעילה שמחזיקה פונקציית השליחה, בחיבור אחד, מ-begin ועד אחרי סימון התוצאה (כולל הקריאה ל-Brevo).
+--   * ביטול התראות לוקח את אותה נעילה (xact) — ממתין עד שהמסירה הנוכחית מסתיימת, וכל מייל שעוד לא נמסר מבוטל.
+--   תוצאה: ביטול שנשמר לפני begin — לא נשלח; ביטול בזמן מסירה — ממתין לסופה ונכנס לתוקף מיד אחריה.
 -- רגע לפני המסירה נבדק שוב: אימייל מאומת, חשבון פעיל, אין חסימה בין השניים, והחץ עדיין קיים.
 -- מבנה החץ (כמו ב-hdm_send_target): docs.collection = 'interests', id = '<שולח>__<מקבל>', data = {from, to, ts}.
 -- פרטיות: במייל אין שום פרט על השולח. מזהה השולח נשמר בתור בשרת בלבד (לבדיקת חסימה) — סגור לאפליקציה.
 -- תקלה בטריגר לא מבטלת את החץ. "הכול או כלום"; הרצה חוזרת נעצרת בלי לשנות.
+-- הגנת סביבה: ב-Production הקובץ רץ רק אחרי השורה המפורשת (מודבקת ידנית לפני הקובץ, באישור הבעלים):
+--   set hdm.allow_production_install = 'target_email_v1';
+-- בלעדיה — נעצר ולא משנה כלום. ב-Staging (יש hdm_staging_marker) אין צורך בה.
 -- =====================================================================
 begin;
 do $$ begin
+  if to_regclass('public.hdm_staging_marker') is null
+     and coalesce(current_setting('hdm.allow_production_install', true), '') <> 'target_email_v1' then
+    raise exception 'עצירה: זה Production ולא ניתן אישור מפורש להתקנה. שום דבר לא שונה.';
+  end if;
   if to_regclass('public.docs') is null or to_regclass('public.hdm_accounts') is null
      or (to_regclass('public.hdm_release_marker') is null and to_regclass('public.hdm_staging_marker') is null) then
     raise exception 'עצירה: זה לא מסד מאובטח של האפליקציה. שום דבר לא שונה.';
@@ -169,9 +179,18 @@ begin
   select c.id, 'target_received'::text from c order by c.id;
 end $$;
 
+-- האם החיבור הנוכחי מחזיק את נעילת המשתמש (pg_advisory_lock עם המפתח הזה)
+create function public.hdm_target_email_lock_held(p_uid uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from pg_catalog.pg_locks l,
+                   (select hashtextextended('hdm_target_email:' || p_uid::text, 0) as k) x
+                  where l.locktype = 'advisory' and l.pid = pg_catalog.pg_backend_pid() and l.granted and l.objsubid = 1
+                    and l.classid::bigint = ((x.k >> 32) & 4294967295) and l.objid::bigint = (x.k & 4294967295))
+$$;
+
 -- 5ב. רגע לפני המסירה ל-Brevo: בדיקה אחרונה, מעבר ל-sending ומסירת הכתובת. רק קריאה אחת מצליחה לכל שורה.
 --     נבדק: אימייל מאומת/חשבון פעיל, לא ביטל התראות, אין חסימה בין השניים, החץ עדיין קיים.
---     נעילה לכל משתמש (כמו בביטול התראות): ביטול שקדם — מונע; שורה שלא הוחזרה — לא לשלוח.
+--     רק למתקשר שמחזיק את נעילת ה-session של המשתמש. שורה שלא הוחזרה — לא לשלוח.
 create function public.hdm_target_email_begin(p_id bigint)
 returns table (id bigint, to_email text, subject text, body_text text)
 language plpgsql volatile security definer set search_path = '' as $$
@@ -179,6 +198,8 @@ declare uid uuid; snd text; rcp text;
 begin
   select o.user_id into uid from public.hdm_target_email_outbox o where o.id = p_id;
   if uid is null then return; end if;
+  -- חובה: המתקשר מחזיק נעילת session של המשתמש לאורך כל המסירה. בלעדיה — לא מוסרים (השורה נשארת בתור).
+  if not public.hdm_target_email_lock_held(uid) then return; end if;
   perform pg_advisory_xact_lock(hashtextextended('hdm_target_email:' || uid::text, 0));
   select o.sender_profile into snd from public.hdm_target_email_outbox o where o.id = p_id and o.status = 'claimed' for update;
   if snd is null then return; end if;
@@ -236,7 +257,7 @@ begin
   return public.hdm_my_email_prefs();
 end $$;
 
-revoke all on function public.hdm_target_email_text(), public.hdm_target_email_allowed(uuid), public.hdm_target_email_on_interest(),
+revoke all on function public.hdm_target_email_text(), public.hdm_target_email_allowed(uuid), public.hdm_target_email_lock_held(uuid), public.hdm_target_email_on_interest(),
   public.hdm_target_email_claim(int), public.hdm_target_email_begin(bigint), public.hdm_target_email_done(bigint, text, text),
   public.hdm_my_email_prefs(), public.hdm_set_target_emails(boolean) from public, anon, authenticated;
 grant execute on function public.hdm_my_email_prefs(), public.hdm_set_target_emails(boolean) to authenticated;
@@ -266,7 +287,7 @@ commit;
 --   drop trigger if exists hdm_target_email_on_interest on public.docs;
 --   drop function if exists public.hdm_target_email_on_interest(), public.hdm_target_email_claim(int), public.hdm_target_email_begin(bigint),
 --     public.hdm_target_email_done(bigint, text, text), public.hdm_my_email_prefs(), public.hdm_set_target_emails(boolean),
---     public.hdm_target_email_allowed(uuid), public.hdm_target_email_text();
+--     public.hdm_target_email_allowed(uuid), public.hdm_target_email_lock_held(uuid), public.hdm_target_email_text();
 --   drop table if exists public.hdm_target_email_outbox, public.hdm_target_email_log, public.hdm_target_email_prefs;
 --   delete from public.hdm_release_marker where version = 'target_email_v1';
 -- commit;

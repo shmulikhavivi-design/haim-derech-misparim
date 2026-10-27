@@ -116,6 +116,13 @@ try:
     R = [make_user(f'r{i}', 'גבר', 'נשים', f'198{i}-0{i+1}-1{i}', 'עמית', 'רז') for i in range(1, 5)]
     for p, _ in R: as_user(sm, f"select public.hdm_send_target('{p}')")
     check('הכנה: 4 חצים → 4 מיילים בתור', all(row(e) == 'pending' for _, e in R), [row(e) for _, e in R])
+    # ---- 0. begin בלי נעילת session (חיבור נפרד, טרנזקציה משלו) — מסרב, והמייל נשאר בתור ----
+    (p0, e0) = R[3]; i0 = rid(e0)
+    sql(f"update public.hdm_target_email_outbox set status='claimed', claimed_at=now() where id={i0}")
+    r0 = sql(f"select 'B' || count(*) from public.hdm_target_email_begin({i0})")
+    check('0. begin בלי נעילת המשתמש — מסרב (לא נמסר)', r0 == 'B0', r0)
+    check('0. והמייל נשאר בתור, לא אבד ולא נספר כניסיון', sql(f"select status || ':' || attempts from public.hdm_target_email_outbox where id={i0}") == 'claimed:0')
+    sql(f"update public.hdm_target_email_outbox set status='pending', claimed_at=null where id={i0}")
     # ---- א. ביטול בזמן מסירה (במסד, כמו שפונקציית השליחה עושה): הביטול ממתין לסוף המסירה ----
     (p1, e1) = R[0]; i1 = rid(e1); k1 = f"hashtextextended('hdm_target_email:{uid(e1)}', 0)"
     sql(f"update public.hdm_target_email_outbox set status='claimed', claimed_at=now() where id={i1}")
