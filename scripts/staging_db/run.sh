@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in defhash|e2elivetwo|e2ecombo|install47|tests48|e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in defdump|defhash|e2elivetwo|e2ecombo|install47|tests48|e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -506,6 +506,13 @@ if [ "$MODE" = "e2eadminpanel" ]; then
   echo "$OUT"; ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SKIP|SUMMARY|Traceback)|ניקוי|Error' | tail -n 40)"
   [ $RC -eq 0 ] || stop "בדיקת הדפדפן של לוח הניהול נכשלה."
   ann notice "staging-result" "✅ e2eadminpanel: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
+fi
+if [ "$MODE" = "defdump" ]; then
+  for f in hdm_my_entitlements hdm_plan_row hdm_send_target hdm_open_chat_internal hdm_who_targeted_me; do
+    B=$("${RO[@]}" psql "$URL" -X -At -c "select encode(convert_to(string_agg(pg_get_functiondef(p.oid), chr(10)), 'UTF8'), 'base64') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='$f'" 2>&1 | tr -d '\n')
+    echo "::notice title=dd-$f::$B"
+  done
+  ann notice "staging-result" "✅ defdump: קריאה בלבד"; exit 0
 fi
 if [ "$MODE" = "defhash" ]; then
   OUT=$("${RO[@]}" psql "$URL" -X -At -c "$(cat "$HERE/defhash.sql")" 2>&1)
