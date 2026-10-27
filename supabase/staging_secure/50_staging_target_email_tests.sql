@@ -76,6 +76,19 @@ begin
   perform pg_temp.chk('שליחה', 'חינם לא יכול לשלוח 🎯 (ללא שינוי)', 'err:HDM_PLAN_REQUIRED%', pg_temp.as_user(uF, format('select public.hdm_send_target(%L)::text', R3)));
   perform pg_temp.chk('שליחה', 'חץ שנדחה — אין מייל', '0', pg_temp.q(uR3));
 
+  -- ---------- מבנה החץ: id = '<שולח>__<מקבל>' ו-data.from/data.to תואמים (כמו hdm_send_target) ----------
+  perform pg_temp.chk('מבנה החץ', 'חץ מהאפליקציה: id = from__to', 'ok', (select case when id = (data->>'from') || '__' || (data->>'to') and data->>'from' = B and data->>'to' = R1 then 'ok' else id || ' ' || data::text end from public.docs where collection = 'interests' and id = B || '__' || R1));
+  n0 := pg_temp.q(uR2)::int;
+  insert into public.docs (collection, id, data) values ('interests', R2 || '__' || B4, jsonb_build_object('from', B4, 'to', R2, 'ts', 0));   -- id הפוך ל-from/to
+  perform pg_temp.chk('מבנה החץ', 'id שלא תואם ל-from/to — אין מייל', n0::text, pg_temp.q(uR2));
+  insert into public.docs (collection, id, data) values ('interests', B4 || '__' || R2 || 'x', jsonb_build_object('from', B4, 'to', R2, 'ts', 0));
+  perform pg_temp.chk('מבנה החץ', 'id עם מקבל אחר מ-to — אין מייל', n0::text, pg_temp.q(uR2));
+  insert into public.docs (collection, id, data) values ('interests', B4 || '__' || R2, jsonb_build_object('from', B4, 'ts', 0));
+  perform pg_temp.chk('מבנה החץ', 'בלי to — אין מייל', n0::text, pg_temp.q(uR2));
+  delete from public.docs where collection = 'interests' and id in (R2 || '__' || B4, B4 || '__' || R2 || 'x', B4 || '__' || R2);
+  begin insert into public.hdm_accounts (auth_user_id, profile_id) values (gen_random_uuid(), 'a__b'); r := 'ok'; exception when others then r := 'err:' || sqlstate; end;
+  perform pg_temp.chk('מבנה החץ', 'מזהה פרופיל עם "__" נדחה במסד (אין התנגשות במזהה החץ)', 'err:%', r);
+
   -- ---------- 2–3. כפילויות והצפה ----------
   perform pg_temp.chk('כפילויות', 'אותו חץ שוב', 'ok:%', pg_temp.as_user(uB, format('select public.hdm_send_target(%L)::text', R1)));
   perform pg_temp.chk('כפילויות', 'עדיין מייל אחד', '1', pg_temp.q(uR1));
