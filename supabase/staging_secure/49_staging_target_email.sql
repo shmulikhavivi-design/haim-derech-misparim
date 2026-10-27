@@ -12,7 +12,7 @@
 --   * מניעת כפילויות והצפה (דרישות 2–3):
 --       - זוג שולח→מקבל: מייל אחד לכל 30 יום, גם אם החץ בוטל ונשלח שוב (hdm_target_email_log).
 --       - מקבל: עד 3 מיילים על חצים ב-24 שעות.
---       - שליחה: כל מייל "נתפס" בשרת לפני השליחה ונשלח פעם אחת בלבד.
+--       - שליחה: כל מייל "נתפס" בשרת לפני השליחה ונשלח פעם אחת בלבד; כשל חוזר לתור רק אחרי 10 דקות (עד 5 ניסיונות).
 --   * פרטיות (דרישות 4, 8): במייל ובתור אין שם, מזהה או פרט כלשהו של שולח החץ. מי שלח —
 --     רק באפליקציה, לפי המסלול (hdm_who_targeted_me, ללא שינוי). התור והיומן סגורים לגמרי לאפליקציה.
 --   * ביטול התראות (דרישה 5): hdm_set_target_emails(false) מהמסך "הגדרות ← התראות מייל".
@@ -157,7 +157,7 @@ returns void language sql volatile security definer set search_path = '' as $$
      set sent_at    = case when p_ok then now() else sent_at end,
          attempts   = attempts + 1,
          last_error = case when p_ok then null else left(p_error, 200) end,
-         claimed_at = case when p_ok then claimed_at else null end
+         claimed_at = now()            -- כשל: חוזר לתור רק אחרי 10 דקות (לא מיד), כדי שהרצה מקבילה/תשובה שהתעכבה לא יגרמו למייל כפול
    where id = p_id and sent_at is null
 $$;
 
