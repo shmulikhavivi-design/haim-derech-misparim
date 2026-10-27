@@ -31,6 +31,6 @@ SQL
 )
 q "$Q1" > /tmp/ov1.json
 jq -r '.[0].r // . | if type=="object" then to_entries[] | "\(.key)=\(.value|tostring)" else tostring end' /tmp/ov1.json > /tmp/ov1.txt 2>&1 || cp /tmp/ov1.json /tmp/ov1.txt
-n=0; while IFS= read -r line; do n=$((n+1)); ann notice "ov-$n" "$(printf '%s' "$line" | cut -c1-900)"; done < /tmp/ov1.txt
+n=0; tail -n +9 /tmp/ov1.txt > /tmp/ov2.txt; while IFS= read -r line; do n=$((n+1)); ann notice "ov-$n" "$(printf '%s' "$line" | cut -c1-900)"; done < /tmp/ov2.txt
 [ "$n" -gt 0 ] || ann notice "ov-empty" "$(head -c 900 /tmp/ov1.json)"
 ann notice "prod-result" "ownervischeck — קריאה בלבד, שום דבר לא שונה"
