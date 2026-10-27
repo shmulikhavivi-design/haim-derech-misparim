@@ -65,4 +65,6 @@ if [ -n "${FN_TOK:-}" ]; then echo "::add-mask::$FN_TOK"
   ann notice "t6-functions" "פונקציות פרוסות (שליחה לא פרוסה): $(curl -sS -m 30 -H "Authorization: Bearer $FN_TOK" "$A/functions" | jq -c '[.[]?.slug]') | סוד TARGET_EMAILS_LIVE קיים: $(curl -sS -m 30 -H "Authorization: Bearer $FN_TOK" "$A/secrets" | jq -c '[.[]?.name] | index("TARGET_EMAILS_LIVE") != null')"
 fi
 [ -z "$DIFF" ] || stop "נתונים קיימים השתנו ($DIFF) — לבדוק מיד"
+INST=$(echo "$V" | jq -r 'if (.marker == true and (.tables|length) == 3 and .rls == true and (.trigger|type) == "string" and .outbox_rows == 0 and .anon_can_call == 0 and .mailer_cron == 0) then "yes" else "no" end' 2>/dev/null)
+[ "$INST" = yes ] || { ann notice "prod-result" "ℹ️ $MODE: התשתית עדיין לא מותקנת ב-Production (או לא במלואה). נתונים קיימים ללא שינוי."; exit 0; }
 ann notice "prod-result" "✅ $MODE: תשתית התראות 🎯 הותקנה ב-Production. מנויים/תשלומים/משתמשים/התאמות/פונקציות קיימות ללא שינוי. אף מייל לא נשלח; פונקציית השליחה לא פרוסה."
