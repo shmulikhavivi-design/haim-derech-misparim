@@ -1,13 +1,15 @@
 // =====================================================================
 // חיים דרך מספרים — שליחת התראות "קיבלת חץ 🎯" מהתור (hdm_target_email_outbox) דרך ה-API של Brevo.
 // אותה תשתית מייל כמו מיילי הביטול (BREVO_API_KEY, MAIL_FROM, MAIL_REPLY_TO) — בלי שינוי בהגדרות SMTP.
-// לב הלוגיקה, בלי Deno.serve — כדי שאפשר לבדוק אותו עם fetch ו-rpc מדומים.
-// - מתג הפעלה: TARGET_EMAILS_LIVE=1. בלעדיו — לא נוגעים בתור בכלל (ברירת מחדל: כבוי).
-// - בלי BREVO_API_KEY או MAIL_FROM: לא נוגעים בתור. DRY_RUN=1: לא שולחים ולא מסמנים.
-// - כל מייל נתפס בשרת (hdm_target_email_claim) לפני השליחה ונשלח פעם אחת בלבד. מייל שנכשל חוזר לתור (עד 5 ניסיונות).
+// לב הלוגיקה, בלי Deno.serve — נבדק עם מסד ו-fetch מדומים.
+// - מתג הפעלה: TARGET_EMAILS_LIVE=1. בלעדיו — לא נוגעים בתור בכלל (ברירת מחדל: כבוי). DRY_RUN=1: לא שולחים.
+// - לכל היותר פעם אחת: claim (תפיסה) → begin (בדיקה אחרונה + "sending", נשמר לפני המסירה) → Brevo → done.
+// - ביטול התראות מול מסירה: כל המסירה (begin + הקריאה ל-Brevo + done) מתבצעת בתוך נעילה של המשתמש
+//   (pg_advisory_lock, חיבור ישיר אחד למסד). ביטול התראות לוקח את אותה נעילה — ולכן:
+//   ביטול שנשמר לפני המסירה → begin מסרב ולא נשלח; ביטול שנשלח בזמן המסירה ממתין לסופה ונכנס לתוקף מיד אחריה.
 // - במייל אין שום פרט על שולח החץ: הנושא והגוף מגיעים מהשרת (hdm_target_email_text), זהים לכולם.
 // =====================================================================
-import { BREVO_URL, type Rpc } from './email_worker.ts';
+import { BREVO_URL } from './email_worker.ts';
 
 export type TargetMail = { id: number; kind: string; to_email: string; subject: string; body_text: string };
 export const SITE = 'https://haimderechmisparim.com';
@@ -60,39 +62,54 @@ export function classify(status: number | null): Outcome {
   return 'uncertain';
 }
 
-export async function sendTargetEmails(env: (k: string) => string, rpc: Rpc, fetchFn: typeof fetch) {
+// המסד — מוזרק (במבחנים: מדומה). withUserLock מחזיק נעילת משתמש לכל אורך fn (כולל הקריאה ל-Brevo).
+export interface QueueDb {
+  claim(limit: number): Promise<number[]>;
+  withUserLock<T>(id: number, fn: () => Promise<T>): Promise<T>;
+  begin(id: number): Promise<TargetMail | null>;
+  done(id: number, outcome: Outcome, error: string | null): Promise<void>;
+}
+
+export function brevoUrl(env: (k: string) => string): string {
+  // כתובת בדיקה (שרת שמשהה תשובה) — רק ב-Staging, ולעולם לא ב-Production
+  const t = env('BREVO_URL_TEST');
+  return env('HDM_ENV') === 'staging' && /^https:\/\//.test(t) ? t : BREVO_URL;
+}
+
+export async function sendTargetEmails(env: (k: string) => string, db: QueueDb, fetchFn: typeof fetch) {
   if (env('TARGET_EMAILS_LIVE') !== '1') return { skipped: 'off' };
   const key = env('BREVO_API_KEY'), from = env('MAIL_FROM');
   if (!key || !from) return { skipped: 'not_configured' };
   if (env('DRY_RUN') === '1') return { skipped: 'dry_run' };
-  const { data, error } = await rpc('hdm_target_email_claim', { p_limit: 20 });
-  if (error) throw new Error('target outbox: ' + error.message);
+  const url = brevoUrl(env);
+  const ids = await db.claim(20);
   let sent = 0, rejected = 0, uncertain = 0, skipped = 0;
-  for (const row of (data ?? []) as { id: number }[]) {
-    // בדיקה אחרונה בשרת ממש לפני המסירה (ביטול התראות / חשבון). רק קריאה אחת מצליחה לכל מייל.
-    const b = await rpc('hdm_target_email_begin', { p_id: row.id });
-    const m = (Array.isArray(b.data) ? b.data[0] : null) as TargetMail | null;
-    if (b.error || !m || !m.to_email) { skipped++; continue; }
-    let status: number | null = null, err = '';
-    try {
-      const r = await fetchFn(BREVO_URL, {
-        method: 'POST',
-        headers: { 'api-key': key, 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify(targetBrevoBody({ ...m, kind: 'target_received' }, from, env('MAIL_REPLY_TO'))),
-        signal: AbortSignal.timeout(20000),
-      });
-      status = r.status;
-      if (!r.ok) err = `brevo ${r.status}`;
-      await r.body?.cancel();
-    } catch (e) { err = 'network: ' + String(e).slice(0, 150); }
-    const outcome = classify(status);
-    // סימון התוצאה. אם הסימון נכשל — השורה נשארת "sending" ולא תישלח שוב לעולם.
-    for (let i = 0; i < 3; i++) {
-      const { error: e2 } = await rpc('hdm_target_email_done', { p_id: row.id, p_result: outcome, p_error: outcome === 'sent' ? null : err });
-      if (!e2) break;
-      console.error('target email done failed', row.id, i, e2.message);
-    }
-    if (outcome === 'sent') sent++; else if (outcome === 'rejected') rejected++; else uncertain++;
+  for (const id of ids) {
+    const outcome = await db.withUserLock(id, async (): Promise<Outcome | 'skipped'> => {
+      // בדיקה אחרונה בשרת (ביטול התראות / חסימה / חץ שבוטל / חשבון) — רק קריאה אחת מצליחה לכל מייל
+      const m = await db.begin(id);
+      if (!m || !m.to_email) return 'skipped';
+      let status: number | null = null, err = '';
+      try {
+        const r = await fetchFn(url, {
+          method: 'POST',
+          headers: { 'api-key': key, 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify(targetBrevoBody({ ...m, kind: 'target_received' }, from, env('MAIL_REPLY_TO'))),
+          signal: AbortSignal.timeout(15000),
+        });
+        status = r.status;
+        if (!r.ok) err = `brevo ${r.status}`;
+        await r.body?.cancel();
+      } catch (e) { err = 'network: ' + String(e).slice(0, 150); }
+      const o = classify(status);
+      // סימון התוצאה. אם הסימון נכשל — השורה נשארת "sending" ולא תישלח שוב לעולם.
+      for (let i = 0; i < 3; i++) {
+        try { await db.done(id, o, o === 'sent' ? null : err); break; }
+        catch (e) { console.error('target email done failed', id, i, String(e).slice(0, 120)); }
+      }
+      return o;
+    });
+    if (outcome === 'sent') sent++; else if (outcome === 'rejected') rejected++; else if (outcome === 'uncertain') uncertain++; else skipped++;
   }
   return { sent, rejected, uncertain, skipped };
 }

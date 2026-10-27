@@ -58,7 +58,7 @@ jobs:
             mode=$(printf '%s\n' "$COMMIT_MSG" | head -n1 | sed -n 's/.*\[staging:\([a-z0-9]*\)\].*/\1/p')
           fi
           mode="${mode:-check}"
-          case "$mode" in e2etargetmarknew|install49|tests50|e2etargetmail|defdump|defhash|e2elivetwo|e2ecombo|install47|tests48|e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|install36|tests37|e2eworker|install34|tests35|e2ealerts|install32|tests33|e2ecard|install30|tests31|e2evip|keynames|e2emorning|check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
+          case "$mode" in e2etargetlock|e2etargetmarknew|install49|tests50|e2etargetmail|defdump|defhash|e2elivetwo|e2ecombo|install47|tests48|e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|install36|tests37|e2eworker|install34|tests35|e2ealerts|install32|tests33|e2ecard|install30|tests31|e2evip|keynames|e2emorning|check|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) echo "מצב לא מוכר: $mode"; exit 1;; esac
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "### מצב ההרצה: \`$mode\`" >> "$GITHUB_STEP_SUMMARY"
 
@@ -66,12 +66,12 @@ jobs:
         run: command -v psql || (sudo apt-get update -q && sudo apt-get install -y -q postgresql-client)
 
       - uses: actions/setup-python@v6
-        if: steps.mode.outputs.mode == 'e2elivetwo' || steps.mode.outputs.mode == 'e2ecombo' || steps.mode.outputs.mode == 'e2epay' || steps.mode.outputs.mode == 'e2eage' || steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2efreelevel' || steps.mode.outputs.mode == 'e2etargetmark' || steps.mode.outputs.mode == 'e2etargetmail' || steps.mode.outputs.mode == 'e2etargetmarknew' || steps.mode.outputs.mode == 'e2elivecode' || steps.mode.outputs.mode == 'e2eautoupdate' || steps.mode.outputs.mode == 'e2enoempty' || steps.mode.outputs.mode == 'e2elivefinal' || steps.mode.outputs.mode == 'e2egolive' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
+        if: steps.mode.outputs.mode == 'e2elivetwo' || steps.mode.outputs.mode == 'e2ecombo' || steps.mode.outputs.mode == 'e2epay' || steps.mode.outputs.mode == 'e2eage' || steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2efreelevel' || steps.mode.outputs.mode == 'e2etargetmark' || steps.mode.outputs.mode == 'e2etargetmail' || steps.mode.outputs.mode == 'e2etargetmarknew' || steps.mode.outputs.mode == 'e2etargetlock' || steps.mode.outputs.mode == 'e2elivecode' || steps.mode.outputs.mode == 'e2eautoupdate' || steps.mode.outputs.mode == 'e2enoempty' || steps.mode.outputs.mode == 'e2elivefinal' || steps.mode.outputs.mode == 'e2egolive' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
         with:
           python-version: '3.12'
 
       - name: Browser (e2e only)
-        if: steps.mode.outputs.mode == 'e2elivetwo' || steps.mode.outputs.mode == 'e2ecombo' || steps.mode.outputs.mode == 'e2epay' || steps.mode.outputs.mode == 'e2eage' || steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2efreelevel' || steps.mode.outputs.mode == 'e2etargetmark' || steps.mode.outputs.mode == 'e2etargetmail' || steps.mode.outputs.mode == 'e2etargetmarknew' || steps.mode.outputs.mode == 'e2elivecode' || steps.mode.outputs.mode == 'e2eautoupdate' || steps.mode.outputs.mode == 'e2enoempty' || steps.mode.outputs.mode == 'e2elivefinal' || steps.mode.outputs.mode == 'e2egolive' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
+        if: steps.mode.outputs.mode == 'e2elivetwo' || steps.mode.outputs.mode == 'e2ecombo' || steps.mode.outputs.mode == 'e2epay' || steps.mode.outputs.mode == 'e2eage' || steps.mode.outputs.mode == 'e2e' || steps.mode.outputs.mode == 'e2efreelevel' || steps.mode.outputs.mode == 'e2etargetmark' || steps.mode.outputs.mode == 'e2etargetmail' || steps.mode.outputs.mode == 'e2etargetmarknew' || steps.mode.outputs.mode == 'e2etargetlock' || steps.mode.outputs.mode == 'e2elivecode' || steps.mode.outputs.mode == 'e2eautoupdate' || steps.mode.outputs.mode == 'e2enoempty' || steps.mode.outputs.mode == 'e2elivefinal' || steps.mode.outputs.mode == 'e2egolive' || steps.mode.outputs.mode == 'e2excdev' || steps.mode.outputs.mode == 'e2eadminpanel' || steps.mode.outputs.mode == 'e2ealerts' || steps.mode.outputs.mode == 'e2ecard' || steps.mode.outputs.mode == 'e2evip' || steps.mode.outputs.mode == 'e2ebilling' || steps.mode.outputs.mode == 'e2ecancellive' || steps.mode.outputs.mode == 'e2esignup' || steps.mode.outputs.mode == 'e2esignupreal' || steps.mode.outputs.mode == 'e2eadmin' || steps.mode.outputs.mode == 'e2edesign' || steps.mode.outputs.mode == 'e2emco'
         run: |
           python3 -m pip install --quiet playwright==1.55.0 pillow
           timeout 360 python3 -m playwright install --with-deps chromium || timeout 300 python3 -m playwright install chromium
@@ -175,17 +175,17 @@ jobs:
           sleep 8
       # ---- e2etargetmail: פונקציית התראות 🎯 ב-Staging עם מפתח Brevo לא תקף בכוונה (שום מייל לא נשלח) + בדיקות יחידה ----
       - uses: denoland/setup-deno@v2
-        if: steps.mode.outputs.mode == 'e2etargetmail'
+        if: steps.mode.outputs.mode == 'e2etargetmail' || steps.mode.outputs.mode == 'e2etargetlock'
         with: { deno-version: v2.x }
       - name: Target mail — unit tests (Deno, no network)
-        if: steps.mode.outputs.mode == 'e2etargetmail'
+        if: steps.mode.outputs.mode == 'e2etargetmail' || steps.mode.outputs.mode == 'e2etargetlock'
         run: |
           UO=$(deno test --no-check supabase/functions/_shared/target_mailer_test.ts supabase/functions/_shared/email_worker_test.ts 2>&1); URC=$?
           echo "$UO" | tail -n 40
           echo "::notice title=targetmail-unit::$(echo "$UO" | sed 's/\x1b\[[0-9;]*m//g' | grep -E 'passed|failed|FAILED' | tail -n 4 | tr '\n' ' ')"
           exit $URC
       - name: Target mail — deploy to Staging (invalid Brevo key on purpose)
-        if: steps.mode.outputs.mode == 'e2etargetmail'
+        if: steps.mode.outputs.mode == 'e2etargetmail' || steps.mode.outputs.mode == 'e2etargetlock'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
         run: |
@@ -195,7 +195,7 @@ jobs:
           [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error title=e2etargetmail::חסר STAGING_FUNCTIONS_TOKEN"; exit 1; }
           CS=$(openssl rand -hex 32); echo "::add-mask::$CS"; echo "HDM_CRON_SECRET=$CS" >> "$GITHUB_ENV"
           umask 077; F=$(mktemp)
-          { echo "HDM_CRON_SECRET=$CS"; echo "BREVO_API_KEY=xkeysib-invalid-$(openssl rand -hex 16)"; echo "MAIL_FROM=noreply@example.invalid"; echo "DRY_RUN=0"; echo "TARGET_EMAILS_LIVE=1"; } > "$F"
+          { echo "HDM_CRON_SECRET=$CS"; echo "BREVO_API_KEY=xkeysib-invalid-$(openssl rand -hex 16)"; echo "MAIL_FROM=noreply@example.invalid"; echo "DRY_RUN=0"; echo "TARGET_EMAILS_LIVE=1"; echo "HDM_ENV=staging"; if [ "${{ steps.mode.outputs.mode }}" = e2etargetlock ]; then echo "BREVO_URL_TEST=https://httpbin.org/delay/4"; fi; } > "$F"
           OUT=$(supabase secrets set --project-ref "$REF" --env-file "$F" 2>&1) || { rm -f "$F"; echo "::error title=e2etargetmail-secrets::$(echo "$OUT" | grep -vE 'sbp_|eyJ' | tail -3 | tr '\n' ' ')"; exit 1; }
           rm -f "$F"
           OUT=$(supabase functions deploy hdm-target-mailer --project-ref "$REF" --use-api --no-verify-jwt 2>&1) || { echo "::error title=e2etargetmail-deploy::$(echo "$OUT" | grep -vE 'sbp_|eyJ' | tail -6 | tr '\n' ' ')"; exit 1; }
@@ -313,12 +313,12 @@ jobs:
             && echo "::notice title=e2emorning-off::Staging: MORNING_LIVE=0, סודות הבדיקה הוחלפו" \
             || echo "::error title=e2emorning-off::$(printf '%s' "$OUT" | grep -vE 'eyJ|sbp_' | tail -n 4 | tr '\n' ' ' | cut -c1-300)"
       - name: Target mail — remove fake Brevo key, switch off, rotate cron secret (always)
-        if: always() && steps.mode.outputs.mode == 'e2etargetmail'
+        if: always() && (steps.mode.outputs.mode == 'e2etargetmail' || steps.mode.outputs.mode == 'e2etargetlock')
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_FUNCTIONS_TOKEN }}
         run: |
           REF=ousepgdvzammgkxkweze
-          supabase secrets unset --project-ref "$REF" BREVO_API_KEY MAIL_FROM TARGET_EMAILS_LIVE >/dev/null 2>&1 || true
+          supabase secrets unset --project-ref "$REF" BREVO_API_KEY MAIL_FROM TARGET_EMAILS_LIVE BREVO_URL_TEST >/dev/null 2>&1 || true
           OUT=$(supabase secrets set --project-ref "$REF" HDM_CRON_SECRET=$(openssl rand -hex 32) 2>&1) \
             && echo "::notice title=e2etargetmail-off::Staging: מפתח הבדיקה של Brevo הוסר, ההתראות כבויות, סוד המשימה הוחלף" \
             || echo "::error title=e2etargetmail-off::$(printf '%s' "$OUT" | grep -vE 'eyJ|sbp_' | tail -n 4 | tr '\n' ' ' | cut -c1-300)"
