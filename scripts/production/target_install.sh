@@ -31,7 +31,7 @@ ann notice "t1-before" "לפני: $BEFORE"
 # ---- חזרה גנרלית (עסקה שמבוטלת) ----
 BODY=$(sed -e 's/^begin;$//' -e 's/^commit;$//' "$FILE")
 C=$(q "begin; $BODY ; select json_build_object('tables',(select count(*) from pg_tables where schemaname='public' and tablename like 'hdm_target_email_%'),'trigger',(select count(*) from pg_trigger where tgname='hdm_target_email_on_interest')) r; rollback;")
-ann notice "t2-rehearse" "חזרה גנרלית (בוטלה): HTTP $C $(jq -c '.[0].r // .message // .' /tmp/q.json | cut -c1-300)"
+ann notice "t2-rehearse" "חזרה גנרלית (בוטלה): HTTP $C $(head -c 600 /tmp/q.json)"
 [ "$C" = 201 ] || stop "החזרה הגנרלית נכשלה — Production לא השתנה"
 MID=$(roj "$SNAP" | jq -c '.[0].r'); [ "$MID" = "$BEFORE" ] || stop "תמונת מצב שונתה אחרי החזרה (לא צפוי) — עצירה"
 [ "$(roj "select to_regclass('public.hdm_target_email_outbox') is null as x" | jq -r '.[0].x')" = true ] || stop "החזרה השאירה אובייקטים — עצירה"
