@@ -120,20 +120,20 @@ try:
     (p1, e1) = R[0]; i1 = rid(e1); k1 = f"hashtextextended('hdm_target_email:{uid(e1)}', 0)"
     sql(f"update public.hdm_target_email_outbox set status='claimed', claimed_at=now() where id={i1}")
     with concurrent.futures.ThreadPoolExecutor(2) as ex:
-        fa = ex.submit(lambda: psql_steps(f"select pg_advisory_lock({k1})", f"select count(*) from public.hdm_target_email_begin({i1})",
+        fa = ex.submit(lambda: psql_steps(f"select pg_advisory_lock({k1})", f"select 'B' || count(*) from public.hdm_target_email_begin({i1})",
                                           "select pg_sleep(3)", f"select public.hdm_target_email_done({i1}, 'sent', null)", f"select pg_advisory_unlock({k1})"))
         time.sleep(1)
         fb = ex.submit(lambda: timed(lambda: as_user(e1, "select public.hdm_set_target_emails(false)")))
         ra = fa.result(); _, tb = fb.result()
-    check('א. מסירה שהתחילה (נעילה מוחזקת): begin הצליח', ra[1] == '1', ra)
+    check('א. מסירה שהתחילה (נעילה מוחזקת): begin הצליח', 'B1' in ra, ra)
     check('א. ביטול שנשלח בזמן המסירה — המתין לסופה (לא "עקף" אותה)', tb >= 1.5, round(tb, 2))
     check('א. המייל שנמסר מסומן נשלח, והביטול נשמר מיד אחריו', row(e1) == 'sent' and pref(e1) == 'false', [row(e1), pref(e1)])
     # ---- ב. ביטול לפני המסירה: לא נמסר ----
     (p2, e2) = R[1]; i2 = rid(e2); k2 = f"hashtextextended('hdm_target_email:{uid(e2)}', 0)"
     sql(f"update public.hdm_target_email_outbox set status='claimed', claimed_at=now() where id={i2}")
     as_user(e2, "select public.hdm_set_target_emails(false)")
-    rb = psql_steps(f"select pg_advisory_lock({k2})", f"select count(*) from public.hdm_target_email_begin({i2})", f"select pg_advisory_unlock({k2})")
-    check('ב. ביטול שנשמר לפני המסירה — begin מסרב, לא נמסר', rb[1] == '0' and row(e2) == 'skipped', [rb, row(e2)])
+    rb = psql_steps(f"select pg_advisory_lock({k2})", f"select 'B' || count(*) from public.hdm_target_email_begin({i2})", f"select pg_advisory_unlock({k2})")
+    check('ב. ביטול שנשמר לפני המסירה — begin מסרב, לא נמסר', 'B0' in rb and row(e2) == 'skipped', [rb, row(e2)])
     # ---- ג. פונקציית השליחה האמיתית, עם "Brevo" איטי (שרת בדיקה שמשהה 4 שניות — לא Brevo, לא נשלח מייל) ----
     (p3, e3) = R[2]; (p4, e4) = R[3]
     as_user(e4, "select public.hdm_set_target_emails(false)")          # ד. ביטל לפני ההרצה
@@ -151,7 +151,8 @@ try:
     check('ד. מי שביטל לפני ההרצה — לא נמסר (דילוג), בלי קריאה ל"Brevo"', row(e4) == 'skipped', row(e4))
     try: wj = json.loads(wbody).get('target', {})
     except Exception: wj = {}
-    check('ג+ד. תוצאת ההרצה: נשלח 1, דילוג 1', wj.get('sent') == 1 and wj.get('skipped', 0) >= 1, wbody)
+    a4 = sql(f"select o.attempts from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email='{e4}'")
+    check('ג+ד. תוצאת ההרצה: נמסר רק 1 (מי שביטל — 0 ניסיונות מסירה)', wj.get('sent') == 1 and a4 == '0', [wbody, a4])
     check('אחרי הכול — נעילות המשתמשים שוחררו', all(sql(f"select pg_try_advisory_xact_lock(hashtextextended('hdm_target_email:{uid(e)}', 0))") == 't' for _, e in R))
     code = 0 if all(results) else 1
 except Exception as e:
