@@ -1,0 +1,252 @@
+# =====================================================================
+# חיים דרך מספרים — בדיקה מול Staging בלבד: התראת מייל על חץ 🎯.
+# דפדפן (staging.html) + פונקציית השליחה hdm-target-mailer שפרוסה ב-Staging עם מפתח Brevo לא תקף בכוונה —
+# כך שום מייל לא יוצא (Brevo דוחה), וגם כתובות הבדיקה הן @example.invalid. משתמשי הבדיקה נמחקים בסוף ובכל כישלון.
+# =====================================================================
+import concurrent.futures, json, os, random, string, subprocess, sys, http.server, threading, functools, urllib.request, urllib.error
+from playwright.sync_api import sync_playwright
+
+DB = os.environ['STAGING_DB_URL']; KEY = os.environ.get('STAGING_PUBLISHABLE_KEY', ''); PAGE = os.environ['PAGE_NEW']
+FN = 'https://ousepgdvzammgkxkweze.supabase.co/functions/v1/hdm-target-mailer'; CRON = os.environ.get('HDM_CRON_SECRET', '')
+RUN = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6))
+PFX = f'tx{RUN}_'; MAIL = f'hdm-targetemail-{RUN}-'; DOM = 'example.invalid'
+PW = 'Fl-' + ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(18)) + '1!'
+if not KEY.startswith('sb_publishable_'): print('⛔ no publishable key'); sys.exit(2)
+
+def sql(q):
+    r = subprocess.run(['psql', DB, '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-c', q], capture_output=True, text=True)
+    if r.returncode != 0: raise RuntimeError('sql: ' + r.stderr.strip()[:200])
+    return r.stdout.strip()
+results = []
+def check(name, ok, got=''):
+    results.append(bool(ok)); print(('PASS ' if ok else 'FAIL ') + name + ('' if ok else f'  ← {str(got)[:260]}'), flush=True)
+
+CRYPT = 'extensions.crypt' if sql("select count(*) from pg_proc where proname='crypt' and pronamespace='extensions'::regnamespace") != '0' else 'crypt'
+SALT = CRYPT.replace('crypt', 'gen_salt')
+REQ = sql("select public.hdm_required_terms_version()")
+
+def make_user(tag, gender, looking, birth, first, last):
+    pid, email = PFX + tag, f'{MAIL}{tag}@{DOM}'
+    profile = json.dumps({'currentName': 'בדיקה ' + tag, 'birthdate': birth, 'birthFirstName': first, 'birthLastName': last, 'gender': gender,
+                          'lookingFor': looking, 'location': 'חיפה', 'photoUrl': 'data:image/png;base64,iVBORw0KGgo=', 'createdAt': 0}, ensure_ascii=False)
+    sql(f"""begin;
+      with u as (
+        insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                                created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change)
+        values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', '{email}', {CRYPT}('{PW}', {SALT}('bf')), now(),
+                '{{"provider":"email","providers":["email"]}}', '{{}}', now(), now(), '', '', '', '') returning id)
+      , i as (insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+              select gen_random_uuid(), u.id::text, u.id, jsonb_build_object('sub', u.id::text, 'email', '{email}', 'email_verified', true), 'email', now(), now(), now() from u)
+      , a as (insert into public.hdm_accounts (auth_user_id, profile_id) select id, '{pid}' from u)
+      insert into public.hdm_consents (user_id, profile_id, version, source) select id, '{pid}', '{REQ}', 'signup' from u;
+      insert into public.docs (collection, id, data) values ('profiles', '{pid}', $j${profile}$j$::jsonb);
+      commit;""")
+    return pid, email
+
+def cleanup():
+    sql(f"""begin;
+      do $d$ declare t text; begin
+        foreach t in array array['hdm_subscription_events','hdm_chat_openings','hdm_subscriptions','hdm_hidden_profiles'] loop
+          if to_regclass('public.' || t) is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name=t and column_name='profile_id') then
+            execute format('delete from public.%I where profile_id like %L', t, '{PFX}%');
+          end if; end loop; end $d$;
+      delete from public.docs where id like '{PFX}%' or data::text like '%{PFX}%';
+      delete from public.hdm_consents where user_id in (select id from auth.users where email like '{MAIL}%');
+      delete from public.hdm_accounts where auth_user_id in (select id from auth.users where email like '{MAIL}%');
+      delete from auth.users where email like '{MAIL}%'; commit;""")
+    return sql(f"""select (select count(*) from auth.users where email like '{MAIL}%') + (select count(*) from public.docs where id like '{PFX}%')
+                 + (select count(*) from public.hdm_target_email_log where sender_profile like '{PFX}%' or recipient_profile like '{PFX}%')""")
+
+def serve(page):
+    d = os.path.dirname(os.path.abspath(page))
+    s = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=d))
+    s.RequestHandlerClass.log_message = lambda *a: None; threading.Thread(target=s.serve_forever, daemon=True).start()
+    return f'http://127.0.0.1:{s.server_address[1]}/{os.path.basename(page)}'
+
+errors = []
+def newpage(br):
+    c = br.new_context(viewport={'width': 390, 'height': 844})
+    c.add_init_script(f"try{{ localStorage.setItem('hdm_staging_publishable_key', {json.dumps(KEY)}); }}catch(e){{}}")
+    pg = c.new_page(); pg.on('pageerror', lambda e: errors.append(str(e)[:200])); return c, pg
+
+def login(pg, app, email, hash_=''):
+    pg.goto(app + hash_, wait_until='networkidle'); pg.wait_for_timeout(1200)
+    pg.evaluate("() => { try{ var i=document.getElementById('intro-screen'); if(i) i.style.display='none'; openLogin(); }catch(e){} }")
+    pg.fill('#li-email', email); pg.fill('#li-pass', PW); pg.click('#li-submit')
+    try: pg.wait_for_function("() => myId", timeout=20000)
+    except Exception: pass
+    pg.wait_for_timeout(1500)
+
+def open_card(pg, pid):
+    pg.evaluate("""async (id) => { const s = await dbCap.doc('profiles/' + id).get(); const p = s.data();
+        currentMatchId = id; currentMatchData = p; renderMatchCard(p); go('screen-match'); }""", pid)
+    pg.wait_for_timeout(300)
+def outbox(uemail): return sql(f"select count(*) from public.hdm_target_email_outbox o join auth.users u on u.id = o.user_id where u.email = '{uemail}'")
+def interests(a, b): return sql(f"select count(*) from public.docs where collection='interests' and id='{a}__{b}'")
+def call_worker(secret):
+    req = urllib.request.Request(FN, data=b'{}', method='POST', headers={'content-type': 'application/json', **({'x-hdm-cron': secret} if secret else {})})
+    try:
+        with urllib.request.urlopen(req, timeout=90) as r: return r.status, r.read().decode()[:300]
+    except urllib.error.HTTPError as e: return e.code, e.read().decode()[:300]
+    except Exception as e: return 0, str(e)[:200]
+def setting_state(pg):
+    return pg.evaluate("() => ({ st: document.getElementById('set-target-emails-state').textContent.trim(), aria: document.getElementById('set-target-emails').getAttribute('aria-checked'), shown: getComputedStyle(document.getElementById('screen-settings')).display !== 'none' })")
+
+print(f'ריצה {RUN}', flush=True)
+code = 1
+try:
+    s, sm = make_user('sender', 'אישה', 'גברים', '1986-04-12', 'אבי', 'שלום')
+    s2, s2m = make_user('sender2', 'אישה', 'גברים', '1979-08-29', 'רונית', 'אור')
+    r, rm = make_user('recipient', 'גבר', 'נשים', '1988-09-21', 'עמית', 'רז')
+    extra = [make_user(f'rx{i}', 'גבר', 'נשים', f'198{i+2}-0{i+2}-1{i}', 'רון', 'לב') for i in range(3)]
+    capr, caprm = make_user('caprecv', 'גבר', 'נשים', '1984-05-17', 'טל', 'גל')
+    blk, blkm = make_user('blk', 'גבר', 'נשים', '1983-06-18', 'עידו', 'שחר')
+    wd, wdm = make_user('wd', 'גבר', 'נשים', '1982-07-19', 'נדב', 'אלון')
+    rc, rcm = make_user('race', 'גבר', 'נשים', '1981-08-20', 'יואב', 'כרמל')
+    caps = [make_user(f'caps{i}', 'אישה', 'גברים', f'198{i+3}-0{i+1}-2{i}', 'מאיה', 'בר') for i in range(5)]
+    for cp, _ in caps: sql(f"select public.hdm_admin_set_plan('{cp}', 'basic')")
+    sql(f"select public.hdm_admin_set_plan('{s}', 'basic')"); sql(f"select public.hdm_admin_set_plan('{s2}', 'vip')"); sql(f"select public.hdm_admin_set_plan('{r}', 'plus')")
+    check('הכנה: התור ריק למקבל', outbox(rm) == '0', outbox(rm))
+    APP = serve(PAGE)
+    with sync_playwright() as pw_:
+        br = pw_.chromium.launch()
+        # ---- שולח (בסיסי) לוחץ 🎯 באפליקציה ----
+        c, pg = newpage(br); login(pg, APP, sm)
+        check('שולח: נכנס', pg.evaluate("() => myId") == s)
+        open_card(pg, r); pg.click('#target-btn', force=True); pg.wait_for_timeout(2500)
+        check('🎯 נשמר בשרת', interests(s, r) == '1', interests(s, r))
+        check('נוצרה התראת מייל אחת למקבל', outbox(rm) == '1', outbox(rm))
+        check('לא נוצרה התראה לשולח', outbox(sm) == '0', outbox(sm))
+        for _ in range(3):
+            pg.evaluate(f"() => window.__hdmRpc('hdm_remove_target', {{ p_target: '{r}' }})"); pg.wait_for_timeout(300)
+            pg.evaluate(f"() => window.__hdmRpc('hdm_send_target', {{ p_target: '{r}' }})"); pg.wait_for_timeout(300)
+        check('ביטול ושליחה ×3 — עדיין התראה אחת', outbox(rm) == '1', outbox(rm))
+        pg.evaluate(f"() => Promise.all([0,1,2].map(() => window.__hdmRpc('hdm_send_target', {{ p_target: '{r}' }})))"); pg.wait_for_timeout(800)
+        check('3 שליחות במקביל — עדיין התראה אחת', outbox(rm) == '1', outbox(rm))
+        c.close()
+        # ---- פונקציית השליחה ב-Staging (מפתח Brevo לא תקף בכוונה — שום מייל לא יוצא) ----
+        st, body = call_worker('')
+        check('פונקציית השליחה: בלי הסוד — 401', st == 401, (st, body))
+        st, body = call_worker(CRON)
+        check('פונקציית השליחה: עם הסוד — 200', st == 200, (st, body))
+        row = sql(f"select o.attempts || '|' || coalesce(o.last_error,'') || '|' || (o.sent_at is null) from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email='{rm}'")
+        check('כשל שליחה (Brevo דחה) — המייל נשאר בתור לניסיון חוזר, לא סומן כנשלח', row in ('1|brevo 401|true', '1|brevo 403|true'), row)
+        check('כשל שליחה — החץ לא בוטל', interests(s, r) == '1', interests(s, r))
+        # ---- שליחה מקבילה: 3 הרצות של פונקציית השליחה בו-זמנית — כל מייל נתפס פעם אחת בלבד ----
+        c, pg = newpage(br); login(pg, APP, sm)
+        for xp, _ in extra: pg.evaluate(f"() => window.__hdmRpc('hdm_send_target', {{ p_target: '{xp}' }})"); pg.wait_for_timeout(400)
+        c.close()
+        xm = "','".join(e for _, e in extra)
+        check('3 חצים חדשים ל-3 מקבלים — 3 מיילים בתור', sql(f"select count(*) from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email in ('{xm}')") == '3')
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(3) as ex: res = list(ex.map(lambda _: call_worker(CRON), range(3)))
+        check('3 הרצות מקבילות — כולן 200', all(x[0] == 200 for x in res), res)
+        att = sql(f"select string_agg(o.attempts::text, ',' order by o.id) from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email in ('{xm}')")
+        check('הרצות מקבילות — כל מייל טופל פעם אחת בדיוק (אין שליחה כפולה)', att == '1,1,1', att)
+        tot = sum(sum(json.loads(x[1]).get('target', {}).get(k, 0) for k in ('sent', 'rejected', 'uncertain')) for x in res if x[0] == 200)
+        check('הרצות מקבילות — סה"כ 3 ניסיונות שליחה (לא 9)', tot == 3, [x[1] for x in res])
+        body = sql(f"select t.body_text || t.subject from public.hdm_target_email_text() t")
+        check('תוכן המייל: בלי שם, מזהה או אימייל של השולח', all(x not in body for x in [s, sm, 'בדיקה sender', 'אבי', 'שלום']), body[:200])
+        # ---- מגבלת 3 ב-24 שעות כש-5 חצים נשלחים בו-זמנית (5 חיבורים נפרדים למסד, כל אחד כמשתמש אחר) ----
+        def send_as(email, target):
+            uid = sql(f"select id from auth.users where email = '{email}'")
+            claims = json.dumps({'sub': uid, 'role': 'authenticated'})
+            return sql(f"begin; select set_config('request.jwt.claims', '{claims}', true), set_config('request.jwt.claim.sub', '{uid}', true); set local role authenticated; select public.hdm_send_target('{target}')::text; commit;")
+        with concurrent.futures.ThreadPoolExecutor(5) as ex: cr = list(ex.map(lambda c_: (lambda: send_as(c_[1], capr))(), caps))
+        check('5 חצים בו-זמנית לאותו מקבל — כל 5 החצים נשמרו', sql(f"select count(*) from public.docs where collection='interests' and data->>'to'='{capr}'") == '5', cr)
+        check('5 חצים בו-זמנית — רק 3 מיילים בתור (המגבלה נאכפה)', outbox(caprm) == '3', outbox(caprm))
+        def as_user(email, q):
+            uid = sql(f"select id from auth.users where email = '{email}'")
+            claims = json.dumps({'sub': uid, 'role': 'authenticated'})
+            return sql(f"begin; select set_config('request.jwt.claims', '{claims}', true), set_config('request.jwt.claim.sub', '{uid}', true); set local role authenticated; {q}; commit;")
+        def row_of(email): return sql(f"select o.status || ':' || coalesce(o.skipped,'') || ':' || o.attempts from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email='{email}' order by o.id desc limit 1")
+        # ---- בדיקה אחרונה לפני המסירה: חסימה וחץ שבוטל (דרך פונקציית השליחה האמיתית) ----
+        as_user(sm, f"select public.hdm_send_target('{blk}')"); as_user(sm, f"select public.hdm_send_target('{wd}')")
+        check('חסימה/ביטול: 2 מיילים בתור לפני', row_of(blkm).startswith('pending') and row_of(wdm).startswith('pending'), [row_of(blkm), row_of(wdm)])
+        as_user(blkm, f"insert into public.docs values ('blocks', '{blk}__{s}', '{{}}')")
+        as_user(sm, f"select public.hdm_remove_target('{wd}')")
+        call_worker(CRON)
+        check('המקבל חסם את השולח אחרי ההכנסה לתור — לא נמסר ל-Brevo', row_of(blkm) == 'skipped:blocked_or_withdrawn:0', row_of(blkm))
+        check('השולח ביטל את החץ לפני השליחה — לא נמסר ל-Brevo', row_of(wdm) == 'skipped:blocked_or_withdrawn:0', row_of(wdm))
+        # ---- מרוץ: ביטול התראות בדיוק ברגע המסירה (20 פעמים, בו-זמנית) ----
+        as_user(sm, f"select public.hdm_send_target('{rc}')")
+        rid = sql(f"select o.id from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email='{rcm}'")
+        ruid = sql(f"select id from auth.users where email='{rcm}'")
+        outcomes = {'sending': 0, 'skipped': 0, 'bad': []}
+        for it in range(20):
+            sql(f"delete from public.hdm_target_email_prefs where user_id='{ruid}'; update public.hdm_target_email_outbox set status='claimed', claimed_at=now(), skipped=null where id={rid}")
+            with concurrent.futures.ThreadPoolExecutor(2) as ex:
+                fb = ex.submit(lambda: subprocess.run(['psql', DB, '-X', '-At', '-v', 'ON_ERROR_STOP=1',
+                    '-c', f"select pg_advisory_lock(hashtextextended('hdm_target_email:{ruid}', 0))",
+                    '-c', f"select 'B' || count(*) from public.hdm_target_email_begin({rid})",
+                    '-c', f"select pg_advisory_unlock(hashtextextended('hdm_target_email:{ruid}', 0))"], capture_output=True, text=True).stdout)
+                fo = ex.submit(lambda: as_user(rcm, "select public.hdm_set_target_emails(false)"))
+                got, _ = fb.result(), fo.result()
+            got = '1' if 'B1' in got else ('0' if 'B0' in got else got); st = sql(f"select status from public.hdm_target_email_outbox where id={rid}")
+            if got == '1' and st == 'sending': outcomes['sending'] += 1
+            elif got == '0' and st == 'skipped': outcomes['skipped'] += 1
+            else: outcomes['bad'].append((got, st))
+        check('מרוץ ביטול/מסירה ×20 — תמיד עקבי: או נמסר (ביטול אחרי), או בוטל ולא נמסר', not outcomes['bad'], outcomes)
+        print(f"   מרוץ: נמסר {outcomes['sending']} | בוטל {outcomes['skipped']}", flush=True)
+        # ---- מקבל: הגדרות ← התראות מייל ----
+        c, pg = newpage(br); login(pg, APP, rm, '#notify')
+        try: pg.wait_for_function("() => document.getElementById('screen-settings').classList.contains('active')", timeout=25000)
+        except Exception: pass
+        pg.wait_for_timeout(1500)
+        stt = setting_state(pg)
+        check('קישור מהמייל (#notify) פותח את ההגדרות', stt['shown'], stt)
+        check('ברירת מחדל: התראות פעילות', stt['st'].startswith('פעיל') and stt['aria'] == 'true', stt)
+        pg.click('#set-target-emails'); pg.wait_for_timeout(1500)
+        stt = setting_state(pg)
+        check('לחיצה: התראות כבויות', stt['st'] == 'כבוי' and stt['aria'] == 'false', stt)
+        check('הכיבוי נשמר בשרת', sql(f"select p.target_emails from public.hdm_target_email_prefs p join auth.users u on u.id=p.user_id where u.email='{rm}'") == 'f')
+        # המייל שהיה בתור — לא יישלח אחרי כיבוי
+        call_worker(CRON)
+        row = sql(f"select coalesce(o.skipped,'') || '|' || (o.sent_at is null) from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email='{rm}'")
+        check('אחרי כיבוי — המייל שבתור לא נשלח (דילוג)', row.startswith('opted_out') and row.endswith('|true'), row)
+        c.close()
+        c, pg = newpage(br); login(pg, APP, rm); pg.evaluate("() => openSettings()"); pg.wait_for_timeout(2000)
+        stt = setting_state(pg)
+        check('אחרי כניסה מחדש — עדיין כבוי', stt['st'] == 'כבוי', stt)
+        c.close()
+        # ---- שולח נוסף (VIP) כשההתראות כבויות ----
+        c, pg = newpage(br); login(pg, APP, s2m); open_card(pg, r); pg.click('#target-btn', force=True); pg.wait_for_timeout(2500)
+        check('VIP: 🎯 נשמר גם כשהמקבל כיבה התראות', interests(s2, r) == '1', interests(s2, r))
+        check('VIP: לא נוצרה התראה חדשה', outbox(rm) == '1', outbox(rm))
+        c.close()
+        # ---- הדלקה מחדש ----
+        c, pg = newpage(br); login(pg, APP, rm); pg.evaluate("() => openSettings()"); pg.wait_for_timeout(2000)
+        pg.click('#set-target-emails'); pg.wait_for_timeout(1500)
+        check('הדלקה מחדש', setting_state(pg)['st'].startswith('פעיל'), setting_state(pg))
+        # ---- "מי סימן אותי" לפי המסלול — ללא שינוי (פלוס רואה) ----
+        who = pg.evaluate("() => window.__hdmRpc('hdm_who_targeted_me').then(r => r.map(x => x.id).sort().join(','), e => 'err:' + (e.message||e))")
+        check('פלוס (מקבל): "מי סימן אותי" באפליקציה — כמו קודם', who == ','.join(sorted([s, s2])), who)
+        c.close()
+        br.close()
+        # ---- Safari (WebKit, כמו באייפון): קישור #notify והמתג ----
+        try: wk = pw_.webkit.launch()
+        except Exception as e: wk = None; print('אזהרה: WebKit לא זמין — ' + str(e)[:80], flush=True)
+        if wk:
+            c = wk.new_context(viewport={'width': 390, 'height': 844}, user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1')
+            c.add_init_script(f"try{{ localStorage.setItem('hdm_staging_publishable_key', {json.dumps(KEY)}); }}catch(e){{}}")
+            pg = c.new_page(); pg.on('pageerror', lambda e: errors.append('webkit: ' + str(e)[:200]))
+            login(pg, APP, rm, '#notify')
+            try: pg.wait_for_function("() => document.getElementById('screen-settings').classList.contains('active')", timeout=25000)
+            except Exception: pass
+            pg.wait_for_timeout(1500)
+            stt = setting_state(pg)
+            check('Safari: קישור #notify פותח את ההגדרות, מצב פעיל', stt['shown'] and stt['st'].startswith('פעיל'), stt)
+            pg.click('#set-target-emails'); pg.wait_for_timeout(1500)
+            check('Safari: כיבוי', setting_state(pg)['st'] == 'כבוי', setting_state(pg))
+            pg.click('#set-target-emails'); pg.wait_for_timeout(1500)
+            check('Safari: הדלקה', setting_state(pg)['st'].startswith('פעיל'), setting_state(pg))
+            c.close(); wk.close()
+    check('אין שגיאות JavaScript בדף', not errors, errors[:3])
+    code = 0 if all(results) else 1
+except Exception as e:
+    print('ERROR', str(e)[:300], flush=True); code = 1
+finally:
+    try: left = cleanup(); print(f'ניקוי: נשארו {left} רשומות בדיקה', flush=True); code = code if left == '0' else 1
+    except Exception as e: print('ניקוי נכשל', str(e)[:200], flush=True); code = 1
+print(f'SUMMARY עברו {sum(results)} מתוך {len(results)}', flush=True)
+sys.exit(code)

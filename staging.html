@@ -859,6 +859,11 @@
       <button type="button" class="set-row" onclick="hdmOpenPlans()"><span id="set-plans-label">💎 הצטרפות למנוי</span><b id="set-plan-name">‹</b></button>
       <button type="button" class="set-row" id="set-cancel-sub" onclick="hdmCancelEntry()"><span>✖️ ביטול מנוי</span><b>‹</b></button>
     </div>
+    <div class="set-group" id="set-notify-group">
+      <div class="set-title">התראות מייל</div>
+      <button type="button" class="set-row" id="set-target-emails" role="switch" aria-checked="true" onclick="hdmToggleTargetEmails()"><span>🎯 מייל כשמישהו שולח לי חץ</span><b id="set-target-emails-state">‹</b></button>
+      <div class="set-note" id="set-target-emails-note">מייל קצר בלי פרטי השולח. מי שלח — רק באפליקציה, לפי המסלול.</div>
+    </div>
     <div class="set-group">
       <div class="set-title">בטיחות</div>
       <button type="button" class="set-row" onclick="openBlockedList()"><span>🚫 משתמשים שחסמתי</span><b id="set-blocked-count"></b></button>
@@ -5478,12 +5483,54 @@
   async function openSettings(){
     go('screen-settings');
     try{ hdmAdminCheck(); }catch(e){}
+    try{ hdmLoadTargetEmails(); }catch(e){}
     var c = document.getElementById('set-blocked-count');
     if(c) c.textContent = '';
     try{ await loadBlocks(); }catch(e){}
     var n = hdmBlocks.filter(function(b){ return b.by === myId; }).length;
     if(c) c.textContent = n ? String(n) : '‹';
   }
+
+  // ---------- התראות מייל על חץ 🎯 (מצב נשמר בשרת: hdm_my_email_prefs / hdm_set_target_emails) ----------
+  var hdmTargetEmailsOn = null, hdmTargetEmailsBusy = false;
+  function hdmShowTargetEmails(msg){
+    var b = document.getElementById('set-target-emails'), st = document.getElementById('set-target-emails-state'), n = document.getElementById('set-target-emails-note');
+    if(b) b.setAttribute('aria-checked', hdmTargetEmailsOn === false ? 'false' : 'true');
+    if(st) st.textContent = hdmTargetEmailsOn === null ? '…' : (hdmTargetEmailsOn ? 'פעיל ✓' : 'כבוי');
+    if(n) n.textContent = msg || (hdmTargetEmailsOn === false
+      ? 'לא יישלחו מיילים על חצים. אפשר להפעיל שוב בכל עת.'
+      : 'מייל קצר בלי פרטי השולח. מי שלח — רק באפליקציה, לפי המסלול.');
+  }
+  async function hdmLoadTargetEmails(){
+    if(!window.__sb) return;
+    try{ var r = await window.__sb.rpc('hdm_my_email_prefs'); if(r && !r.error && r.data) hdmTargetEmailsOn = r.data.targetEmails !== false; }catch(e){}
+    hdmShowTargetEmails();
+  }
+  async function hdmToggleTargetEmails(){
+    if(hdmTargetEmailsBusy || !window.__sb) return;
+    hdmTargetEmailsBusy = true;
+    var want = !(hdmTargetEmailsOn !== false);
+    try{
+      var r = await window.__sb.rpc('hdm_set_target_emails', { p_on: want });
+      if(r && !r.error && r.data){ hdmTargetEmailsOn = r.data.targetEmails !== false; hdmShowTargetEmails(); }
+      else hdmShowTargetEmails('השינוי לא נשמר. נסו שוב בעוד רגע.');
+    }catch(e){ hdmShowTargetEmails('השינוי לא נשמר. נסו שוב בעוד רגע.'); }
+    hdmTargetEmailsBusy = false;
+  }
+  // קישור מהמייל: haimderechmisparim.com/#notify — פותח את ההגדרות במקום של התראות המייל (אחרי התחברות)
+  var hdmNotifyWait = 0;
+  function hdmOpenNotifyFromHash(){
+    if((location.hash || '').replace('#', '') !== 'notify' || window.__hdmRecoveryMode) return;
+    // מחכים שההתחברות תסתיים והאפליקציה תגיע למסך הראשי (אחרת המעבר להתאמות שאחרי הכניסה יסתיר את ההגדרות)
+    var act = document.querySelector('.screen.active'), onMain = !!(act && act.id === 'screen-match');
+    if(!myId || (!onMain && hdmNotifyWait < 20)){ hdmNotifyWait++; setTimeout(hdmOpenNotifyFromHash, 1500); return; }
+    hdmNotifyWait = 0;
+    try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
+    openSettings();
+    setTimeout(function(){ var g = document.getElementById('set-notify-group'); if(g && g.scrollIntoView) g.scrollIntoView({ block: 'center' }); }, 300);
+  }
+  window.addEventListener('hashchange', hdmOpenNotifyFromHash);
+  window.addEventListener('load', function(){ setTimeout(hdmOpenNotifyFromHash, 0); });
 
   // ---------- חסימה / דיווח ----------
   var hdmActionTarget = null;   // { id, data }
