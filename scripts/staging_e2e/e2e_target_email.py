@@ -98,6 +98,7 @@ try:
     s, sm = make_user('sender', 'אישה', 'גברים', '1986-04-12', 'אבי', 'שלום')
     s2, s2m = make_user('sender2', 'אישה', 'גברים', '1979-08-29', 'רונית', 'אור')
     r, rm = make_user('recipient', 'גבר', 'נשים', '1988-09-21', 'עמית', 'רז')
+    extra = [make_user(f'rx{i}', 'גבר', 'נשים', f'198{i+2}-0{i+2}-1{i}', 'רון', 'לב') for i in range(3)]
     sql(f"select public.hdm_admin_set_plan('{s}', 'basic')"); sql(f"select public.hdm_admin_set_plan('{s2}', 'vip')"); sql(f"select public.hdm_admin_set_plan('{r}', 'plus')")
     check('הכנה: התור ריק למקבל', outbox(rm) == '0', outbox(rm))
     APP = serve(PAGE)
@@ -125,6 +126,21 @@ try:
         row = sql(f"select o.attempts || '|' || coalesce(o.last_error,'') || '|' || (o.sent_at is null) from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email='{rm}'")
         check('כשל שליחה (Brevo דחה) — המייל נשאר בתור לניסיון חוזר, לא סומן כנשלח', row in ('1|brevo 401|true', '1|brevo 403|true'), row)
         check('כשל שליחה — החץ לא בוטל', interests(s, r) == '1', interests(s, r))
+        # ---- שליחה מקבילה: 3 הרצות של פונקציית השליחה בו-זמנית — כל מייל נתפס פעם אחת בלבד ----
+        c, pg = newpage(br); login(pg, APP, sm)
+        for xp, _ in extra: pg.evaluate(f"() => window.__hdmRpc('hdm_send_target', {{ p_target: '{xp}' }})"); pg.wait_for_timeout(400)
+        c.close()
+        xm = "','".join(e for _, e in extra)
+        check('3 חצים חדשים ל-3 מקבלים — 3 מיילים בתור', sql(f"select count(*) from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email in ('{xm}')") == '3')
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(3) as ex: res = list(ex.map(lambda _: call_worker(CRON), range(3)))
+        check('3 הרצות מקבילות — כולן 200', all(x[0] == 200 for x in res), res)
+        att = sql(f"select string_agg(o.attempts::text, ',' order by o.id) from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email in ('{xm}')")
+        check('הרצות מקבילות — כל מייל טופל פעם אחת בדיוק (אין שליחה כפולה)', att == '1,1,1', att)
+        tot = sum(json.loads(x[1]).get('target', {}).get('failed', 0) + json.loads(x[1]).get('target', {}).get('sent', 0) for x in res if x[0] == 200)
+        check('הרצות מקבילות — סה"כ 3 ניסיונות שליחה (לא 9)', tot == 3, [x[1] for x in res])
+        body = sql(f"select t.body_text || t.subject from public.hdm_target_email_text() t")
+        check('תוכן המייל: בלי שם, מזהה או אימייל של השולח', all(x not in body for x in [s, sm, 'בדיקה sender', 'אבי', 'שלום']), body[:200])
         # ---- מקבל: הגדרות ← התראות מייל ----
         c, pg = newpage(br); login(pg, APP, rm, '#notify')
         try: pg.wait_for_function("() => document.getElementById('screen-settings').classList.contains('active')", timeout=25000)
@@ -160,6 +176,24 @@ try:
         check('פלוס (מקבל): "מי סימן אותי" באפליקציה — כמו קודם', who == ','.join(sorted([s, s2])), who)
         c.close()
         br.close()
+        # ---- Safari (WebKit, כמו באייפון): קישור #notify והמתג ----
+        try: wk = pw_.webkit.launch()
+        except Exception as e: wk = None; print('אזהרה: WebKit לא זמין — ' + str(e)[:80], flush=True)
+        if wk:
+            c = wk.new_context(viewport={'width': 390, 'height': 844}, user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1')
+            c.add_init_script(f"try{{ localStorage.setItem('hdm_staging_publishable_key', {json.dumps(KEY)}); }}catch(e){{}}")
+            pg = c.new_page(); pg.on('pageerror', lambda e: errors.append('webkit: ' + str(e)[:200]))
+            login(pg, APP, rm, '#notify')
+            try: pg.wait_for_function("() => document.getElementById('screen-settings').classList.contains('active')", timeout=25000)
+            except Exception: pass
+            pg.wait_for_timeout(1500)
+            stt = setting_state(pg)
+            check('Safari: קישור #notify פותח את ההגדרות, מצב פעיל', stt['shown'] and stt['st'].startswith('פעיל'), stt)
+            pg.click('#set-target-emails'); pg.wait_for_timeout(1500)
+            check('Safari: כיבוי', setting_state(pg)['st'] == 'כבוי', setting_state(pg))
+            pg.click('#set-target-emails'); pg.wait_for_timeout(1500)
+            check('Safari: הדלקה', setting_state(pg)['st'].startswith('פעיל'), setting_state(pg))
+            c.close(); wk.close()
     check('אין שגיאות JavaScript בדף', not errors, errors[:3])
     code = 0 if all(results) else 1
 except Exception as e:
