@@ -164,8 +164,10 @@ begin
   perform pg_temp.chk('שליחה מהתור', 'נשלח — מסומן', '1', (select count(*)::text from public.hdm_target_email_outbox where id = ids[1] and sent_at is not null));
   perform public.hdm_target_email_done(ids[1], true, null);
   perform pg_temp.chk('שליחה מהתור', 'סימון כפול לא משנה (ניסיון 1)', '1', (select attempts::text from public.hdm_target_email_outbox where id = ids[1]));
+  perform pg_temp.chk('שליחה מהתור', 'כשל — לא נשלף מיד שוב (מניעת כפילות בהרצה מקבילה)', '0', (select count(*)::text from public.hdm_target_email_claim(50)));
+  update public.hdm_target_email_outbox set claimed_at = now() - interval '11 minutes' where id = ids[2];
   r := (select string_agg(x.id::text, ',') from public.hdm_target_email_claim(50) x);
-  perform pg_temp.chk('שליחה מהתור', 'כשל — חוזר לתור ונשלף שוב', ids[2]::text, r);
+  perform pg_temp.chk('שליחה מהתור', 'כשל — חוזר לתור אחרי 10 דקות ונשלף שוב', ids[2]::text, r);
   perform pg_temp.chk('שליחה מהתור', 'נשלח לא נשלף שוב', 'ok', case when position(ids[1]::text in coalesce(r, '')) = 0 then 'ok' else 'נשלף שוב' end);
   perform pg_temp.chk('שליחה מהתור', 'כתובת היעד = המקבל', pfx || '_b@example.invalid',
     (select u.email from public.hdm_target_email_outbox o join auth.users u on u.id = o.user_id where o.user_id = uB limit 1));
