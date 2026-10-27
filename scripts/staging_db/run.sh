@@ -508,7 +508,7 @@ if [ "$MODE" = "e2eadminpanel" ]; then
   ann notice "staging-result" "✅ e2eadminpanel: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
 fi
 if [ "$MODE" = "defhash" ]; then
-  OUT=$("${RO[@]}" psql "$URL" -X -At -F ' ' -c "$(cat "$HERE/defhash.sql")" 2>&1 | awk '{printf "%s md5=%s definer=%s cfg=[%s] owner=%s anon=%s app=%s svc=%s\n", $1, substr($2,1,10), $3, $4, $5, $6, $7, $8}')
+  OUT=$("${RO[@]}" psql "$URL" -X -At -c "$(cat "$HERE/defhash.sql")" 2>&1)
   ann notice "def-check" "$OUT"; ann notice "staging-result" "✅ defhash: קריאה בלבד"; exit 0
 fi
 if [ "$MODE" = "e2elivetwo" ]; then
