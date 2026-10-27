@@ -116,7 +116,7 @@ jobs:
           echo "::notice title=e2egrow-deploy::$(printf '%s' "$OUT" | grep -iE 'deployed|function' | tail -n 6 | tr '\n' ' ' | cut -c1-500)"
       # ---- e2emorning: פריסת פונקציות Morning ל-Staging (הסליקה כבויה) + בדיקות כניסה + Sandbox של Morning אם יש מפתחות ----
       - name: Morning e2e — setup CLI
-        if: contains(fromJSON('["e2emorning","e2eflow","e2eworker","e2epay","e2etargetmail"]'), steps.mode.outputs.mode)
+        if: contains(fromJSON('["e2emorning","e2eflow","e2eworker","e2epay","e2etargetmail","e2etargetlock"]'), steps.mode.outputs.mode)
         uses: supabase/setup-cli@v1
         with: { version: latest }
       - name: Morning e2e — deploy to Staging (charging off)
