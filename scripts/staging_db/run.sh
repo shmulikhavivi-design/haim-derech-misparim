@@ -35,7 +35,7 @@ ann(){ # $1 = notice|error, $2 = כותרת, $3 = טקסט
 }
 stop(){ say "⛔ עצירה: $*"; ann error "staging-db" "⛔ עצירה: $*"; exit 1; }
 
-case "$MODE" in install49|tests50|e2etargetmail|defdump|defhash|e2elivetwo|e2ecombo|install47|tests48|e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in e2etargetmarknew|install49|tests50|e2etargetmail|defdump|defhash|e2elivetwo|e2ecombo|install47|tests48|e2epay|e2eage|e2elivefinal|e2enoempty|e2eautoupdate|e2elivecode|e2etargetmark|install45|tests46|e2efreelevel|e2egolive|install43|tests44|install42|install40|tests41|install38|tests39|e2eadminpanel|e2excdev|check|install36|tests37|e2eworker|install30|tests31|e2evip|install32|tests33|e2ecard|install34|tests35|e2ealerts|install03|install04|install05|tests02|e2e|smtp|smtpfix|authflow|advisors|sslfix|install06|tests07|install08|tests09|install10|tests11|e2eadmin|audit|install12|tests13|mailnet|hookwire|authcfg|perms|install14|tests15|install16|install17|tests18|e2ebilling|install19|tests20|install21|tests22|install23|install24|tests25|install26|tests27|install28|tests29|growsecrets|e2egrow|e2emco|e2eflow|growperms|vaultnames|e2ecancellive|e2esignup|e2esignupreal|e2edesign) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 # ---- growsecrets: רק האם סודות Grow קיימים בסביבה staging (לא מדפיס ערכים, לא מתחבר לשום דבר) ----
 if [ "$MODE" = "growsecrets" ]; then
@@ -639,6 +639,15 @@ if [ "$MODE" = "install49" ]; then
   ann notice "install49-diff" "פונקציות קיימות שהשתנו: ${CHANGED:-אף אחת} | טריגרים קיימים שהשתנו: ${TCH:-אף אחד} | פונקציות חדשות: $NEWF | טריגרים חדשים: $NEWT"
   [ -z "$CHANGED" ] && [ -z "$TCH" ] || stop "פונקציה/טריגר קיימים השתנו — לא צפוי."
   ann notice "staging-result" "✅ install49: התראת מייל על 🎯 הותקנה ב-Staging; אף פונקציה או טריגר קיימים לא השתנו ($(wc -l < /tmp/fp_before.txt) פונקציות נבדקו)"; exit 0
+fi
+if [ "$MODE" = "e2etargetmarknew" ]; then
+  # בדיקת 🎯 הקיימת (סימון, רענון, כפילויות, צ'אט רק בהדדיות, חינם חסום) — על הדף החדש ועם טריגר ההתראות מותקן
+  mkdir -p "$ROOT/scripts/staging_e2e/targetmark_new" && cp "$ROOT/scripts/staging_e2e/targetemail/staging.html" "$ROOT/scripts/staging_e2e/targetmark_new/staging.html"
+  STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
+  OUT=$(STAGING_DB_URL="$URL" PAGE_NEW="$ROOT/scripts/staging_e2e/targetmark_new/staging.html" timeout 900 python3 "$ROOT/scripts/staging_e2e/e2e_target_mark.py" 2>&1) && RC=0 || RC=$?
+  echo "$OUT"; ann notice "staging-e2e" "$(echo "$OUT" | grep -E '^(PASS|FAIL|SUMMARY|ERROR)|ניקוי|Traceback' | tail -n 40)"
+  [ $RC -eq 0 ] || stop "בדיקת 🎯 הקיימת נכשלה על הדף החדש."
+  ann notice "staging-result" "✅ e2etargetmarknew: $(echo "$OUT" | grep '^SUMMARY' | tail -1)"; exit 0
 fi
 if [ "$MODE" = "e2etargetmark" ]; then
   STAGING_PUBLISHABLE_KEY=$(sed -n "s/^ *var STAGING_PUBLISHABLE_KEY = '\(sb_publishable_[A-Za-z0-9_-]*\)'.*/\1/p" "$ROOT/staging.html" | head -1); export STAGING_PUBLISHABLE_KEY
