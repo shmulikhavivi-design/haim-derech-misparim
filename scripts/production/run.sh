@@ -25,7 +25,7 @@ SITE='https://shmulikhavivi-design.github.io/haim-derech-misparim/'
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 ann(){ local msg; msg=$(printf '%s' "$3" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk 'BEGIN{ORS="%0A"} {print}'); printf '::%s title=%s::%s\n' "$1" "$2" "$msg"; echo "$3" >> "$SUMMARY"; }
 stop(){ ann error "prod-result" "⛔ $*"; exit 1; }
-case "$MODE" in defdumptwo|pluschecktwo|pluscheck|custmorning|readycheck|defdump|sweepverify|defcheck|tokaudit|sqlsweep|postdeploy|fndeployonly|fnrollback|backupnow|fntokcheck|livefoureight|tokprobe|custnow|grantcheck|agediag|paydiagthree|paydiagtwo|chaindiag|freeverify|freerehearse|freeapply|resendswitch|wallaretest|maildomaincheck|domainprep|signupdiag|adminhealthrehearse|smtpgmailtest|smtpbackup|custcheck|livecheckthree|livechecktwo|goliveapply|livecheck|termsrehearse|stagebready|stagecverify|mailtest|mailchain|ownerrenewoff|postadmin|launchcheck|hideapply|adminpreview|hiderehearse|ownerhidecheck|adminapply|adminrehearse|incidentnine|incidenteight|incidentseven|incidentsix|incidentfive|incidentfour|incidentthree|incidenttwo|incident|stagecapply|stagecrehearse|readiness|cronnow|stagearehearse|stageaapply|ownercardsync|cardlink|paycheck|payreplay|secretfix|secretcmp|paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
+case "$MODE" in ownervischeck|defdumptwo|pluschecktwo|pluscheck|custmorning|readycheck|defdump|sweepverify|defcheck|tokaudit|sqlsweep|postdeploy|fndeployonly|fnrollback|backupnow|fntokcheck|livefoureight|tokprobe|custnow|grantcheck|agediag|paydiagthree|paydiagtwo|chaindiag|freeverify|freerehearse|freeapply|resendswitch|wallaretest|maildomaincheck|domainprep|signupdiag|adminhealthrehearse|smtpgmailtest|smtpbackup|custcheck|livecheckthree|livechecktwo|goliveapply|livecheck|termsrehearse|stagebready|stagecverify|mailtest|mailchain|ownerrenewoff|postadmin|launchcheck|hideapply|adminpreview|hiderehearse|ownerhidecheck|adminapply|adminrehearse|incidentnine|incidenteight|incidentseven|incidentsix|incidentfive|incidentfour|incidentthree|incidenttwo|incident|stagecapply|stagecrehearse|readiness|cronnow|stagearehearse|stageaapply|ownercardsync|cardlink|paycheck|payreplay|secretfix|secretcmp|paydiag|purgerehearseleftovers|purgeapplyleftovers|purgerehearsedina|purgeapplydina|vipsoon|backupdrop|purgerehearse|purgeapply|ownerverifyfree|ownerfree|secureread|ownercheck|cronrehearse|cronapply|billingtests|billingdeploy|billingdeploycheck|billingprep|plusext|testcleanup|testcheck|advisors|confirmplan|emailfix|emailcheck|plusapply|plusplan|smoke|postcheck|check|authplan|keycheck|smtptest|supamail|maildiag|ownertest|fingerprint|export|rehearse|simulate|authcfg|migrate|confirmon) ;; *) stop "מצב לא מוכר: $MODE";; esac
 
 DB="${PRODUCTION_DB_URL:-}"; KEY="${BREVO_SMTP_KEY:-}"
 # הטוקן החדש (Claude-Production-DB-Write, Database Read-write) קודם; אם אינו מוגדר — הטוקן הישן לקריאה בלבד
@@ -479,6 +479,9 @@ if [ "$MODE" = "adminpreview" ]; then
 fi
 if [ "$MODE" = "hiderehearse" ]; then
   source "$HERE/hide_rehearse.sh"; exit 0
+fi
+if [ "$MODE" = "ownervischeck" ]; then
+  source "$HERE/owner_vis_check.sh"; exit 0
 fi
 if [ "$MODE" = "ownerhidecheck" ]; then
   source "$HERE/owner_hide_check.sh"; exit 0
