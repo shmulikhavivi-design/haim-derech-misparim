@@ -153,4 +153,25 @@ PY
 else
   ann warning "s2-4-resend" "4. מפתח Resend של Production לא זמין לתהליך"
 fi
+# ---------- 4b. Brevo (current SMTP) — GET only ----------
+K=$(printf '%s' "${GH_BREVO_API:-}" | tr -d '[:space:]"'"'")
+if [ -n "$K" ]; then
+  echo "::add-mask::$K"
+  bv(){ curl -sS -m 40 -G -H "api-key: $K" -H 'accept: application/json' "https://api.brevo.com/v3/$1" "${@:2}"; }
+  for e in $(jq -r '.[].email' "$W/cand.json"); do
+    EV=$(bv smtp/statistics/events --data-urlencode "email=$e" --data-urlencode "days=7" --data-urlencode "limit=50" --data-urlencode "sort=desc" | jq -c '[.events[]? | {at:(.date|.[0:16]), ev:.event, subj:((.subject//"")|.[0:30]), reason:((.reason//"")|.[0:160])}]')
+    BL=$(bv smtp/blockedContacts --data-urlencode "limit=100" | jq -c --arg e "$(printf '%s' "$e" | tr 'A-Z' 'a-z')" '[.contacts[]? | select((.email|ascii_downcase)==$e) | {reason:.reason, at:(.blockedAt|.[0:16])}]')
+    ann notice "s2-4-brevo-customer" "4. Brevo — המייל ללקוחה: אירועים $(echo "$EV" | scrub | cut -c1-1500) | חסומה ב-Brevo: $BL"
+  done
+  # unconfirmed signups from the last 3 days: last Brevo event per recipient (no addresses printed)
+  UNC=$(jq -r --arg since "$(date -u -d '-3 days' +%Y-%m-%dT%H:%M)" '.[] | select(.confirmed==null and .sent!=null and .created>$since) | .email' "$W/users.json" | grep -v -E 'example\.invalid|^life\.through\.numbers333\+')
+  OUT=""; for e in $UNC; do
+    L=$(bv smtp/statistics/events --data-urlencode "email=$e" --data-urlencode "days=4" --data-urlencode "limit=50" --data-urlencode "sort=desc" | jq -c '[.events[]? | .event] | unique')
+    OUT="$OUT ${e##*@}:$L"
+  done
+  AG=$(bv smtp/statistics/aggregatedReport --data-urlencode "days=3" | jq -c '{requests,delivered,hardBounces,softBounces,blocked,invalid,spamReports}')
+  ann notice "s2-5-brevo-general" "5. Brevo 3 ימים: $AG | מצב מיילים לנרשמים שטרם אישרו (דומיין:אירועים):$OUT"
+else
+  ann warning "s2-4-brevo" "מפתח BREVO_API_KEY לא זמין לתהליך"
+fi
 ann notice "prod-result" "signupdiagtwo — קריאה בלבד. לא שונתה הגדרה, לא נשלח מייל, לא נגעו בשום משתמש."
