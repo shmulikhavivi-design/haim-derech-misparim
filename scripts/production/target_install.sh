@@ -6,7 +6,9 @@
 # לא פורס פונקציה, לא יוצר משימה מתוזמנת, לא שולח מייל, לא נוגע בחיובים/מנויים/משתמשים.
 set +e +o pipefail
 A="https://api.supabase.com/v1/projects/$PROD_REF"
-q(){ curl -sS -m 180 -o /tmp/q.json -w '%{http_code}' -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$A/database/query" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
+WTOK="${DBW_TOK:-$TOK}"; [ -n "${DBW_TOK:-}" ] && echo "::add-mask::$DBW_TOK"
+ann notice "t0-token" "טוקן כתיבה: $([ -n "${DBW_TOK:-}" ] && echo PRODUCTION_DB_WRITE_TOKEN || echo PRODUCTION_SUPABASE_TOKEN)"
+q(){ curl -sS -m 180 -o /tmp/q.json -w '%{http_code}' -X POST -H "Authorization: Bearer $WTOK" -H 'Content-Type: application/json' "$A/database/query" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
 roj(){ curl -sS -m 120 -X POST -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' "$A/database/query/read-only" -d "$(jq -nc --arg q "$1" '{query:$q}')"; }
 FILE="$ROOT/supabase/staging_secure/49_staging_target_email.sql"
 [ "$(sha256sum "$FILE" | cut -d' ' -f1)" = "${EXPECT_SHA:-x}" ] || stop "הקובץ אינו הגרסה שנבדקה ב-Staging — לא שונה כלום"

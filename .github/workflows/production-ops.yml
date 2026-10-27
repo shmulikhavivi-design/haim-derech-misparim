@@ -94,7 +94,7 @@ jobs:
           GH_BREVO_SMTP: ${{ steps.mode.outputs.mode == 'readiness' && secrets.BREVO_SMTP_KEY || '' }}
           GH_RESEND_KEY: ${{ (steps.mode.outputs.mode == 'resendswitch' || steps.mode.outputs.mode == 'signupdiagtwo') && secrets.PRODUCTION_RESEND_API_KEY || '' }}
           FN_TOK: ${{ (steps.mode.outputs.mode == 'targetinstall' || steps.mode.outputs.mode == 'mailhealth' || steps.mode.outputs.mode == 'fntokcheck' || steps.mode.outputs.mode == 'readycheck' || steps.mode.outputs.mode == 'backupnow' || steps.mode.outputs.mode == 'fndeployonly' || steps.mode.outputs.mode == 'fnrollback' || steps.mode.outputs.mode == 'postdeploy') && secrets.PRODUCTION_FUNCTIONS_TOKEN || '' }}
-          DBW_TOK: ${{ steps.mode.outputs.mode == 'sqlsweep' && secrets.PRODUCTION_DB_WRITE_TOKEN || '' }}
+          DBW_TOK: ${{ (steps.mode.outputs.mode == 'sqlsweep' || steps.mode.outputs.mode == 'targetrehearse' || steps.mode.outputs.mode == 'targetinstall') && secrets.PRODUCTION_DB_WRITE_TOKEN || '' }}
           TA_PRODUCTION_SUPABASE_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PRODUCTION_SUPABASE_TOKEN || '' }}
           TA_PRODUCTION_FUNCTIONS_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PRODUCTION_FUNCTIONS_TOKEN || '' }}
           TA_PRODUCTION_DB_WRITE_TOKEN: ${{ steps.mode.outputs.mode == 'tokaudit' && secrets.PRODUCTION_DB_WRITE_TOKEN || '' }}
