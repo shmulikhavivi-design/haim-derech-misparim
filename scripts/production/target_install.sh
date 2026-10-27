@@ -32,8 +32,8 @@ if [ "$MODE" = "targetsnap" ]; then
   ann notice "snap" "$(roj "$SNAP" | jq -c '.[0].r')"; ann notice "prod-result" "targetsnap — קריאה בלבד"; exit 0
 fi
 if [ "$MODE" = "targetverify" ]; then
-  # קריאה בלבד: אחרי שהבעלים הריץ את 49 ב-SQL Editor — השוואה לתמונת המצב שנלקחה לפני (27.10 17:40)
-  BEFORE='{"users":"58:e8dc190abaca6a5f5e0a24391f363bb0","accounts":"25:0ec1e5295079c439f7702911df33712a","docs":"25:bd076004b76b5edbf6f479659f7f10c3","subscriptions":"3:2054b5b9747820ed8b312353af6559bf","payments":"2:e4c49b62a27058125ce2087219117963","checkouts":"4:495dcf4d760779bbc834f05d9a0efed6","renewals":"0:d41d8cd98f00b204e9800998ecf8427e","billing_tokens":2,"plans":"568711929e612b91d5dd3c9bcd51b153","plan_sale":"9c0955bccf0f817789724a8f9cf5334c","cancel_outbox":1,"cron":"hdm-billing-alerts-scan:true,hdm-billing-worker:true,hdm-morning-renewals:true","functions":"1b5b06c8721a482f19e352381d642c3f","triggers":"479d6e389853711c06b84cc8aa32c355","policies":"0e964fb0ba65ee8a1182b0e15c3e4915"}'
+  # קריאה בלבד: אחרי שהבעלים הריץ את 49 ב-SQL Editor — השוואה לתמונת המצב שנלקחה לפני (27.10 22:40)
+  BEFORE='{"users":"59:ebec038f891e71ce18483f8e25dfc7d7","accounts":"25:0ec1e5295079c439f7702911df33712a","docs":"25:bd076004b76b5edbf6f479659f7f10c3","subscriptions":"3:2054b5b9747820ed8b312353af6559bf","payments":"2:e4c49b62a27058125ce2087219117963","checkouts":"4:495dcf4d760779bbc834f05d9a0efed6","renewals":"0:d41d8cd98f00b204e9800998ecf8427e","billing_tokens":2,"plans":"568711929e612b91d5dd3c9bcd51b153","plan_sale":"9c0955bccf0f817789724a8f9cf5334c","cancel_outbox":1,"cron":"hdm-billing-alerts-scan:true,hdm-billing-worker:true,hdm-morning-renewals:true","functions":"d863da4436b26211812ca5bcfbda4375","triggers":"9a61d6561da2225042eafcc89e67435a","policies":"0e964fb0ba65ee8a1182b0e15c3e4915"}'
   ann notice "t1-before" "לפני (נשמר): $BEFORE"
 else
 BEFORE=$(roj "$SNAP" | jq -c '.[0].r'); echo "$BEFORE" | jq -e . >/dev/null 2>&1 || stop "תמונת המצב לפני נכשלה — לא שונה כלום: $(echo "$BEFORE" | cut -c1-200)"
