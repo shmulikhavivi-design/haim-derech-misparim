@@ -100,6 +100,9 @@ try:
     r, rm = make_user('recipient', 'גבר', 'נשים', '1988-09-21', 'עמית', 'רז')
     extra = [make_user(f'rx{i}', 'גבר', 'נשים', f'198{i+2}-0{i+2}-1{i}', 'רון', 'לב') for i in range(3)]
     capr, caprm = make_user('caprecv', 'גבר', 'נשים', '1984-05-17', 'טל', 'גל')
+    blk, blkm = make_user('blk', 'גבר', 'נשים', '1983-06-18', 'עידו', 'שחר')
+    wd, wdm = make_user('wd', 'גבר', 'נשים', '1982-07-19', 'נדב', 'אלון')
+    rc, rcm = make_user('race', 'גבר', 'נשים', '1981-08-20', 'יואב', 'כרמל')
     caps = [make_user(f'caps{i}', 'אישה', 'גברים', f'198{i+3}-0{i+1}-2{i}', 'מאיה', 'בר') for i in range(5)]
     for cp, _ in caps: sql(f"select public.hdm_admin_set_plan('{cp}', 'basic')")
     sql(f"select public.hdm_admin_set_plan('{s}', 'basic')"); sql(f"select public.hdm_admin_set_plan('{s2}', 'vip')"); sql(f"select public.hdm_admin_set_plan('{r}', 'plus')")
@@ -152,6 +155,36 @@ try:
         with concurrent.futures.ThreadPoolExecutor(5) as ex: cr = list(ex.map(lambda c_: (lambda: send_as(c_[1], capr))(), caps))
         check('5 חצים בו-זמנית לאותו מקבל — כל 5 החצים נשמרו', sql(f"select count(*) from public.docs where collection='interests' and data->>'to'='{capr}'") == '5', cr)
         check('5 חצים בו-זמנית — רק 3 מיילים בתור (המגבלה נאכפה)', outbox(caprm) == '3', outbox(caprm))
+        def as_user(email, q):
+            uid = sql(f"select id from auth.users where email = '{email}'")
+            claims = json.dumps({'sub': uid, 'role': 'authenticated'})
+            return sql(f"begin; select set_config('request.jwt.claims', '{claims}', true), set_config('request.jwt.claim.sub', '{uid}', true); set local role authenticated; {q}; commit;")
+        def row_of(email): return sql(f"select o.status || ':' || coalesce(o.skipped,'') || ':' || o.attempts from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email='{email}' order by o.id desc limit 1")
+        # ---- בדיקה אחרונה לפני המסירה: חסימה וחץ שבוטל (דרך פונקציית השליחה האמיתית) ----
+        as_user(sm, f"select public.hdm_send_target('{blk}')"); as_user(sm, f"select public.hdm_send_target('{wd}')")
+        check('חסימה/ביטול: 2 מיילים בתור לפני', row_of(blkm).startswith('pending') and row_of(wdm).startswith('pending'), [row_of(blkm), row_of(wdm)])
+        as_user(blkm, f"insert into public.docs values ('blocks', '{blk}__{s}', '{{}}')")
+        as_user(sm, f"select public.hdm_remove_target('{wd}')")
+        call_worker(CRON)
+        check('המקבל חסם את השולח אחרי ההכנסה לתור — לא נמסר ל-Brevo', row_of(blkm) == 'skipped:blocked_or_withdrawn:0', row_of(blkm))
+        check('השולח ביטל את החץ לפני השליחה — לא נמסר ל-Brevo', row_of(wdm) == 'skipped:blocked_or_withdrawn:0', row_of(wdm))
+        # ---- מרוץ: ביטול התראות בדיוק ברגע המסירה (20 פעמים, בו-זמנית) ----
+        as_user(sm, f"select public.hdm_send_target('{rc}')")
+        rid = sql(f"select o.id from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email='{rcm}'")
+        ruid = sql(f"select id from auth.users where email='{rcm}'")
+        outcomes = {'sending': 0, 'skipped': 0, 'bad': []}
+        for it in range(20):
+            sql(f"delete from public.hdm_target_email_prefs where user_id='{ruid}'; update public.hdm_target_email_outbox set status='claimed', claimed_at=now(), skipped=null where id={rid}")
+            with concurrent.futures.ThreadPoolExecutor(2) as ex:
+                fb = ex.submit(lambda: sql(f"select count(*) from public.hdm_target_email_begin({rid})"))
+                fo = ex.submit(lambda: as_user(rcm, "select public.hdm_set_target_emails(false)"))
+                got, _ = fb.result(), fo.result()
+            got = got.strip().splitlines()[-1]; st = sql(f"select status from public.hdm_target_email_outbox where id={rid}")
+            if got == '1' and st == 'sending': outcomes['sending'] += 1
+            elif got == '0' and st == 'skipped': outcomes['skipped'] += 1
+            else: outcomes['bad'].append((got, st))
+        check('מרוץ ביטול/מסירה ×20 — תמיד עקבי: או נמסר (ביטול אחרי), או בוטל ולא נמסר', not outcomes['bad'], outcomes)
+        print(f"   מרוץ: נמסר {outcomes['sending']} | בוטל {outcomes['skipped']}", flush=True)
         # ---- מקבל: הגדרות ← התראות מייל ----
         c, pg = newpage(br); login(pg, APP, rm, '#notify')
         try: pg.wait_for_function("() => document.getElementById('screen-settings').classList.contains('active')", timeout=25000)

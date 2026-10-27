@@ -100,7 +100,7 @@ begin
   perform pg_temp.chk('הצפה', '4 שולחים שונים — עד 3 מיילים ב-24 שעות', '3', pg_temp.q(uR5));
 
   -- ---------- 4, 8. פרטיות והרשאות ----------
-  perform pg_temp.chk('פרטיות', 'בתור אין עמודה עם פרטי שולח', 'attempts,claimed_at,created_at,id,last_error,next_attempt_at,sending_at,sent_at,skipped,status,user_id',
+  perform pg_temp.chk('פרטיות', 'עמודות התור (מזהה שולח — לבדיקת חסימה בלבד, סגור לאפליקציה)', 'attempts,claimed_at,created_at,id,last_error,next_attempt_at,sender_profile,sending_at,sent_at,skipped,status,user_id',
     (select string_agg(column_name, ',' order by column_name) from information_schema.columns where table_schema = 'public' and table_name = 'hdm_target_email_outbox'));
   select * into c from public.hdm_target_email_text();
   perform pg_temp.chk('פרטיות', 'נושא המייל', '❤️ מישהו מתעניין בך!', c.subject);
@@ -190,7 +190,7 @@ begin
   perform pg_temp.chk('מסירה', 'נתפס ולא נמסר — נתפס שוב אחרי 10 דקות', '1', (select count(*)::text from public.hdm_target_email_claim(50) x where x.id = ids[4]));
   perform pg_temp.chk('מסירה', 'ואז begin פעם אחת', '1', (select count(*)::text from public.hdm_target_email_begin(ids[4])));
   -- ביטול התראות בין התפיסה למסירה — begin עצמו בודק שוב ומסרב
-  insert into public.hdm_target_email_outbox (user_id, status, claimed_at) values (uP, 'claimed', now()) returning id into k2;
+  insert into public.hdm_target_email_outbox (user_id, sender_profile, status, claimed_at) values (uP, B, 'claimed', now()) returning id into k2;
   insert into public.hdm_target_email_prefs (user_id, target_emails) values (uP, false);   -- (ישירות, בלי הפונקציה שמבטלת את התור)
   perform pg_temp.chk('ביטול התראות', 'כיבוי בין תפיסה למסירה — begin לא מחזיר כתובת', '0', (select count(*)::text from public.hdm_target_email_begin(k2)));
   perform pg_temp.chk('ביטול התראות', 'ומסומן דילוג', 'skipped', (select status from public.hdm_target_email_outbox where id = k2));
@@ -199,6 +199,27 @@ begin
   perform pg_temp.chk('מסירה', 'תוצאה לא חוקית נדחית', 'err:HDM_BAD_INPUT%', r);
   perform pg_temp.chk('שליחה מהתור', 'כתובת היעד = המקבל', pfx || '_b@example.invalid',
     (select u.email from public.hdm_target_email_outbox o join auth.users u on u.id = o.user_id where o.user_id = uB limit 1));
+
+  -- ---------- בדיקה אחרונה לפני המסירה: חסימה / חץ שבוטל ----------
+  insert into public.hdm_target_email_outbox (user_id, sender_profile, status, claimed_at) values (uR3, P, 'claimed', now()) returning id into k2;
+  perform pg_temp.chk('לפני מסירה', 'חץ קיים, אין חסימה — begin מחזיר כתובת', '1', (select count(*)::text from public.hdm_target_email_begin(k2)));
+  insert into public.hdm_target_email_outbox (user_id, sender_profile, status, claimed_at) values (uR1, B3, 'claimed', now()) returning id into k2;
+  perform pg_temp.chk('לפני מסירה', 'החץ בוטל/לא קיים — לא נשלח', '0', (select count(*)::text from public.hdm_target_email_begin(k2)));
+  perform pg_temp.chk('לפני מסירה', 'ומסומן דילוג (blocked_or_withdrawn)', 'skipped:blocked_or_withdrawn:0', (select status || ':' || skipped || ':' || attempts from public.hdm_target_email_outbox where id = k2));
+  insert into public.hdm_target_email_outbox (user_id, sender_profile, status, claimed_at) values (uR3, V, 'claimed', now()) returning id into k2;
+  perform pg_temp.as_user(uR3, format($q$ insert into public.docs values ('blocks', %L, '{}') returning id $q$, R3 || '__' || V));
+  perform pg_temp.chk('לפני מסירה', 'המקבל חסם את השולח אחרי ההכנסה לתור — לא נשלח', '0', (select count(*)::text from public.hdm_target_email_begin(k2)));
+  perform pg_temp.chk('לפני מסירה', 'ומסומן דילוג (blocked_or_withdrawn)', 'skipped:blocked_or_withdrawn', (select status || ':' || skipped from public.hdm_target_email_outbox where id = k2));
+
+  -- ---------- הרשאות: כל הפונקציות והטבלאות ----------
+  perform pg_temp.chk('הרשאות', 'אורח (anon) — אף פונקציה', '0', (select count(*)::text from unnest(array['public.hdm_target_email_text()','public.hdm_target_email_allowed(uuid)','public.hdm_target_email_on_interest()','public.hdm_target_email_claim(int)','public.hdm_target_email_begin(bigint)','public.hdm_target_email_done(bigint,text,text)','public.hdm_my_email_prefs()','public.hdm_set_target_emails(boolean)']) x(fq) where has_function_privilege('anon', fq, 'execute')));
+  perform pg_temp.chk('הרשאות', 'משתמש מחובר — רק מצב ההתראות שלו והמתג', 'hdm_my_email_prefs(),hdm_set_target_emails(boolean)', (select string_agg(replace(fq, 'public.', ''), ',' order by fq) from unnest(array['public.hdm_target_email_text()','public.hdm_target_email_allowed(uuid)','public.hdm_target_email_on_interest()','public.hdm_target_email_claim(int)','public.hdm_target_email_begin(bigint)','public.hdm_target_email_done(bigint,text,text)','public.hdm_my_email_prefs()','public.hdm_set_target_emails(boolean)']) x(fq) where has_function_privilege('authenticated', fq, 'execute')));
+  perform pg_temp.chk('הרשאות', 'שולח המיילים (service_role) — רק תפיסה/מסירה/תוצאה', 'hdm_target_email_begin(bigint),hdm_target_email_claim(int),hdm_target_email_done(bigint,text,text)', (select string_agg(replace(fq, 'public.', ''), ',' order by fq) from unnest(array['public.hdm_target_email_claim(int)','public.hdm_target_email_begin(bigint)','public.hdm_target_email_done(bigint,text,text)']) x(fq) where has_function_privilege('service_role', fq, 'execute')));
+  perform pg_temp.chk('הרשאות', 'טבלאות — אורח ומשתמש מחובר: אין קריאה/כתיבה/עדכון/מחיקה', '0', (select count(*)::text from unnest(array['public.hdm_target_email_outbox','public.hdm_target_email_log','public.hdm_target_email_prefs']) y(tq), unnest(array['anon','authenticated']) z(rq), unnest(array['select','insert','update','delete']) w(pq) where has_table_privilege(rq, tq, pq)));
+  perform pg_temp.chk('הרשאות', 'כל הפונקציות: SECURITY DEFINER עם search_path ריק', '8', (select count(*)::text from pg_proc where pronamespace = 'public'::regnamespace and (proname like 'hdm_target_email%' or proname in ('hdm_my_email_prefs','hdm_set_target_emails')) and (prosecdef or proname = 'hdm_target_email_text') and proconfig @> array['search_path=""']));
+  perform pg_temp.chk('הרשאות', 'RLS פעיל בכל 3 הטבלאות', '3', (select count(*)::text from pg_class where relnamespace = 'public'::regnamespace and relname like 'hdm_target_email_%' and relkind = 'r' and relrowsecurity));
+  perform pg_temp.chk('הרשאות', 'משתמש לא מפעיל begin', 'err:%permission denied%', pg_temp.as_user(uR1, 'select count(*)::text from public.hdm_target_email_begin(1)'));
+  perform pg_temp.chk('הרשאות', 'משתמש לא בודק זכאות של אחר', 'err:%permission denied%', pg_temp.as_user(uR1, format('select public.hdm_target_email_allowed(%L)::text', uR2)));
 
   -- ---------- מחיקת חשבון מוחקת גם את נתוני ההתראות ----------
   perform pg_temp.chk('מחיקה', 'מחיקת החשבון של R2', 'ok:%', pg_temp.as_user(uR2, 'select public.hdm_delete_my_data()::text'));
