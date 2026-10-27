@@ -28,8 +28,15 @@ SNAP="select json_build_object(
  'functions',(select md5(string_agg(p.proname||pg_get_function_identity_arguments(p.oid)||md5(pg_get_functiondef(p.oid)),',' order by 1)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f' and p.proname not in ('hdm_target_email_text','hdm_target_email_on_interest','hdm_target_email_claim','hdm_target_email_done','hdm_my_email_prefs','hdm_set_target_emails')),
  'triggers',(select md5(string_agg(c.relname||t.tgname||pg_get_triggerdef(t.oid),',' order by 1)) from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and not t.tgisinternal and t.tgname<>'hdm_target_email_on_interest'),
  'policies',(select md5(string_agg(tablename||policyname||coalesce(qual,'')||coalesce(with_check,''),',' order by 1)) from pg_policies where schemaname='public')) r"
+if [ "$MODE" = "targetverify" ]; then
+  # קריאה בלבד: אחרי שהבעלים הריץ את 49 ב-SQL Editor — השוואה לתמונת המצב שנלקחה לפני (27.10 17:40)
+  BEFORE='{"users":"57:ff7acd08ea42fe5a27961d64dc82c1a2","accounts":"25:0ec1e5295079c439f7702911df33712a","docs":"25:bd076004b76b5edbf6f479659f7f10c3","subscriptions":"3:2054b5b9747820ed8b312353af6559bf","payments":"2:e4c49b62a27058125ce2087219117963","checkouts":"4:495dcf4d760779bbc834f05d9a0efed6","renewals":"0:d41d8cd98f00b204e9800998ecf8427e","billing_tokens":2,"plans":"568711929e612b91d5dd3c9bcd51b153","plan_sale":"9c0955bccf0f817789724a8f9cf5334c","cancel_outbox":1,"cron":"hdm-billing-alerts-scan:true,hdm-billing-worker:true,hdm-morning-renewals:true","functions":"1b5b06c8721a482f19e352381d642c3f","triggers":"479d6e389853711c06b84cc8aa32c355","policies":"0e964fb0ba65ee8a1182b0e15c3e4915"}'
+  ann notice "t1-before" "לפני (נשמר): $BEFORE"
+else
 BEFORE=$(roj "$SNAP" | jq -c '.[0].r'); echo "$BEFORE" | jq -e . >/dev/null 2>&1 || stop "תמונת המצב לפני נכשלה — לא שונה כלום: $(echo "$BEFORE" | cut -c1-200)"
 ann notice "t1-before" "לפני: $BEFORE"
+fi
+if [ "$MODE" != "targetverify" ]; then
 # ---- חזרה גנרלית (עסקה שמבוטלת) ----
 BODY=$(sed -e 's/^begin;$//' -e 's/^commit;$//' "$FILE")
 C=$(q "begin; $BODY ; select json_build_object('tables',(select count(*) from pg_tables where schemaname='public' and tablename like 'hdm_target_email_%'),'trigger',(select count(*) from pg_trigger where tgname='hdm_target_email_on_interest')) r; rollback;")
@@ -41,6 +48,7 @@ MID=$(roj "$SNAP" | jq -c '.[0].r'); [ "$MID" = "$BEFORE" ] || stop "תמונת 
 # ---- התקנה ----
 C=$(q "$(cat "$FILE")")
 [ "$C" = 201 ] || stop "ההתקנה נכשלה ובוטלה במלואה (HTTP $C: $(jq -r '.message//empty' /tmp/q.json | cut -c1-250))"
+fi
 AFTER=$(roj "$SNAP" | jq -c '.[0].r'); ann notice "t3-after" "אחרי: $AFTER"
 DIFF=$(jq -rn --argjson a "$BEFORE" --argjson b "$AFTER" '[$a|keys[] as $k | select($a[$k] != $b[$k]) | $k] | join(",")')
 ann notice "t4-compare" "השוואה לפני/אחרי — שדות שהשתנו: ${DIFF:-אף אחד}"
@@ -57,4 +65,4 @@ if [ -n "${FN_TOK:-}" ]; then echo "::add-mask::$FN_TOK"
   ann notice "t6-functions" "פונקציות פרוסות (שליחה לא פרוסה): $(curl -sS -m 30 -H "Authorization: Bearer $FN_TOK" "$A/functions" | jq -c '[.[]?.slug]') | סוד TARGET_EMAILS_LIVE קיים: $(curl -sS -m 30 -H "Authorization: Bearer $FN_TOK" "$A/secrets" | jq -c '[.[]?.name] | index("TARGET_EMAILS_LIVE") != null')"
 fi
 [ -z "$DIFF" ] || stop "נתונים קיימים השתנו ($DIFF) — לבדוק מיד"
-ann notice "prod-result" "✅ targetinstall: תשתית התראות 🎯 הותקנה ב-Production. מנויים/תשלומים/משתמשים/התאמות/פונקציות קיימות ללא שינוי. אף מייל לא נשלח; פונקציית השליחה לא פרוסה."
+ann notice "prod-result" "✅ $MODE: תשתית התראות 🎯 הותקנה ב-Production. מנויים/תשלומים/משתמשים/התאמות/פונקציות קיימות ללא שינוי. אף מייל לא נשלח; פונקציית השליחה לא פרוסה."
