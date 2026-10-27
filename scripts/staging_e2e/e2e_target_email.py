@@ -126,7 +126,10 @@ try:
         check('כשל שליחה (Brevo דחה) — המייל נשאר בתור לניסיון חוזר, לא סומן כנשלח', row in ('1|brevo 401|true', '1|brevo 403|true'), row)
         check('כשל שליחה — החץ לא בוטל', interests(s, r) == '1', interests(s, r))
         # ---- מקבל: הגדרות ← התראות מייל ----
-        c, pg = newpage(br); login(pg, APP, rm, '#notify'); pg.wait_for_timeout(2500)
+        c, pg = newpage(br); login(pg, APP, rm, '#notify')
+        try: pg.wait_for_function("() => document.getElementById('screen-settings').classList.contains('active')", timeout=25000)
+        except Exception: pass
+        pg.wait_for_timeout(1500)
         stt = setting_state(pg)
         check('קישור מהמייל (#notify) פותח את ההגדרות', stt['shown'], stt)
         check('ברירת מחדל: התראות פעילות', stt['st'].startswith('פעיל') and stt['aria'] == 'true', stt)

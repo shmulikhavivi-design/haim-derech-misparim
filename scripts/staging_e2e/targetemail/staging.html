@@ -5518,9 +5518,13 @@
     hdmTargetEmailsBusy = false;
   }
   // קישור מהמייל: haimderechmisparim.com/#notify — פותח את ההגדרות במקום של התראות המייל (אחרי התחברות)
+  var hdmNotifyWait = 0;
   function hdmOpenNotifyFromHash(){
     if((location.hash || '').replace('#', '') !== 'notify' || window.__hdmRecoveryMode) return;
-    if(!myId){ setTimeout(hdmOpenNotifyFromHash, 1500); return; }
+    // מחכים שההתחברות תסתיים והאפליקציה תגיע למסך הראשי (אחרת המעבר להתאמות שאחרי הכניסה יסתיר את ההגדרות)
+    var act = document.querySelector('.screen.active'), onMain = !!(act && act.id === 'screen-match');
+    if(!myId || (!onMain && hdmNotifyWait < 20)){ hdmNotifyWait++; setTimeout(hdmOpenNotifyFromHash, 1500); return; }
+    hdmNotifyWait = 0;
     try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
     openSettings();
     setTimeout(function(){ var g = document.getElementById('set-notify-group'); if(g && g.scrollIntoView) g.scrollIntoView({ block: 'center' }); }, 300);
