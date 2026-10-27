@@ -618,15 +618,24 @@ if [ "$MODE" = "e2etargetmail" ]; then
 fi
 if [ "$MODE" = "install49" ]; then
   # טביעת אצבע של כל פונקציות public לפני ואחרי — כדי להוכיח שלא שונתה אף פונקציה קיימת (🎯/צ'אט/מנויים/סליקה)
-  FPQ="select coalesce(string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')=' || md5(pg_get_functiondef(p.oid)), E'\n' order by 1), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prokind = 'f'"
-  TGQ="select coalesce(string_agg(c.relname || '.' || t.tgname || '=' || md5(pg_get_triggerdef(t.oid)), E'\n' order by 1), '') from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname in ('public') and not t.tgisinternal"
+  FPQ="select coalesce(string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')=' || md5(pg_get_functiondef(p.oid)), E'\n' order by p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prokind = 'f'"
+  TGQ="select coalesce(string_agg(c.relname || '.' || t.tgname || '=' || md5(pg_get_triggerdef(t.oid)), E'\n' order by c.relname || '.' || t.tgname), '') from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname in ('public') and not t.tgisinternal"
+  # הרצה חוזרת ב-Staging: מסירים קודם את ההתקנה הקודמת של 49 (רק האובייקטים החדשים שלה), כדי למדוד לפני/אחרי מחדש
+  if [ "$("${RO[@]}" "${PSQL[@]}" -At -c "select to_regclass('public.hdm_target_email_outbox') is not null")" = t ]; then
+    "${PSQL[@]}" -q -c "begin; drop trigger if exists hdm_target_email_on_interest on public.docs;
+      drop function if exists public.hdm_target_email_on_interest(), public.hdm_target_email_claim(int), public.hdm_target_email_done(bigint, boolean, text),
+        public.hdm_my_email_prefs(), public.hdm_set_target_emails(boolean), public.hdm_target_email_text();
+      drop table if exists public.hdm_target_email_outbox, public.hdm_target_email_log, public.hdm_target_email_prefs; commit;" >/dev/null || stop "הסרת ההתקנה הקודמת נכשלה."
+    ann notice "install49-reinstall" "Staging: ההתקנה הקודמת של 49 הוסרה (בדיקת הסרה) ומותקנת מחדש"
+  fi
   "${RO[@]}" "${PSQL[@]}" -At -c "$FPQ" > /tmp/fp_before.txt; "${RO[@]}" "${PSQL[@]}" -At -c "$TGQ" > /tmp/tg_before.txt
   OUT=$("${PSQL[@]}" -f "$SQLDIR/49_staging_target_email.sql" 2>&1) && RC=0 || RC=$?
   echo "$OUT"; ann notice "staging-output" "$(echo "$OUT" | grep -E 'ERROR|עצירה' | tail -n 20)"
   [ $RC -eq 0 ] || stop "49_staging_target_email.sql נעצר או נכשל. ההרצה היא 'הכול או כלום'."
   "${RO[@]}" "${PSQL[@]}" -At -c "$FPQ" > /tmp/fp_after.txt; "${RO[@]}" "${PSQL[@]}" -At -c "$TGQ" > /tmp/tg_after.txt
-  CHANGED=$(comm -23 /tmp/fp_before.txt /tmp/fp_after.txt | cut -d= -f1); NEWF=$(comm -13 /tmp/fp_before.txt /tmp/fp_after.txt | cut -d= -f1 | tr '\n' ' ')
-  TCH=$(comm -23 /tmp/tg_before.txt /tmp/tg_after.txt | cut -d= -f1); NEWT=$(comm -13 /tmp/tg_before.txt /tmp/tg_after.txt | cut -d= -f1 | tr '\n' ' ')
+  for f in /tmp/fp_before.txt /tmp/fp_after.txt /tmp/tg_before.txt /tmp/tg_after.txt; do LC_ALL=C sort -o "$f" "$f"; done
+  CHANGED=$(LC_ALL=C comm -23 /tmp/fp_before.txt /tmp/fp_after.txt | cut -d= -f1); NEWF=$(LC_ALL=C comm -13 /tmp/fp_before.txt /tmp/fp_after.txt | cut -d= -f1 | tr '\n' ' ')
+  TCH=$(LC_ALL=C comm -23 /tmp/tg_before.txt /tmp/tg_after.txt | cut -d= -f1); NEWT=$(LC_ALL=C comm -13 /tmp/tg_before.txt /tmp/tg_after.txt | cut -d= -f1 | tr '\n' ' ')
   ann notice "install49-diff" "פונקציות קיימות שהשתנו: ${CHANGED:-אף אחת} | טריגרים קיימים שהשתנו: ${TCH:-אף אחד} | פונקציות חדשות: $NEWF | טריגרים חדשים: $NEWT"
   [ -z "$CHANGED" ] && [ -z "$TCH" ] || stop "פונקציה/טריגר קיימים השתנו — לא צפוי."
   ann notice "staging-result" "✅ install49: התראת מייל על 🎯 הותקנה ב-Staging; אף פונקציה או טריגר קיימים לא השתנו ($(wc -l < /tmp/fp_before.txt) פונקציות נבדקו)"; exit 0
