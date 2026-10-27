@@ -34,7 +34,7 @@ declare
   uid uuid[] := '{}'; pid text[] := '{}';
   uF uuid; uB uuid; uB2 uuid; uB3 uuid; uB4 uuid; uP uuid; uV uuid; uR1 uuid; uR2 uuid; uR3 uuid; uR4 uuid; uR5 uuid;
   F text; B text; B2 text; B3 text; B4 text; P text; V text; R1 text; R2 text; R3 text; R4 text; R5 text;
-  r text; j jsonb; i int; n0 int; c record; ids bigint[];
+  r text; j jsonb; i int; n0 int; c record; ids bigint[]; k2 bigint;
   req text := public.hdm_required_terms_version();
 begin
   for i in 1 .. array_length(k, 1) loop uid := uid || gen_random_uuid(); end loop;
@@ -100,7 +100,7 @@ begin
   perform pg_temp.chk('הצפה', '4 שולחים שונים — עד 3 מיילים ב-24 שעות', '3', pg_temp.q(uR5));
 
   -- ---------- 4, 8. פרטיות והרשאות ----------
-  perform pg_temp.chk('פרטיות', 'בתור אין עמודה עם פרטי שולח', 'attempts,claimed_at,created_at,id,last_error,sent_at,skipped,user_id',
+  perform pg_temp.chk('פרטיות', 'בתור אין עמודה עם פרטי שולח', 'attempts,claimed_at,created_at,id,last_error,next_attempt_at,sending_at,sent_at,skipped,status,user_id',
     (select string_agg(column_name, ',' order by column_name) from information_schema.columns where table_schema = 'public' and table_name = 'hdm_target_email_outbox'));
   select * into c from public.hdm_target_email_text();
   perform pg_temp.chk('פרטיות', 'נושא המייל', '❤️ מישהו מתעניין בך!', c.subject);
@@ -111,7 +111,7 @@ begin
   perform pg_temp.chk('הרשאות', 'משתמש לא קורא את יומן הזוגות', 'err:%permission denied%', pg_temp.as_user(uR1, 'select count(*)::text from public.hdm_target_email_log'));
   perform pg_temp.chk('הרשאות', 'משתמש לא קורא העדפות של אחרים', 'err:%permission denied%', pg_temp.as_user(uR1, 'select count(*)::text from public.hdm_target_email_prefs'));
   perform pg_temp.chk('הרשאות', 'משתמש לא שולף מיילים מהתור', 'err:%permission denied%', pg_temp.as_user(uR1, 'select count(*)::text from public.hdm_target_email_claim(5)'));
-  perform pg_temp.chk('הרשאות', 'משתמש לא מסמן "נשלח"', 'err:%permission denied%', pg_temp.as_user(uR1, 'select public.hdm_target_email_done(1, true, null)::text'));
+  perform pg_temp.chk('הרשאות', 'משתמש לא מסמן "נשלח"', 'err:%permission denied%', pg_temp.as_user(uR1, 'select public.hdm_target_email_done(1, ''sent'', null)::text'));
   perform pg_temp.chk('הרשאות', 'אורח לא משנה העדפות', 'err:%permission denied%', pg_temp.as_anon('select public.hdm_set_target_emails(false)::text'));
   perform pg_temp.chk('הרשאות', 'משתמש לא מכניס לתור ישירות', 'err:%permission denied%', pg_temp.as_user(uR1, format('insert into public.hdm_target_email_outbox (user_id) values (%L) returning id::text', uR2)));
   -- מי סימן אותי — לפי המסלול, ללא שינוי
@@ -150,33 +150,61 @@ begin
   perform pg_temp.chk('הדדי', 'R1 מחזיר 🎯 ל-B — צ''אט נפתח (ללא שינוי)', 'ok:%"chat": "opened"%"mutual": true%', pg_temp.as_user(uR1, format('select public.hdm_send_target(%L)::text', B)));
   perform pg_temp.chk('הדדי', 'B קיבל מייל אחד', '1', pg_temp.q(uB));
 
-  -- ---------- שליחה מהתור: פעם אחת בלבד, כשל חוזר לתור ----------
+  -- ---------- שליחה מהתור: לכל היותר פעם אחת ----------
   update public.hdm_target_email_outbox set created_at = now() where user_id = uR1;   -- (הוזז אחורה בבדיקת 30 הימים)
-  n0 := (select count(*) from public.hdm_target_email_outbox where sent_at is null and skipped is null);
-  -- מי שכיבה אחרי שנכנס לתור — לא יישלח
+  n0 := (select count(*) from public.hdm_target_email_outbox where status = 'pending');
+  -- כיבוי התראות מבטל מיד את מה שבתור
   perform pg_temp.as_user(uR5, 'select public.hdm_set_target_emails(false)::text');
-  select array_agg(x.id) into ids from public.hdm_target_email_claim(50) x;
-  perform pg_temp.chk('שליחה מהתור', 'נשלפו כל הממתינים חוץ ממי שכיבה (3)', (n0 - 3)::text, coalesce(array_length(ids, 1), 0)::text);
-  perform pg_temp.chk('שליחה מהתור', 'מי שכיבה אחרי ההכנסה — סומן כדילוג', '3', (select count(*)::text from public.hdm_target_email_outbox where user_id = uR5 and skipped is not null));
-  perform pg_temp.chk('שליחה מהתור', 'שליפה שנייה מיד — כלום (אין כפילות)', '0', (select count(*)::text from public.hdm_target_email_claim(50)));
-  perform public.hdm_target_email_done(ids[1], true, null);
-  perform public.hdm_target_email_done(ids[2], false, 'brevo 500');
-  perform pg_temp.chk('שליחה מהתור', 'נשלח — מסומן', '1', (select count(*)::text from public.hdm_target_email_outbox where id = ids[1] and sent_at is not null));
-  perform public.hdm_target_email_done(ids[1], true, null);
-  perform pg_temp.chk('שליחה מהתור', 'סימון כפול לא משנה (ניסיון 1)', '1', (select attempts::text from public.hdm_target_email_outbox where id = ids[1]));
-  perform pg_temp.chk('שליחה מהתור', 'כשל — לא נשלף מיד שוב (מניעת כפילות בהרצה מקבילה)', '0', (select count(*)::text from public.hdm_target_email_claim(50)));
-  update public.hdm_target_email_outbox set claimed_at = now() - interval '11 minutes' where id = ids[2];
-  r := (select string_agg(x.id::text, ',') from public.hdm_target_email_claim(50) x);
-  perform pg_temp.chk('שליחה מהתור', 'כשל — חוזר לתור אחרי 10 דקות ונשלף שוב', ids[2]::text, r);
-  perform pg_temp.chk('שליחה מהתור', 'נשלח לא נשלף שוב', 'ok', case when position(ids[1]::text in coalesce(r, '')) = 0 then 'ok' else 'נשלף שוב' end);
+  perform pg_temp.chk('ביטול התראות', 'כיבוי — 3 המיילים שבתור בוטלו מיד', '3', (select count(*)::text from public.hdm_target_email_outbox where user_id = uR5 and status = 'skipped'));
+  select array_agg(x.id order by x.id) into ids from public.hdm_target_email_claim(50) x;
+  perform pg_temp.chk('שליחה מהתור', 'נתפסו כל הממתינים חוץ ממי שכיבה', (n0 - 3)::text, coalesce(array_length(ids, 1), 0)::text);
+  perform pg_temp.chk('שליחה מהתור', 'תפיסה שנייה מיד — כלום (הרצה מקבילה לא מקבלת)', '0', (select count(*)::text from public.hdm_target_email_claim(50)));
+  -- begin: רק פעם אחת לכל מייל
+  perform pg_temp.chk('מסירה', 'begin ראשון — מחזיר כתובת', '1', (select count(*)::text from public.hdm_target_email_begin(ids[1])));
+  perform pg_temp.chk('מסירה', 'begin שני לאותו מייל — כלום', '0', (select count(*)::text from public.hdm_target_email_begin(ids[1])));
+  perform pg_temp.chk('מסירה', 'מצב sending, ניסיון 1', 'sending:1', (select status || ':' || attempts from public.hdm_target_email_outbox where id = ids[1]));
+  -- כשל אחרי שליחה מוצלחת (done לא הגיע): לא נשלח שוב לעולם
+  update public.hdm_target_email_outbox set sending_at = now() - interval '2 days', claimed_at = now() - interval '2 days' where id = ids[1];
+  perform pg_temp.chk('מסירה', 'sending בלי סימון — לא נתפס שוב גם אחרי יומיים', '0', (select count(*)::text from public.hdm_target_email_claim(50) x where x.id = ids[1]));
+  perform public.hdm_target_email_done(ids[1], 'sent', null);
+  perform pg_temp.chk('מסירה', 'done(sent) — נשלח', 'sent', (select status from public.hdm_target_email_outbox where id = ids[1]));
+  perform public.hdm_target_email_done(ids[1], 'rejected', 'x');
+  perform pg_temp.chk('מסירה', 'סימון נוסף אחרי sent — לא משנה', 'sent:1', (select status || ':' || attempts from public.hdm_target_email_outbox where id = ids[1]));
+  -- תשובה לא ברורה: לא נשלח שוב
+  perform public.hdm_target_email_begin(ids[2]); perform public.hdm_target_email_done(ids[2], 'uncertain', 'network: timeout');
+  update public.hdm_target_email_outbox set claimed_at = now() - interval '1 day', next_attempt_at = now() - interval '1 day' where id = ids[2];
+  perform pg_temp.chk('מסירה', 'uncertain — לא נתפס שוב לעולם', '0', (select count(*)::text from public.hdm_target_email_claim(50) x where x.id = ids[2]));
+  -- דחייה מפורשת: ניסיון חוזר רק אחרי 10 דקות, עד 5
+  perform public.hdm_target_email_begin(ids[3]); perform public.hdm_target_email_done(ids[3], 'rejected', 'brevo 401');
+  perform pg_temp.chk('מסירה', 'rejected — לא נתפס מיד שוב', '0', (select count(*)::text from public.hdm_target_email_claim(50) x where x.id = ids[3]));
+  update public.hdm_target_email_outbox set next_attempt_at = now() - interval '1 second' where id = ids[3];
+  perform pg_temp.chk('מסירה', 'rejected — נתפס שוב אחרי 10 דקות', '1', (select count(*)::text from public.hdm_target_email_claim(50) x where x.id = ids[3]));
+  for i in 1 .. 4 loop
+    perform public.hdm_target_email_begin(ids[3]); perform public.hdm_target_email_done(ids[3], 'rejected', 'brevo 401');
+    update public.hdm_target_email_outbox set next_attempt_at = now() - interval '1 second' where id = ids[3];
+    perform public.hdm_target_email_claim(50);
+  end loop;
+  perform pg_temp.chk('מסירה', 'אחרי 5 דחיות — failed, לא עוד ניסיונות', 'failed:5', (select status || ':' || attempts from public.hdm_target_email_outbox where id = ids[3]));
+  -- נתפס ולא נמסר (הרצה נפלה לפני begin) — מותר לתפוס שוב אחרי 10 דקות (עוד לא נשלח), ושוב רק פעם אחת
+  update public.hdm_target_email_outbox set claimed_at = now() - interval '11 minutes' where id = ids[4];
+  perform pg_temp.chk('מסירה', 'נתפס ולא נמסר — נתפס שוב אחרי 10 דקות', '1', (select count(*)::text from public.hdm_target_email_claim(50) x where x.id = ids[4]));
+  perform pg_temp.chk('מסירה', 'ואז begin פעם אחת', '1', (select count(*)::text from public.hdm_target_email_begin(ids[4])));
+  -- ביטול התראות בין התפיסה למסירה — begin עצמו בודק שוב ומסרב
+  insert into public.hdm_target_email_outbox (user_id, status, claimed_at) values (uP, 'claimed', now()) returning id into k2;
+  insert into public.hdm_target_email_prefs (user_id, target_emails) values (uP, false);   -- (ישירות, בלי הפונקציה שמבטלת את התור)
+  perform pg_temp.chk('ביטול התראות', 'כיבוי בין תפיסה למסירה — begin לא מחזיר כתובת', '0', (select count(*)::text from public.hdm_target_email_begin(k2)));
+  perform pg_temp.chk('ביטול התראות', 'ומסומן דילוג', 'skipped', (select status from public.hdm_target_email_outbox where id = k2));
+  delete from public.hdm_target_email_prefs where user_id = uP;
+  begin perform public.hdm_target_email_done(ids[4], 'bogus', null); r := 'ok'; exception when others then r := 'err:' || sqlerrm; end;
+  perform pg_temp.chk('מסירה', 'תוצאה לא חוקית נדחית', 'err:HDM_BAD_INPUT%', r);
   perform pg_temp.chk('שליחה מהתור', 'כתובת היעד = המקבל', pfx || '_b@example.invalid',
     (select u.email from public.hdm_target_email_outbox o join auth.users u on u.id = o.user_id where o.user_id = uB limit 1));
 
   -- ---------- מחיקת חשבון מוחקת גם את נתוני ההתראות ----------
   perform pg_temp.chk('מחיקה', 'מחיקת החשבון של R2', 'ok:%', pg_temp.as_user(uR2, 'select public.hdm_delete_my_data()::text'));
   perform pg_temp.chk('מחיקה', 'אחרי מחיקה: אין מייל ממתין ל-R2, אין יומן ואין העדפות', '0',
-    ((select count(*) from public.hdm_target_email_claim(50) x where x.to_email like pfx || '_r2@%')
-     + (select count(*) from public.hdm_target_email_outbox where user_id = uR2 and sent_at is null and skipped is null)
+    ((select count(*) from public.hdm_target_email_claim(50) x join public.hdm_target_email_outbox o on o.id = x.id where o.user_id = uR2)
+     + (select count(*) from public.hdm_target_email_outbox where user_id = uR2 and status in ('pending', 'retry', 'claimed'))
      + (select count(*) from public.hdm_target_email_log where recipient_profile = R2 or sender_profile = R2)
      + (select count(*) from public.hdm_target_email_prefs where user_id = uR2))::text);
 

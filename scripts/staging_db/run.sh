@@ -624,6 +624,7 @@ if [ "$MODE" = "install49" ]; then
   if [ "$("${RO[@]}" "${PSQL[@]}" -At -c "select to_regclass('public.hdm_target_email_outbox') is not null")" = t ]; then
     "${PSQL[@]}" -q -c "begin; drop trigger if exists hdm_target_email_on_interest on public.docs;
       drop function if exists public.hdm_target_email_on_interest(), public.hdm_target_email_claim(int), public.hdm_target_email_done(bigint, boolean, text),
+        public.hdm_target_email_done(bigint, text, text), public.hdm_target_email_begin(bigint), public.hdm_target_email_allowed(uuid),
         public.hdm_my_email_prefs(), public.hdm_set_target_emails(boolean), public.hdm_target_email_text();
       drop table if exists public.hdm_target_email_outbox, public.hdm_target_email_log, public.hdm_target_email_prefs; commit;" >/dev/null || stop "הסרת ההתקנה הקודמת נכשלה."
     ann notice "install49-reinstall" "Staging: ההתקנה הקודמת של 49 הוסרה (בדיקת הסרה) ומותקנת מחדש"

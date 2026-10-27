@@ -51,6 +51,15 @@ export function targetBrevoBody(m: TargetMail, from: string, replyTo: string) {
   return b;
 }
 
+export type Outcome = 'sent' | 'rejected' | 'uncertain';
+// תשובה 2xx = נשלח. 4xx = Brevo דחה במפורש (לא נשלח) — מותר לנסות שוב. כל השאר (5xx, ניתוק, זמן קצוב) — לא ברור
+// אם נשלח, ולכן לא שולחים שוב (עדיף מייל אחד שאולי לא הגיע על פני מייל כפול).
+export function classify(status: number | null): Outcome {
+  if (status !== null && status >= 200 && status < 300) return 'sent';
+  if (status !== null && status >= 400 && status < 500) return 'rejected';
+  return 'uncertain';
+}
+
 export async function sendTargetEmails(env: (k: string) => string, rpc: Rpc, fetchFn: typeof fetch) {
   if (env('TARGET_EMAILS_LIVE') !== '1') return { skipped: 'off' };
   const key = env('BREVO_API_KEY'), from = env('MAIL_FROM');
@@ -58,27 +67,32 @@ export async function sendTargetEmails(env: (k: string) => string, rpc: Rpc, fet
   if (env('DRY_RUN') === '1') return { skipped: 'dry_run' };
   const { data, error } = await rpc('hdm_target_email_claim', { p_limit: 20 });
   if (error) throw new Error('target outbox: ' + error.message);
-  let sent = 0, failed = 0;
-  for (const m of (data ?? []) as TargetMail[]) {
-    let ok = false, err = '';
+  let sent = 0, rejected = 0, uncertain = 0, skipped = 0;
+  for (const row of (data ?? []) as { id: number }[]) {
+    // בדיקה אחרונה בשרת ממש לפני המסירה (ביטול התראות / חשבון). רק קריאה אחת מצליחה לכל מייל.
+    const b = await rpc('hdm_target_email_begin', { p_id: row.id });
+    const m = (Array.isArray(b.data) ? b.data[0] : null) as TargetMail | null;
+    if (b.error || !m || !m.to_email) { skipped++; continue; }
+    let status: number | null = null, err = '';
     try {
       const r = await fetchFn(BREVO_URL, {
         method: 'POST',
         headers: { 'api-key': key, 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify(targetBrevoBody(m, from, env('MAIL_REPLY_TO'))),
+        body: JSON.stringify(targetBrevoBody({ ...m, kind: 'target_received' }, from, env('MAIL_REPLY_TO'))),
         signal: AbortSignal.timeout(20000),
       });
-      ok = r.ok;
-      if (!ok) err = `brevo ${r.status}`;
+      status = r.status;
+      if (!r.ok) err = `brevo ${r.status}`;
       await r.body?.cancel();
     } catch (e) { err = 'network: ' + String(e).slice(0, 150); }
-    let marked = false;
-    for (let i = 0; i < 3 && !marked; i++) {
-      const { error: e2 } = await rpc('hdm_target_email_done', { p_id: m.id, p_ok: ok, p_error: ok ? null : err });
-      marked = !e2;
-      if (e2) console.error('target email done failed', m.id, i, e2.message);
+    const outcome = classify(status);
+    // סימון התוצאה. אם הסימון נכשל — השורה נשארת "sending" ולא תישלח שוב לעולם.
+    for (let i = 0; i < 3; i++) {
+      const { error: e2 } = await rpc('hdm_target_email_done', { p_id: row.id, p_result: outcome, p_error: outcome === 'sent' ? null : err });
+      if (!e2) break;
+      console.error('target email done failed', row.id, i, e2.message);
     }
-    if (ok) sent++; else failed++;
+    if (outcome === 'sent') sent++; else if (outcome === 'rejected') rejected++; else uncertain++;
   }
-  return { sent, failed };
+  return { sent, rejected, uncertain, skipped };
 }

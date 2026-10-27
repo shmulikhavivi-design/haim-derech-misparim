@@ -3,7 +3,7 @@
 # דפדפן (staging.html) + פונקציית השליחה hdm-target-mailer שפרוסה ב-Staging עם מפתח Brevo לא תקף בכוונה —
 # כך שום מייל לא יוצא (Brevo דוחה), וגם כתובות הבדיקה הן @example.invalid. משתמשי הבדיקה נמחקים בסוף ובכל כישלון.
 # =====================================================================
-import json, os, random, string, subprocess, sys, http.server, threading, functools, urllib.request, urllib.error
+import concurrent.futures, json, os, random, string, subprocess, sys, http.server, threading, functools, urllib.request, urllib.error
 from playwright.sync_api import sync_playwright
 
 DB = os.environ['STAGING_DB_URL']; KEY = os.environ.get('STAGING_PUBLISHABLE_KEY', ''); PAGE = os.environ['PAGE_NEW']
@@ -99,6 +99,9 @@ try:
     s2, s2m = make_user('sender2', 'אישה', 'גברים', '1979-08-29', 'רונית', 'אור')
     r, rm = make_user('recipient', 'גבר', 'נשים', '1988-09-21', 'עמית', 'רז')
     extra = [make_user(f'rx{i}', 'גבר', 'נשים', f'198{i+2}-0{i+2}-1{i}', 'רון', 'לב') for i in range(3)]
+    capr, caprm = make_user('caprecv', 'גבר', 'נשים', '1984-05-17', 'טל', 'גל')
+    caps = [make_user(f'caps{i}', 'אישה', 'גברים', f'198{i+3}-0{i+1}-2{i}', 'מאיה', 'בר') for i in range(5)]
+    for cp, _ in caps: sql(f"select public.hdm_admin_set_plan('{cp}', 'basic')")
     sql(f"select public.hdm_admin_set_plan('{s}', 'basic')"); sql(f"select public.hdm_admin_set_plan('{s2}', 'vip')"); sql(f"select public.hdm_admin_set_plan('{r}', 'plus')")
     check('הכנה: התור ריק למקבל', outbox(rm) == '0', outbox(rm))
     APP = serve(PAGE)
@@ -137,10 +140,18 @@ try:
         check('3 הרצות מקבילות — כולן 200', all(x[0] == 200 for x in res), res)
         att = sql(f"select string_agg(o.attempts::text, ',' order by o.id) from public.hdm_target_email_outbox o join auth.users u on u.id=o.user_id where u.email in ('{xm}')")
         check('הרצות מקבילות — כל מייל טופל פעם אחת בדיוק (אין שליחה כפולה)', att == '1,1,1', att)
-        tot = sum(json.loads(x[1]).get('target', {}).get('failed', 0) + json.loads(x[1]).get('target', {}).get('sent', 0) for x in res if x[0] == 200)
+        tot = sum(sum(json.loads(x[1]).get('target', {}).get(k, 0) for k in ('sent', 'rejected', 'uncertain')) for x in res if x[0] == 200)
         check('הרצות מקבילות — סה"כ 3 ניסיונות שליחה (לא 9)', tot == 3, [x[1] for x in res])
         body = sql(f"select t.body_text || t.subject from public.hdm_target_email_text() t")
         check('תוכן המייל: בלי שם, מזהה או אימייל של השולח', all(x not in body for x in [s, sm, 'בדיקה sender', 'אבי', 'שלום']), body[:200])
+        # ---- מגבלת 3 ב-24 שעות כש-5 חצים נשלחים בו-זמנית (5 חיבורים נפרדים למסד, כל אחד כמשתמש אחר) ----
+        def send_as(email, target):
+            uid = sql(f"select id from auth.users where email = '{email}'")
+            claims = json.dumps({'sub': uid, 'role': 'authenticated'})
+            return sql(f"begin; select set_config('request.jwt.claims', '{claims}', true), set_config('request.jwt.claim.sub', '{uid}', true); set local role authenticated; select public.hdm_send_target('{target}')::text; commit;")
+        with concurrent.futures.ThreadPoolExecutor(5) as ex: cr = list(ex.map(lambda c_: (lambda: send_as(c_[1], capr))(), caps))
+        check('5 חצים בו-זמנית לאותו מקבל — כל 5 החצים נשמרו', sql(f"select count(*) from public.docs where collection='interests' and data->>'to'='{capr}'") == '5', cr)
+        check('5 חצים בו-זמנית — רק 3 מיילים בתור (המגבלה נאכפה)', outbox(caprm) == '3', outbox(caprm))
         # ---- מקבל: הגדרות ← התראות מייל ----
         c, pg = newpage(br); login(pg, APP, rm, '#notify')
         try: pg.wait_for_function("() => document.getElementById('screen-settings').classList.contains('active')", timeout=25000)
