@@ -14,8 +14,7 @@ select json_build_object(
  'profiles', (select json_agg(json_build_object(
      'profile_id', m.profile_id, 'exists', p.id is not null,
      'name', p.data->>'currentName', 'gender', p.data->>'gender', 'location', p.data->>'location', 'created', p.data->>'createdAt',
-     'plan_now', public.hdm_plan_of(m.profile_id),
-     'is_test', public.hdm_admin_is_test(m.auth_user_id, (select email from u limit 1)),
+     'is_test_account', exists (select 1 from public.hdm_test_accounts t where t.auth_user_id = m.auth_user_id),
      'subscription', (select to_jsonb(s) from public.hdm_subscriptions s where s.profile_id = m.profile_id),
      'events', (select json_agg(to_jsonb(e) - 'profile_id' order by e.id) from public.hdm_subscription_events e where e.profile_id = m.profile_id),
      'card_tokens', (select count(*) from public.hdm_billing_tokens t where t.profile_id = m.profile_id),
