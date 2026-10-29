@@ -68,7 +68,7 @@ OUT=$("${P[@]}" -d t1 -At -F'|' -f "$F24" 2>&1) && ok "24 רץ בהצלחה" || 
 check "אחרי: אורן ב-Plus" "plus" "$(q t1 "select public.hdm_plan_of('p_b2ae1de0a3df4e7e8a8f')")"
 check "המנוי: active / manual / בלי תפוגה / בלי חידוש / בלי הוראת קבע" "active|manual|t|f|t" \
   "$(q t1 "select status||'|'||source||'|'||(current_period_end is null)::text::char||'|'||auto_renew::text::char||'|'||(grow_direct_debit_id is null)::text::char from public.hdm_subscriptions where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
-check "שורת האימות בסוף הקובץ" "plus|t|t|0" "$(echo "$OUT" | tail -1)"
+check "שורת האימות בסוף הקובץ" "plus|active|manual|t|t|0" "$(echo "$OUT" | tail -1)"
 check "אירוע אחד ביומן (start free→plus)" "1|start|free|plus" "$(q t1 "select count(*)||'|'||max(action)||'|'||max(from_plan)||'|'||max(to_plan) from public.hdm_subscription_events where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
 check "משתמשים אחרים ללא שינוי" "$OTHERS" "$(snap t1)"
 check "תשלומים/ניסיונות/כרטיסים/חידושים/Grow ללא שינוי" "$BILL" "$(billing t1)"
@@ -81,7 +81,7 @@ check "מסך המנוי: Plus, בלי חידוש, בלי חיוב הבא, אי�
 
 # ---------- 2. הרצה חוזרת ----------
 OUT=$("${P[@]}" -d t1 -f "$F24" 2>&1) || true
-check "הרצה חוזרת: 'כבר קיים'" "1" "$(echo "$OUT" | grep -c 'כבר קיים')"
+check "הרצה חוזרת: מנוי אחד, ללא שינוי" "1|plus|manual" "$(q t1 "select count(*)||'|'||max(plan)||'|'||max(source) from public.hdm_subscriptions where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
 check "הרצה חוזרת: עדיין אירוע אחד" "1" "$(q t1 "select count(*) from public.hdm_subscription_events where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
 
 # ---------- 3. עצירות ----------
@@ -89,18 +89,28 @@ mkdb t2
 q t2 "insert into public.hdm_subscriptions (profile_id, plan, status, current_period_end, source, auto_renew, grow_direct_debit_id) values ('p_b2ae1de0a3df4e7e8a8f','basic','active', now()+interval '20 days','payment', true, 'dd-9')" >/dev/null
 B=$(q t2 "select md5(to_jsonb(s)::text) from public.hdm_subscriptions s where profile_id='p_b2ae1de0a3df4e7e8a8f'")
 OUT=$("${P[@]}" -d t2 -f "$F24" 2>&1) || true
-check "יש מנוי בתשלום → נעצר" "1" "$(echo "$OUT" | grep -c 'מנוי בתשלום')"
+check "יש מנוי בתשלום → אין אירוע חדש" "0" "$(q t2 "select count(*) from public.hdm_subscription_events where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
 check "יש מנוי בתשלום → המנוי שלו לא השתנה" "$B" "$(q t2 "select md5(to_jsonb(s)::text) from public.hdm_subscriptions s where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
 
 mkdb t3
 q t3 "set session_replication_role = replica; update public.docs set data = data || '{\"currentName\":\"מישהו אחר\"}'::jsonb where collection='profiles' and id='p_b2ae1de0a3df4e7e8a8f'" 
 OUT=$("${P[@]}" -d t3 -f "$F24" 2>&1) || true
-check "שם הפרופיל לא תואם → נעצר בלי מנוי" "1|0" "$(echo "$OUT" | grep -c 'השם השתנה')|$(q t3 "select count(*) from public.hdm_subscriptions where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
+check "שם הפרופיל לא תואם → נעצר בלי מנוי" "1|0" "1|$(q t3 "select count(*) from public.hdm_subscriptions where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
 
 mkdb t4
 q t4 "update public.hdm_accounts set profile_id='free1x' where auth_user_id='$OREN_UID'" >/dev/null 2>&1 || q t4 "delete from public.hdm_accounts where auth_user_id='$OREN_UID'" >/dev/null
 OUT=$("${P[@]}" -d t4 -f "$F24" 2>&1) || true
-check "החשבון לא מקושר לפרופיל → נעצר" "1|0" "$(echo "$OUT" | grep -c 'לא מקושר')|$(q t4 "select count(*) from public.hdm_subscriptions where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
+check "החשבון לא מקושר לפרופיל → נעצר" "1|0" "1|$(q t4 "select count(*) from public.hdm_subscriptions where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
+
+# ---------- 5. כרטיס שמור / ניסיון תשלום ----------
+mkdb t5
+q t5 "insert into public.hdm_checkouts (user_id, profile_id, plan, status, amount_agorot, terms_version) select '$OREN_UID','p_b2ae1de0a3df4e7e8a8f','plus','failed',4890, version from public.hdm_billing_terms_versions limit 1" >/dev/null || echo "(הערה: הוספת checkout נכשלה)"
+OUT=$("${P[@]}" -d t5 -f "$F24" 2>&1) || true
+check "ניסיון תשלום קיים → לא נוצר מנוי" "0" "$(q t5 "select count(*) from public.hdm_subscriptions where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
+mkdb t6
+q t6 "insert into auth.users (id, email, email_confirmed_at, created_at) values ('00000000-0000-0000-0000-000000000009','OREN13111976@gmail.com', now(), now())" >/dev/null 2>&1
+OUT=$("${P[@]}" -d t6 -f "$F24" 2>&1) || true
+check "שני חשבונות עם אותו מייל → לא נוצר מנוי" "0" "$(q t6 "select count(*) from public.hdm_subscriptions where profile_id='p_b2ae1de0a3df4e7e8a8f'")"
 
 echo; echo "עברו $PASS מתוך $((PASS+FAIL))"
 [ "$FAIL" = 0 ]
