@@ -31,4 +31,4 @@ select json_build_object(
  'events_check', (select string_agg(pg_get_constraintdef(oid), ' | ') from pg_constraint where conrelid='public.hdm_subscription_events'::regclass and contype='c'),
  'sub_triggers', (select string_agg(tgname, ',') from pg_trigger where tgrelid in ('public.hdm_subscriptions'::regclass,'public.hdm_subscription_events'::regclass) and not tgisinternal),
  'plan_of_md5', (select substr(md5(pg_get_functiondef(p.oid)),1,10) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='hdm_plan_of' limit 1)
-) as j
+) as j from c
