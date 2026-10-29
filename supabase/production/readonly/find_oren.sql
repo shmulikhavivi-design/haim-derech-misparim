@@ -26,8 +26,7 @@ select json_build_object(
      'payments', (select json_agg(json_build_object('outcome', y.outcome, 'kind', y.kind, 'amount', y.amount_agorot, 'at', y.received_at) order by y.received_at) from public.hdm_payments y where y.profile_id = m.profile_id),
      'renewal_charges', (select count(*) from public.hdm_renewal_charges r where r.profile_id = m.profile_id),
      'grow_outbox', (select count(*) from public.hdm_grow_outbox g where g.profile_id = m.profile_id),
-     'hidden', exists (select 1 from public.hdm_hidden_profiles h where h.profile_id = m.profile_id),
-     'plan_now', public.hdm_plan_of(m.profile_id)
+     'hidden', exists (select 1 from public.hdm_hidden_profiles h where h.profile_id = m.profile_id)
    )) from m left join public.docs p on p.collection = 'profiles' and p.id = m.profile_id),
  'existing_manual_plus', (select json_agg(json_build_object('profile_id', s.profile_id, 'name', p.data->>'currentName', 'plan', s.plan, 'status', s.status,
      'source', s.source, 'auto_renew', s.auto_renew, 'period_end', s.current_period_end, 'debit', s.grow_direct_debit_id is not null, 'note', s.note))
